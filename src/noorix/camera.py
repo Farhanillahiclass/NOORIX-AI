@@ -1,8 +1,4 @@
-"""Explicitly managed webcam capture adapter.
-
-OpenCV is imported lazily, so the base package remains installable without
-camera extras. Captured frames are returned to the caller and are not saved.
-"""
+"""Explicitly managed webcam capture with deterministic cleanup."""
 from __future__ import annotations
 
 from typing import Any, Callable
@@ -10,9 +6,15 @@ from typing import Any, Callable
 
 class WebcamCapture:
     def __init__(self, device_index: int = 0, capture_factory: Callable[[int], Any] | None = None):
+        if device_index < 0:
+            raise ValueError("device_index must be zero or greater")
         self.device_index = device_index
         self._capture_factory = capture_factory
         self._capture = None
+
+    @property
+    def is_running(self) -> bool:
+        return self._capture is not None
 
     def start(self) -> None:
         if self._capture is not None:
@@ -23,12 +25,13 @@ class WebcamCapture:
                 import cv2
             except ImportError as exc:
                 raise RuntimeError(
-                    "Camera support requires the optional dependency: pip install -e '.[camera]'"
+                    "Camera support requires: python -m pip install -e '.[camera]'"
                 ) from exc
             factory = cv2.VideoCapture
         capture = factory(self.device_index)
-        if not capture.isOpened():
-            capture.release()
+        if capture is None or not capture.isOpened():
+            if capture is not None:
+                capture.release()
             raise RuntimeError(f"Could not open webcam device {self.device_index}")
         self._capture = capture
 
@@ -41,9 +44,9 @@ class WebcamCapture:
         return frame
 
     def stop(self) -> None:
-        if self._capture is not None:
-            self._capture.release()
-            self._capture = None
+        capture, self._capture = self._capture, None
+        if capture is not None:
+            capture.release()
 
     def __enter__(self) -> "WebcamCapture":
         self.start()

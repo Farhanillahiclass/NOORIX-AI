@@ -1,0 +1,18 @@
+{
+  "object_detection": {
+    "model_path": "",
+    "labels": [],
+    "confidence_threshold": 0.5
+  },
+  "currency": {
+    "model_path": "",
+    "labels": [],
+    "input_size": 224
+  },
+  "notes": [
+    "Copy this file to config.json.",
+    "Provide only compatible, licensed ONNX models.",
+    "Labels must be in the exact order used during model training.",
+    "Do not treat model scores as guaranteed accuracy or banknote authentication."
+  ]
+}

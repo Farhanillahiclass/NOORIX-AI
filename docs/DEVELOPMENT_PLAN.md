@@ -2,30 +2,32 @@
 
 ## Milestone 0 — Repository scaffold
 - [x] Initialize package layout and project documentation.
-- [x] Add safe image-relative position helper and tests.
-- [ ] Run automated tests in a clean local environment.
+- [x] Add image-relative position helper and unit tests.
+- [x] Add editable package installation and CI test workflow.
 
-## Milestone 1 — Camera and feedback foundation
-- [ ] Add camera adapter with explicit start/stop lifecycle.
-- [ ] Add user-visible capture indicator and error handling.
-- [ ] Add offline speech adapter and language configuration.
+## Milestone 1 — Camera and desktop foundation
+- [x] Add explicit webcam start/stop lifecycle and context-manager cleanup.
+- [x] Add command-line camera preview with Q, Escape, window-close and Ctrl+C exits.
+- [x] Add Tk desktop interface with camera controls and visible status.
+- [x] Ensure frames are not saved automatically.
 
-## Milestone 2 — Recognition modules
-- [ ] Select appropriately licensed Pakistani currency dataset/model.
-- [ ] Select appropriately licensed everyday-object model.
-- [ ] Add printed-English OCR backend.
-- [ ] Add confidence thresholds and unknown/uncertain responses.
+## Milestone 2 — Backend adapters
+- [x] Add local printed-English OCR adapter (Tesseract executable remains an external requirement).
+- [x] Add local speech adapter (available language voices depend on the host OS).
+- [x] Add ONNX currency and SSD-style object-detection adapter interfaces.
+- [x] Add configuration template for model paths and exact class labels.
+- [ ] Supply appropriately licensed, trained models and validate their preprocessing/class maps.
 
 ## Milestone 3 — Evaluation
-- [ ] Create documented test datasets and evaluation protocol.
-- [ ] Measure per-class performance and failure cases.
-- [ ] Test lighting, camera quality, and varied note/object presentation.
+- [ ] Create held-out test datasets representative of local lighting, camera angles and note/object variations.
+- [ ] Measure per-class performance, uncertainty calibration and failure cases.
 - [ ] Conduct supervised usability testing with informed consent.
+- [ ] Confirm Urdu voice availability and intelligibility on target hardware.
 
 ## Milestone 4 — Offline packaging
-- [ ] Package all required model weights and runtime dependencies.
-- [ ] Verify full operation with internet disabled.
+- [ ] Package Tesseract, voice dependencies and all required model weights.
+- [ ] Verify complete operation with internet disabled.
 - [ ] Build and test Windows desktop distribution.
 - [ ] Evaluate separate Android and macOS implementation/build paths.
 
-No milestone is complete until its checklist is supported by code, tests, and evidence.
+No recognition model or product milestone is marked complete without a compatible artifact and reproducible test evidence.
