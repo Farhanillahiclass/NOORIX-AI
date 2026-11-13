@@ -59,7 +59,7 @@ def test_object_detector_decodes_postprocessed_seven_column_output():
 
         def forward(self, names):
             assert names == ["detections"]
-            return [np.array([[[[0, 0, 0.9, 0.1, 0.2, 0.5, 0.8]]]], dtype=np.float32)]
+            return [np.array([[[[0, 0, 0.9, 0.3, 0.2, 0.7, 0.8]]]], dtype=np.float32)]
 
     detector = ObjectDetector("unused.onnx", ["person"], confidence_threshold=0.5)
     detector._net = FakeNet()
@@ -71,7 +71,7 @@ def test_object_detector_decodes_postprocessed_seven_column_output():
     assert results[0]["label"] == "person"
     assert results[0]["confidence"] == pytest.approx(0.9)
     assert results[0]["position"] == "centre"
-    assert results[0]["box"] == [20, 20, 100, 80]
+    assert results[0]["box"] == [60, 20, 140, 80]
 
 
 def test_object_detector_rejects_raw_multi_head_ssd_outputs():
