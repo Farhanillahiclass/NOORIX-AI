@@ -37,7 +37,7 @@ Check installed components:
 python -m noorix --check
 ```
 
-## Model configuration
+## Local specialist agents\n\nThe desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety and system-health agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself.\n\n## Model configuration
 Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX models and the exact class-label order from each model's training process. Do not guess labels or use arbitrary ONNX models: model input/output conventions differ. Currency scores are estimates, not note authentication.
 
 ## External requirements
@@ -54,7 +54,7 @@ Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX mo
 - Do not rely on this prototype for safety-critical decisions. Test results in supervised, controlled conditions.
 
 ## Project status
-Camera lifecycle, preview, desktop shell, backend adapters, configuration template and automated tests are implemented. Trained model assets, real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
+Camera lifecycle, preview, desktop shell, local specialist-agent framework, backend adapters, configuration template and automated tests are implemented. Trained model assets, real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
 
 ## License
 No license has been selected. Standard copyright applies; reuse is not automatically permitted.

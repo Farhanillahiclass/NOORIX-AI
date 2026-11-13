@@ -18,13 +18,13 @@
 - [x] Add configuration template for model paths and exact class labels.
 - [ ] Supply appropriately licensed, trained models and validate their preprocessing/class maps.
 
-## Milestone 3 — Evaluation
+## Milestone 3 — Agent orchestration\n- [x] Add typed agent results and explicit readiness/error states.\n- [x] Add OCR, object, currency, speech, safety and system-health agents.\n- [x] Add deterministic coordinator and vision pipeline.\n- [x] Add desktop Agent Console and system-health view.\n- [x] Add unit tests for agent contracts and failure handling.\n\n## Milestone 4 — Evaluation
 - [ ] Create held-out test datasets representative of local lighting, camera angles and note/object variations.
 - [ ] Measure per-class performance, uncertainty calibration and failure cases.
 - [ ] Conduct supervised usability testing with informed consent.
 - [ ] Confirm Urdu voice availability and intelligibility on target hardware.
 
-## Milestone 4 — Offline packaging
+## Milestone 5 — Offline packaging
 - [ ] Package Tesseract, voice dependencies and all required model weights.
 - [ ] Verify complete operation with internet disabled.
 - [ ] Build and test Windows desktop distribution.

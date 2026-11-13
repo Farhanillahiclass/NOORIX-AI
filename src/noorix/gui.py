@@ -36,6 +36,8 @@ class NoorixApp:
         self.after_id = None
         self.detector = None
         self.currency = None
+        self.config_path = config_path
+        self.agent_coordinator = None
         self.config = self._read_config(config_path)
         self._setup_window()
         self._build_ui()
@@ -104,6 +106,7 @@ class NoorixApp:
         self._nav(side, "Aa", "Text reading", False)
         self._nav(side, "⌗", "Scene analysis", False)
         self._nav(side, "⚙", "System status", False)
+        self._nav(side, "✦", "Agent console", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
@@ -205,11 +208,130 @@ class NoorixApp:
     def _nav(self, parent, symbol, title, active):
         bg = C["panel2"] if active else C["sidebar"]
         fg = C["cyan"] if active else C["muted"]
-        item = tk.Frame(parent, bg=bg, padx=10, pady=10)
-        item.pack(fill="x", pady=3)
-        self._label(item, symbol, 12, fg, True, bg=bg, width=3).pack(side="left")
-        self._label(item, title, 9, C["text"] if active else C["muted"],
-                    active, bg=bg).pack(side="left")
+        actions = {
+            "Overview": lambda: self._set_status("OVERVIEW", "NOORIX local workspace.", C["cyan"]),
+            "Live vision": self.start_camera,
+            "Text reading": self.read_text,
+            "Scene analysis": self.analyze,
+            "System status": self.show_system_status,
+            "Agent console": self.show_agents_console,
+        }
+        button = tk.Button(
+            parent, text=f"{symbol}   {title}", command=actions.get(title, lambda: None),
+            bg=bg, fg=C["text"] if active else fg,
+            activebackground=C["panel2"], activeforeground=C["cyan"],
+            relief="flat", bd=0, cursor="hand2", anchor="w",
+            font=("Segoe UI", 9, "bold" if active else "normal"),
+            padx=12, pady=10,
+        )
+        button.pack(fill="x", pady=3)
+
+    def _get_agent_coordinator(self):
+        if self.agent_coordinator is None:
+            from noorix.agents import (
+                AgentCoordinator, CurrencyAgent, ObjectDetectionAgent,
+                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
+            )
+            self.agent_coordinator = AgentCoordinator([
+                OCRAgent(),
+                ObjectDetectionAgent(self.config.get("object_detection", {})),
+                CurrencyAgent(self.config.get("currency", {})),
+                SpeechAgent(),
+                SafetyAgent(),
+                SystemHealthAgent(self.config_path),
+            ])
+        return self.agent_coordinator
+
+    def show_agents_console(self):
+        coordinator = self._get_agent_coordinator()
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Specialist Agent Console")
+        window.geometry("780x620")
+        window.minsize(680, 520)
+        window.configure(bg=C["bg"])
+
+        header = tk.Frame(window, bg=C["bg"], padx=20, pady=18)
+        header.pack(fill="x")
+        self._label(header, "SPECIALIST AGENTS", 9, C["cyan"], True).pack(anchor="w")
+        self._label(header, "Local intelligence control", 19, C["text"], True).pack(anchor="w", pady=(4, 0))
+        self._label(header, "Each agent performs one bounded task. Missing models are shown honestly.", 9, C["muted"]).pack(anchor="w", pady=(5, 0))
+
+        body = tk.Frame(window, bg=C["bg"], padx=20, pady=8)
+        body.pack(fill="both", expand=True)
+        list_panel = self._panel(body, padx=12, pady=10)
+        list_panel.pack(side="left", fill="y", padx=(0, 12))
+        output_panel = self._panel(body, padx=12, pady=10)
+        output_panel.pack(side="left", fill="both", expand=True)
+        self._label(list_panel, "REGISTERED AGENTS", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
+        output = tk.Text(output_panel, wrap="word", bg=C["panel"], fg=C["text"],
+                         relief="flat", bd=0, font=("Segoe UI", 9), padx=10, pady=10)
+        output.pack(fill="both", expand=True)
+        output.insert("1.0", "Choose an agent to run. Camera-based agents require an active camera.\n")
+        output.configure(state="disabled")
+
+        def show_result(result):
+            output.configure(state="normal")
+            output.delete("1.0", "end")
+            output.insert("end", f"AGENT: {result.agent.upper()}\nSTATE: {result.state.value.upper()}\n\n{result.summary}\n")
+            for warning in result.warnings:
+                output.insert("end", "\n⚠ " + warning)
+            if isinstance(result.data, dict):
+                output.insert("end", "\n\nDETAILS\n")
+                for key, value in result.data.items():
+                    output.insert("end", f"{key}: {value}\n")
+            output.configure(state="disabled")
+
+        def run_named(name, payload=None):
+            result = coordinator.run(name, payload)
+            show_result(result)
+
+        entries = [
+            ("OCR Agent", "ocr", lambda: self.current_frame),
+            ("Object Detection", "object_detection", lambda: self.current_frame),
+            ("Currency Agent", "currency", lambda: self.current_frame),
+            ("Speech Agent", "speech", lambda: self.result.get("1.0", "end").strip()),
+            ("Safety Agent", "safety", lambda: []),
+            ("System Health", "system_health", lambda: None),
+        ]
+        for title, name, payload in entries:
+            row = tk.Frame(list_panel, bg=C["panel"], pady=3)
+            row.pack(fill="x")
+            self._label(row, title, 9, C["text"], True, bg=C["panel"]).pack(anchor="w", pady=(2, 4))
+            button = self._button(row, "Run agent", lambda n=name, p=payload: run_named(n, p()))
+            button.pack(fill="x")
+            tk.Frame(list_panel, bg=C["line"], height=1).pack(fill="x", pady=7)
+
+        def run_full_vision():
+            if self.current_frame is None:
+                show_result(coordinator.run("object_detection", None))
+                return
+            results = coordinator.run_vision(self.current_frame)
+            output.configure(state="normal")
+            output.delete("1.0", "end")
+            for result in results:
+                output.insert("end", f"{result.agent.upper()} · {result.state.value.upper()}\n{result.summary}\n")
+                for warning in result.warnings:
+                    output.insert("end", "⚠ " + warning + "\n")
+                output.insert("end", "\n")
+            output.configure(state="disabled")
+
+        self._button(list_panel, "Run vision pipeline", run_full_vision, True).pack(fill="x", pady=(8, 0))
+        self._label(window, "NO automatic navigation · No image upload · No model accuracy guarantee", 8, C["muted"]).pack(anchor="w", padx=22, pady=(0, 12))
+
+    def show_system_status(self):
+        from noorix.agents import SystemHealthAgent
+        result = SystemHealthAgent(self.config_path).run()
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — System Health")
+        window.geometry("650x480")
+        window.configure(bg=C["bg"])
+        self._label(window, "SYSTEM HEALTH", 17, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=20, pady=(18, 8))
+        text = tk.Text(window, wrap="word", bg=C["panel"], fg=C["text"],
+                       relief="flat", bd=0, font=("Consolas", 10), padx=14, pady=14)
+        text.pack(fill="both", expand=True, padx=20, pady=(0, 20))
+        for key, value in result.data.items():
+            text.insert("end", f"{key}: {value}\n")
+        text.configure(state="disabled")
 
     def _metric(self, parent, title, value, detail, accent):
         card = self._panel(parent, padx=14, pady=11)
