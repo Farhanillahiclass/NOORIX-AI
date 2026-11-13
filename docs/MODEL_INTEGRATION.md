@@ -15,12 +15,17 @@ Do not use this adapter to authenticate notes, identify counterfeit currency, or
 
 ## Object detection (SSD-style ONNX)
 
-The `ObjectDetector` currently expects a single-image SSD output shaped as rows of:
-`[image_id, class_id, confidence, x1, y1, x2, y2]`.
+The current `ObjectDetector` supports only a **single post-processed output tensor** containing rows in this exact order:
 
-Coordinates are normalized to 0..1. The adapter reports an image-relative horizontal zone only. It does not infer physical distance, collision risk, route safety, or whether an object is reachable.
+`[image_id, class_id, confidence, x1, y1, x2, y2]`
 
-Model input conventions vary. Confirm the exact model's required resize, mean, scale, channel order, and output tensor layout before use. The current default preprocessing is only a compatibility starting point for a matching SSD model, not a universal ONNX convention.
+The four box coordinates must be normalized to 0..1. Invalid/non-finite rows, out-of-range classes, and invalid boxes are ignored. The adapter reports an image-relative horizontal zone only. It does not infer physical distance, collision risk, route safety, or whether an object is reachable.
+
+**Raw multi-head SSD models are not supported by this adapter yet.** If the ONNX model exposes multiple output tensors, the adapter raises `NotImplementedError` instead of guessing anchor generation, box coding, score activation, class mapping, or non-maximum suppression. A model-specific decoder must be independently verified against the exact model export before enabling it.
+
+The bundled research model `ssd-mobilenet-v2.onnx` has multiple raw output heads and therefore does not currently satisfy this adapter contract. Its graph loading and CPU inference smoke test do not establish that detections are decoded correctly or that the model is accurate.
+
+The current generic preprocessing path is not a verified preprocessing implementation for every SSD model. Confirm the exact model's resize interpolation, mean, scale, channel order, layout, and output schema before use. Do not infer these from the model filename.
 
 ## Printed English OCR
 
