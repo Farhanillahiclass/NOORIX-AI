@@ -47,3 +47,26 @@ def test_voice_command_agent_explains_transcription_requirement():
     result = VoiceCommandAgent().run()
     assert result.state == AgentState.NEEDS_SETUP
     assert "transcribed" in result.summary
+
+
+def test_vision_pipeline_includes_quality_and_safety_review():
+    from noorix.agents import AgentCoordinator, AgentResult, SafetyAgent
+
+    class StubAgent:
+        def __init__(self, name):
+            self.name = name
+
+        def run(self, payload=None):
+            return AgentResult(self.name, AgentState.COMPLETED, "stub complete")
+
+    coordinator = AgentCoordinator([
+        FrameQualityAgent(),
+        StubAgent("object_detection"),
+        StubAgent("currency"),
+        SafetyAgent(),
+    ])
+    results = coordinator.run_vision(None)
+    assert [item.agent for item in results] == [
+        "frame_quality", "object_detection", "currency", "safety"
+    ]
+    assert results[-1].data["reviewed"] == 3
