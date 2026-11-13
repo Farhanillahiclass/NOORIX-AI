@@ -44,3 +44,15 @@ For every model/backend:
 4. Test with the network disabled if offline operation is claimed.
 5. Keep confidence/uncertainty visible; do not turn uncertain results into authoritative spoken instructions.
 6. Never use NOORIX as a replacement for established mobility aids or human guidance.
+
+### Research notes for the bundled Kalray SSD MobileNet V2 model
+
+The Hugging Face model card identifies this artifact as an ONNX conversion of a TensorFlow SSD MobileNet V2 model and links the TensorFlow Object Detection API COCO configuration. The model card declares Apache-2.0 licensing:
+- Model card: https://huggingface.co/Kalray/ssd-mobilenet-v2
+- Referenced TensorFlow configuration: https://github.com/tensorflow/models/blob/master/research/object_detection/samples/configs/ssd_mobilenet_v2_coco.config
+
+That referenced configuration describes 90 foreground classes, a 300x300 fixed input, Faster R-CNN box-coder scales (y/x 10, height/width 5), sigmoid score conversion, and class-wise NMS configured with IoU 0.6 and up to 100 detections. TensorFlow's SSD postprocessor documents a background score at class index 0 and removes it when the model is configured with a background class.
+
+These values are a **reference profile**, not yet a verified decoder specification for the checked-in ONNX graph. In particular, the inspected ONNX heads have channel counts consistent with 3 anchors per location on the 19x19 head and 6 on each remaining head (1,917 anchors total). The generic TensorFlow anchor-generator helper can add an interpolated square anchor in addition to the three reduced anchors on the lowest layer, depending on the effective configuration. The checked-in model's effective anchor-generator settings and exact head-to-anchor ordering have not yet been proven to match that reference helper. Do not implement or enable decoding based on the reference profile alone.
+
+Before implementing the decoder, verify the exported graph's exact feature-head order, channel-to-anchor/coordinate layout, effective anchor settings, class/background encoding, and box-coder behavior against the source TensorFlow checkpoint or a trusted, independently generated reference output. Record reproducible comparisons on known images. Until then, keep raw multi-head inference explicitly unsupported by `ObjectDetector`.
