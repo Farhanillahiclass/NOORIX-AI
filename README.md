@@ -39,7 +39,7 @@ python -m noorix --check
 
 ## Local specialist agents
 
-The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety and system-health agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself.
+The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety, system-health, frame-quality and voice-command parsing agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself. The voice-command parser accepts already-transcribed text and returns a confirmation-gated intent; microphone speech-to-text is a separate pending feature.
 
 ## Model configuration
 
