@@ -1,18 +1,25 @@
 """Capability readiness declarations.
 
-A capability is marked unavailable until a real model/backend is installed,
-configured, and tested. Never infer readiness from this scaffold alone.
+Statuses distinguish implemented adapters from missing model weights and
+external executables. An adapter being present does not mean it is validated.
 """
+from __future__ import annotations
 
-CAPABILITIES = {
-    "camera": "not_configured",
-    "pakistani_currency_estimation": "model_not_integrated",
-    "everyday_object_detection": "model_not_integrated",
-    "printed_english_ocr": "backend_not_integrated",
-    "spoken_feedback": "backend_not_integrated",
-}
+from importlib.util import find_spec
 
 
 def capability_status() -> dict[str, str]:
-    """Return a copy so callers cannot mutate the module defaults."""
-    return dict(CAPABILITIES)
+    """Report software readiness without opening the webcam or loading models."""
+    return {
+        "camera": "opencv_installed_device_unverified" if find_spec("cv2") else "install_camera_extra",
+        "pakistani_currency_estimation": "onnx_model_and_validated_labels_required",
+        "everyday_object_detection": "ssd_onnx_model_and_labels_required",
+        "printed_english_ocr": (
+            "adapter_available_tesseract_executable_required"
+            if find_spec("pytesseract") else "install_ocr_extra_and_tesseract"
+        ),
+        "spoken_feedback": (
+            "adapter_available_local_voice_unverified"
+            if find_spec("pyttsx3") else "install_speech_extra"
+        ),
+    }
