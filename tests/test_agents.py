@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from noorix.agents import AgentCoordinator, AgentResult, AgentState, CurrencyAgent, ObjectDetectionAgent, OCRAgent, SafetyAgent, SystemHealthAgent
 
 class FakeOCR:
