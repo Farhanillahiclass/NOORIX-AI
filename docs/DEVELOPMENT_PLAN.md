@@ -22,14 +22,16 @@
 - [x] Add typed agent results and explicit readiness/error states.
 - [x] Add OCR, object, currency, speech, safety and system-health agents.
 - [x] Add deterministic coordinator and vision pipeline.
-- [x] Add desktop Agent Console and system-health view.\n- [x] Add frame-quality checks for resolution, brightness and blur.\n- [x] Add a confirmation-gated English/Roman Urdu/Urdu command-intent parser.
+- [x] Add desktop Agent Console and system-health view.
+- [x] Add frame-quality checks for resolution, brightness and blur.\n- [x] Add a confirmation-gated English/Roman Urdu/Urdu command-intent parser.
 - [x] Add unit tests for agent contracts and failure handling.
 
 ## Milestone 4 — Evaluation
 - [ ] Create held-out test datasets representative of local lighting, camera angles and note/object variations.
 - [ ] Measure per-class performance, uncertainty calibration and failure cases.
 - [ ] Conduct supervised usability testing with informed consent.
-- [ ] Add and validate offline speech-to-text for microphone voice commands.\n- [ ] Confirm Urdu voice availability and intelligibility on target hardware.
+- [ ] Add and validate offline speech-to-text for microphone voice commands.
+- [ ] Confirm Urdu voice availability and intelligibility on target hardware.
 
 ## Milestone 5 — Offline packaging
 - [ ] Package Tesseract, voice dependencies and all required model weights.
