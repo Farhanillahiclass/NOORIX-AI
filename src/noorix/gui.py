@@ -234,8 +234,8 @@ class NoorixApp:
             )
             self.agent_coordinator = AgentCoordinator([
                 OCRAgent(),
-                ObjectDetectionAgent(self.config.get("object_detection", {})),
-                CurrencyAgent(self.config.get("currency", {})),
+                ObjectDetectionAgent(self.config.get("object_detection", {}), config_path=self.config_path),
+                CurrencyAgent(self.config.get("currency", {}), config_path=self.config_path),
                 SpeechAgent(),
                 SafetyAgent(),
                 SystemHealthAgent(self.config_path),
@@ -429,6 +429,10 @@ class NoorixApp:
             self._set_result(f"OCR unavailable: {exc}")
             self._set_status("OCR UNAVAILABLE", "Tesseract executable is required.", C["amber"])
 
+    def _resolve_model_path(self, value):
+        from noorix.paths import resolve_config_path
+        return resolve_config_path(value, self.config_path)
+
     def analyze(self):
         if self.current_frame is None:
             self._set_result("Start the camera first.")
@@ -441,7 +445,7 @@ class NoorixApp:
                 from noorix.objects import ObjectDetector
                 if self.detector is None:
                     self.detector = ObjectDetector(
-                        model["model_path"], model["labels"],
+                        self._resolve_model_path(model["model_path"]), model["labels"],
                         confidence_threshold=float(model.get("confidence_threshold", 0.5)),
                     )
                 for item in self.detector.detect(self.current_frame):
@@ -451,7 +455,7 @@ class NoorixApp:
                 from noorix.currency import CurrencyEstimator
                 if self.currency is None:
                     self.currency = CurrencyEstimator(
-                        currency["model_path"], currency["labels"],
+                        self._resolve_model_path(currency["model_path"]), currency["labels"],
                         input_size=int(currency.get("input_size", 224)),
                     )
                 estimate = self.currency.predict(self.current_frame)

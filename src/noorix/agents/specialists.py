@@ -9,6 +9,7 @@ from noorix.currency import CurrencyEstimator
 from noorix.objects import ObjectDetector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
+from noorix.paths import resolve_config_path
 
 class OCRAgent:
     name = "ocr"
@@ -25,8 +26,9 @@ class OCRAgent:
 class ObjectDetectionAgent:
     name = "object_detection"
     description = "Detect supported objects and report image-relative positions."
-    def __init__(self, config: Mapping[str, Any], adapter: ObjectDetector | None = None):
+    def __init__(self, config: Mapping[str, Any], adapter: ObjectDetector | None = None, config_path: str | Path = "config.json"):
         self.config, self.adapter = dict(config), adapter
+        self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
         if payload is None:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
@@ -35,7 +37,7 @@ class ObjectDetectionAgent:
             if not model_path or not labels:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
                                    "Object model and exact class labels are not configured.")
-            self.adapter = ObjectDetector(model_path, labels,
+            self.adapter = ObjectDetector(resolve_config_path(model_path, self.config_path), labels,
                 confidence_threshold=float(self.config.get("confidence_threshold", 0.5)))
         detections = self.adapter.detect(payload)
         if not detections:
@@ -48,8 +50,9 @@ class ObjectDetectionAgent:
 class CurrencyAgent:
     name = "currency"
     description = "Estimate Pakistani banknote denomination using a configured model."
-    def __init__(self, config: Mapping[str, Any], adapter: CurrencyEstimator | None = None):
+    def __init__(self, config: Mapping[str, Any], adapter: CurrencyEstimator | None = None, config_path: str | Path = "config.json"):
         self.config, self.adapter = dict(config), adapter
+        self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
         if payload is None:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
@@ -58,7 +61,7 @@ class CurrencyAgent:
             if not model_path or not labels:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
                     "Currency model and verified denomination labels are not configured.")
-            self.adapter = CurrencyEstimator(model_path, labels,
+            self.adapter = CurrencyEstimator(resolve_config_path(model_path, self.config_path), labels,
                 input_size=int(self.config.get("input_size", 224)))
         prediction = self.adapter.predict(payload)
         confidence = float(prediction["confidence"])
@@ -121,8 +124,6 @@ class SystemHealthAgent:
             if not model_path:
                 output[key] = "not_configured"
             else:
-                model = Path(model_path)
-                if not model.is_absolute():
-                    model = self.config_path.parent / model
+                model = resolve_config_path(model_path, self.config_path)
                 output[key] = "available" if model.is_file() else "file_missing"
         return output

@@ -58,3 +58,32 @@ def test_health_agent_reports_missing_config(tmp_path):
     result = SystemHealthAgent(tmp_path / "missing.json").run()
     assert result.successful
     assert result.data["model_configuration"] == "config.json_missing"
+
+
+def test_relative_model_path_is_resolved_from_config_folder(tmp_path):
+    from noorix.paths import resolve_config_path
+    config_file = tmp_path / "settings" / "config.json"
+    expected = (config_file.parent / "models" / "object.onnx").resolve()
+    assert resolve_config_path("models/object.onnx", config_file) == expected
+
+
+def test_absolute_model_path_is_preserved(tmp_path):
+    from noorix.paths import resolve_config_path
+    absolute = (tmp_path / "model.onnx").resolve()
+    assert resolve_config_path(absolute, tmp_path / "config.json") == absolute
+
+
+def test_object_agent_resolves_relative_path_from_config(tmp_path, monkeypatch):
+    import noorix.agents.specialists as specialists
+    captured = {}
+    class DummyDetector:
+        def __init__(self, model_path, labels, confidence_threshold):
+            captured["path"] = Path(model_path)
+        def detect(self, frame):
+            return []
+    monkeypatch.setattr(specialists, "ObjectDetector", DummyDetector)
+    agent = ObjectDetectionAgent({"model_path": "models/objects.onnx", "labels": ["cup"]},
+                                 config_path=tmp_path / "config.json")
+    result = agent.run(object())
+    assert result.successful
+    assert captured["path"] == (tmp_path / "models/objects.onnx").resolve()

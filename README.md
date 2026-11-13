@@ -12,7 +12,7 @@ python -m venv .venv
 # Windows Git Bash:
 source .venv/Scripts/activate
 # Windows PowerShell:
-.venv\Scripts\Activate.ps1
+.venv\\Scripts\\Activate.ps1
 python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
 python -m pytest -q
 ```
@@ -21,13 +21,13 @@ Run the desktop interface:
 
 ```bash
 python -m noorix --gui
-``
+```
 
 Run the camera preview only:
 
 ```bash
 python -m noorix --camera-preview
-``
+```
 
 In the preview window, press **Q** or **Esc**, or close the window. If the window does not have keyboard focus, click it first. **Ctrl+C** in the terminal is also handled as a safe exit. The camera is released in all exit paths.
 
@@ -37,8 +37,13 @@ Check installed components:
 python -m noorix --check
 ```
 
-## Local specialist agents\n\nThe desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety and system-health agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself.\n\n## Model configuration
-Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX models and the exact class-label order from each model's training process. Do not guess labels or use arbitrary ONNX models: model input/output conventions differ. Currency scores are estimates, not note authentication.
+## Local specialist agents
+
+The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety and system-health agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself.
+
+## Model configuration
+
+Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX models and the exact class-label order from each model's training process. Relative model paths are resolved from the folder containing `config.json`, regardless of the folder from which NOORIX is launched. Do not guess labels or use arbitrary ONNX models: model input/output conventions differ. Currency scores are estimates, not note authentication.
 
 ## External requirements
 - OCR: install the Tesseract application separately and ensure `tesseract --version` works in the terminal.
@@ -49,12 +54,14 @@ Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX mo
 ## Privacy and safety
 - Camera frames are held in memory for the current session and are not saved automatically.
 - Left/centre/right describes only position within the camera image. It is not physical distance, obstacle avoidance or safe-navigation guidance.
-- NOORIX AI is not a replacement for a white cane, guide dog or trained mobility support.
+- NOORIX is not a replacement for a white cane, guide dog or trained mobility support.
 - OCR scope is clear printed English; handwriting and Urdu OCR are not claimed.
 - Do not rely on this prototype for safety-critical decisions. Test results in supervised, controlled conditions.
 
 ## Project status
+
 Camera lifecycle, preview, desktop shell, local specialist-agent framework, backend adapters, configuration template and automated tests are implemented. Trained model assets, real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
 
 ## License
+
 No license has been selected. Standard copyright applies; reuse is not automatically permitted.
