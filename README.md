@@ -2,25 +2,19 @@
 **See Beyond. Understand More.**  
 **Powered by MRS**
 
-NOORIX AI is a research prototype for an offline, camera-based accessibility assistant. Its planned modules are Pakistani currency denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR, and spoken feedback.
+NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. It is designed to explore Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR, and spoken feedback.
 
-> **Current status: scaffold initialized — prototype implementation and live hardware testing are pending.** This repository does not yet contain trained models or validated recognition performance.
+> **Current status:** webcam adapter and preview have been exercised locally by the project developer; backend adapters are implemented, but trained recognition models, model validation, and full offline packaging are still pending.
 
-## Prototype scope
-- Camera input from a laptop webcam.
-- Currency denomination estimation (not banknote authentication).
-- Everyday object detection and approximate image-relative position.
-- Printed English OCR as a bonus feature.
-- Spoken feedback; Urdu output is planned for currency/object results.
+## Current modules
+- Webcam capture adapter using OpenCV. The preview can be launched with `python -m noorix --camera-preview` in a local checkout that has the preview-enabled application entry point.
+- Printed English OCR adapter using Tesseract. Install both the Python extra and the Tesseract application.
+- Offline speech adapter using locally installed system voices through pyttsx3. Urdu support depends on a suitable voice installed on the computer and must be verified.
+- Pakistani currency classifier adapter for a supplied ONNX classification model.
+- Everyday object detector adapter for a supplied SSD-style ONNX model.
+- Image-relative left/centre/right position helper.
 
-## Safety and limitations
-- Left/centre/right describes position in the camera frame only. It is not distance measurement, obstacle avoidance, or safe-navigation guidance.
-- NOORIX AI is not a replacement for a white cane, guide dog, or trained mobility support.
-- Currency output is an estimate and must not be treated as counterfeit detection or authentication.
-- OCR scope is printed English only in this prototype plan; Urdu OCR is future work.
-- Do not rely on this prototype for safety-critical decisions.
-
-## Quick start
+## Install
 Requires Python 3.11 or newer.
 
 ```bash
@@ -29,21 +23,30 @@ python -m venv .venv
 .venv\Scripts\activate
 # macOS/Linux:
 source .venv/bin/activate
-python -m pip install -r requirements.txt
-python -m noorix
+python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
+python -m pytest -q
 ```
 
-The initial application reports module readiness and deliberately does not claim that recognition models are installed.
+The `all` extra can also be installed with `python -m pip install -e ".[all,dev]"`.
+
+### External requirements
+- OCR: install the Tesseract OCR application separately and ensure its executable is on PATH.
+- Object detection and currency estimation: supply compatible, trained ONNX model files and the exact class-label order used during training. No model weights are bundled.
+- Speech: pyttsx3 uses installed system voices. Urdu speech is not guaranteed by installing the Python package alone.
+
+## Safety and limitations
+- Left/centre/right describes only an object's position in the camera image. It is not physical distance, obstacle avoidance, or safe-navigation guidance.
+- NOORIX AI is not a replacement for a white cane, guide dog, or trained mobility support.
+- Currency output is an estimate, not banknote authentication or counterfeit detection.
+- OCR currently targets clear printed English; handwriting and Urdu OCR are not claimed.
+- Model outputs must be validated on representative real-world data before any public demonstration. Do not rely on this prototype for safety-critical decisions.
 
 ## Project layout
-- `src/noorix/`: application and capability interfaces.
+- `src/noorix/`: application and modality adapters.
 - `tests/`: automated tests.
 - `docs/`: scope, architecture, safety and development notes.
 
-## Development
-Run tests with `python -m pytest`.
-
-See [docs/PROJECT_SCOPE.md](docs/PROJECT_SCOPE.md), [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), and [docs/SAFETY.md](docs/SAFETY.md).
+Run tests with `python -m pytest -q`.
 
 ## License
 No license has been selected yet. Until a license is added, standard copyright applies and reuse is not automatically permitted.
