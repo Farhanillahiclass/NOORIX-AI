@@ -56,3 +56,21 @@ That referenced configuration describes 90 foreground classes, a 300x300 fixed i
 These values are a **reference profile**, not yet a verified decoder specification for the checked-in ONNX graph. In particular, the inspected ONNX heads have channel counts consistent with 3 anchors per location on the 19x19 head and 6 on each remaining head (1,917 anchors total). The official TensorFlow helper's default reduced-lowest-layer path creates exactly three anchors per location on the first layer; the remaining layers create the configured aspect-ratio anchors plus one interpolated square anchor (six per location for this configuration). This matches the checked-in ONNX channel counts (3 anchors on the 19x19 head and 6 on each remaining head) and the 1,917-anchor total. This is strong structural consistency with the referenced configuration, but it does not by itself prove the exact exported anchor order or how the ONNX Conv channels are flattened into anchor/coordinate or anchor/class dimensions. Do not implement or enable decoding based on the reference profile alone.
 
 Before implementing the decoder, verify the exported graph's exact feature-head order, channel-to-anchor/coordinate layout, effective anchor settings, class/background encoding, and box-coder behavior against the source TensorFlow checkpoint or a trusted, independently generated reference output. Record reproducible comparisons on known images. Until then, keep raw multi-head inference explicitly unsupported by `ObjectDetector`.
+
+### Additional ONNX graph inspection findings
+
+A local inspection of the pinned ONNX artifact recorded the following graph-level facts:
+
+- The graph has one input named `FeatureExtractor/MobilenetV2/MobilenetV2/input:0` and twelve outputs.
+- The twelve outputs are ordered as six pairs: `BoxPredictor_0` box then class, through `BoxPredictor_5` box then class.
+- Each pair's box and class Conv nodes consume the same feature tensor for that head.
+- The six feature-map resolutions are 19x19, 10x10, 5x5, 3x3, 2x2, and 1x1.
+- Box Conv output channels are 12 on the first head and 24 on each later head. Class Conv output channels are 273 on the first head and 546 on each later head.
+- The inspected prediction Conv nodes use 3x3 kernels, stride 1x1, padding [1, 1, 1, 1], dilation 1x1, and group 1. Each Conv has a weights and biases initializer.
+- The ONNX graph has 175 nodes and 175 initializers; the inspected operation types are Add, Clip, Conv, and Mul. There is no visible Sigmoid, Softmax, or NMS node on the inspected graph.
+
+The dimensions are consistent with 3 anchors per location on the 19x19 head and 6 anchors per location on each remaining head. The class channel dimensions are also consistent with 91 values per anchor (273 / 3 and 546 / 6). Together with the referenced COCO configuration's 90 foreground classes, this suggests a background-plus-90 class dimension, but the exact exported class index mapping has not yet been independently confirmed.
+
+The TensorFlow reference generator documents that anchor order varies fastest by box specification, then width, then height, then feature-map index. For the reduced lowest layer, the three first-layer box specifications are (0.1, 1.0), (scale, 2.0), and (scale, 0.5); later layers use the configured aspect-ratio specifications followed by the interpolated square anchor. This describes the reference anchor generator's order only. It does **not** prove that the ONNX Conv channels use the same order when flattened into anchors and box/class values.
+
+The graph inspection therefore strengthens the structural match but does not close the decoder verification gate. Still unverified: exact channel-to-anchor/coordinate mapping, exact class index mapping, box decoding against this export, and equivalence to a trusted reference output on known images. Keep raw multi-head SSD inference unsupported until those checks are completed.
