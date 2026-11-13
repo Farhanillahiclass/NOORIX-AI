@@ -74,3 +74,14 @@ The dimensions are consistent with 3 anchors per location on the 19x19 head and 
 The TensorFlow reference generator documents that anchor order varies fastest by box specification, then width, then height, then feature-map index. For the reduced lowest layer, the three first-layer box specifications are (0.1, 1.0), (scale, 2.0), and (scale, 0.5); later layers use the configured aspect-ratio specifications followed by the interpolated square anchor. This describes the reference anchor generator's order only. It does **not** prove that the ONNX Conv channels use the same order when flattened into anchors and box/class values.
 
 The graph inspection therefore strengthens the structural match but does not close the decoder verification gate. Still unverified: exact channel-to-anchor/coordinate mapping, exact class index mapping, box decoding against this export, and equivalence to a trusted reference output on known images. Keep raw multi-head SSD inference unsupported until those checks are completed.
+
+### TensorFlow predictor-head source comparison
+
+The referenced TensorFlow Object Detection API implementation provides an additional reference for the prediction-head layout:
+
+- The standard `ConvolutionalBoxHead` emits `num_predictions_per_location * box_code_size` channels and reshapes the channels-last prediction tensor to `[batch, -1, 1, box_code_size]`. For the referenced SSD config, `box_code_size=4`.
+- The standard `ConvolutionalClassHead` emits `num_predictions_per_location * num_class_slots` channels and reshapes to `[batch, -1, num_class_slots]`. The referenced COCO config has 90 foreground classes; the SSD meta-architecture prediction contract includes a background slot, yielding 91 class slots when configured with an explicit background class.
+- In this reference implementation, the class head's own `apply_sigmoid_to_scores` option is false in the cited config. The meta-architecture's post-processing score-conversion function is configured separately as sigmoid. Therefore, class logits from the raw heads require the configured score conversion during post-processing; do not apply an arbitrary softmax.
+- The source predictor implementation documents a channels-last reshape. The inspected ONNX graph exposes NCHW Conv tensors and does not contain the TensorFlow reshape nodes. A candidate interpretation is to transpose each ONNX head from NCHW to NHWC and then apply the corresponding anchor/slot reshape, but that remains a hypothesis until it is checked against the exact export or trusted reference outputs.
+
+This source comparison narrows the expected TensorFlow reference layout, but does not prove that the particular Kalray ONNX export preserves the same channel packing and feature-map flattening. In particular, do not yet assume the exported Conv output channel index maps to a specific anchor and coordinate/class slot without numerical equivalence testing. The raw multi-head adapter remains unsupported.
