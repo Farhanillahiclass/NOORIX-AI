@@ -1,8 +1,7 @@
-"""NOORIX AI desktop dashboard.
+"""NOORIX AI — polished desktop command center.
 
-The interface is intentionally honest about prototype readiness: camera preview
-works independently, while OCR and model-backed analysis require configured
-local dependencies and validated model files.
+A lightweight Tkinter interface with a camera workspace, honest capability
+states, accessible contrast, and working local actions. No web service required.
 """
 from __future__ import annotations
 
@@ -10,18 +9,16 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, ttk
+from tkinter import messagebox
 
 
-BG = "#0b1220"
-PANEL = "#111c2e"
-PANEL_ALT = "#17243a"
-BORDER = "#26364f"
-TEXT = "#e8eef8"
-MUTED = "#9aabc2"
-ACCENT = "#59c3c3"
-BLUE = "#6ea8fe"
-WARNING = "#f0bd68"
+C = {
+    "bg": "#080f1d", "sidebar": "#0c1728", "panel": "#101e31",
+    "panel2": "#14253b", "panel3": "#0b1626", "line": "#263b55",
+    "text": "#edf5ff", "muted": "#91a6bf", "cyan": "#55e1d0",
+    "blue": "#6daaff", "purple": "#a78bfa", "amber": "#f5c16c",
+    "green": "#65d6a5", "red": "#ff8585",
+}
 
 
 class NoorixApp:
@@ -40,166 +37,200 @@ class NoorixApp:
         self.detector = None
         self.currency = None
         self.config = self._read_config(config_path)
-        self._configure_window()
-        self._build_dashboard()
-        self._set_status("Ready", "Camera is off. Start the camera to begin.", ACCENT)
+        self._setup_window()
+        self._build_ui()
+        self._set_status("SYSTEM READY", "Start the camera to begin a local session.", C["cyan"])
 
     @staticmethod
     def _read_config(path: Path) -> dict:
         if not path.is_file():
             return {}
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
-            return data if isinstance(data, dict) else {}
+            value = json.loads(path.read_text(encoding="utf-8"))
+            return value if isinstance(value, dict) else {}
         except (OSError, json.JSONDecodeError) as exc:
             raise RuntimeError(f"Could not read {path}: {exc}") from exc
 
-    def _configure_window(self):
-        self.root.title("NOORIX AI | Accessibility Assistant")
-        self.root.geometry("1180x780")
-        self.root.minsize(900, 640)
-        self.root.configure(bg=BG)
+    def _setup_window(self):
+        self.root.title("NOORIX AI — See Beyond. Understand More.")
+        self.root.geometry("1320x850")
+        self.root.minsize(1040, 700)
+        self.root.configure(bg=C["bg"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
-        style = ttk.Style(self.root)
-        try:
-            style.theme_use("clam")
-        except tk.TclError:
-            pass
-        style.configure("TButton", font=("Segoe UI", 10, "bold"), padding=(12, 9))
-        style.configure("Accent.TButton", background=ACCENT, foreground="#07131d")
-        style.map("Accent.TButton", background=[("active", "#79d7d2")])
-        style.configure("Secondary.TButton", background=PANEL_ALT, foreground=TEXT)
-        style.map("Secondary.TButton", background=[("active", BORDER)])
-        style.configure("TLabel", background=BG, foreground=TEXT, font=("Segoe UI", 10))
-        style.configure("Muted.TLabel", background=BG, foreground=MUTED)
-        style.configure("Card.TFrame", background=PANEL)
-        style.configure("Sidebar.TFrame", background="#0e1929")
 
-    def _build_dashboard(self):
-        shell = tk.Frame(self.root, bg=BG)
+    def _label(self, parent, text, size=10, color=None, bold=False, **kwargs):
+        return tk.Label(
+            parent, text=text, bg=kwargs.pop("bg", parent.cget("bg")),
+            fg=color or C["text"], font=("Segoe UI", size, "bold" if bold else "normal"),
+            **kwargs,
+        )
+
+    def _panel(self, parent, bg=None, padx=16, pady=14):
+        return tk.Frame(parent, bg=bg or C["panel"], padx=padx, pady=pady,
+                        highlightbackground=C["line"], highlightthickness=1)
+
+    def _button(self, parent, text, command, primary=False, compact=False):
+        bg = C["cyan"] if primary else C["panel2"]
+        fg = "#06141c" if primary else C["text"]
+        button = tk.Button(
+            parent, text=text, command=command, bg=bg, fg=fg,
+            activebackground=C["blue"] if primary else C["line"],
+            activeforeground="#07131d" if primary else C["text"],
+            relief="flat", bd=0, cursor="hand2",
+            font=("Segoe UI", 9 if compact else 10, "bold"),
+            padx=12 if compact else 15, pady=8 if compact else 11,
+            anchor="w",
+        )
+        return button
+
+    def _build_ui(self):
+        shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
-        sidebar = tk.Frame(shell, bg="#0e1929", width=220, padx=20, pady=24)
-        sidebar.pack(side="left", fill="y")
-        sidebar.pack_propagate(False)
-        tk.Label(sidebar, text="NOORIX", bg="#0e1929", fg=TEXT,
-                 font=("Segoe UI", 23, "bold")).pack(anchor="w")
-        tk.Label(sidebar, text="AI ACCESSIBILITY", bg="#0e1929", fg=ACCENT,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=(0, 28))
-        self._nav_item(sidebar, "◉", "Overview", True)
-        self._nav_item(sidebar, "▣", "Live camera", False)
-        self._nav_item(sidebar, "Aa", "Text reading", False)
-        self._nav_item(sidebar, "◎", "Object & currency", False)
-        tk.Frame(sidebar, bg=BORDER, height=1).pack(fill="x", pady=22)
-        tk.Label(sidebar, text="PROJECT STATUS", bg="#0e1929", fg=MUTED,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w")
-        tk.Label(sidebar, text="Research prototype\nLocal processing",
-                 bg="#0e1929", fg=TEXT, justify="left",
-                 font=("Segoe UI", 10), pady=10).pack(anchor="w")
-        tk.Label(sidebar, text="POWERED BY MRS", bg="#0e1929", fg=MUTED,
-                 font=("Segoe UI", 8, "bold")).pack(side="bottom", anchor="w")
+        side = tk.Frame(shell, bg=C["sidebar"], width=218, padx=18, pady=22)
+        side.pack(side="left", fill="y")
+        side.pack_propagate(False)
+        brand = tk.Frame(side, bg=C["sidebar"])
+        brand.pack(fill="x", pady=(2, 28))
+        self._label(brand, "N", 22, C["cyan"], True, bg=C["panel2"], width=2, height=1).pack(side="left")
+        name = tk.Frame(brand, bg=C["sidebar"])
+        name.pack(side="left", padx=9)
+        self._label(name, "NOORIX AI", 15, C["text"], True).pack(anchor="w")
+        self._label(name, "SEE BEYOND", 7, C["cyan"], True).pack(anchor="w")
 
-        main = tk.Frame(shell, bg=BG, padx=28, pady=24)
+        self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
+        self._nav(side, "◈", "Overview", True)
+        self._nav(side, "◉", "Live vision", False)
+        self._nav(side, "Aa", "Text reading", False)
+        self._nav(side, "⌗", "Scene analysis", False)
+        self._nav(side, "⚙", "System status", False)
+
+        spacer = tk.Frame(side, bg=C["sidebar"])
+        spacer.pack(fill="both", expand=True)
+        self._panel(side, bg=C["panel3"], padx=12, pady=12).pack(fill="x", pady=(10, 14))
+        note = self._label(side, "PRIVACY FIRST\n\nFrames are processed locally.\nNo automatic image saving.", 9, C["muted"],
+                           justify="left", wraplength=165, bg=C["panel3"])
+        note.place_forget()
+        # Keep the privacy note inside a dedicated panel.
+        privacy = side.winfo_children()[-1]
+        note.master if False else None
+        note = self._label(privacy, "PRIVACY FIRST\n\nFrames are processed locally.\nNo automatic image saving.",
+                           9, C["muted"], justify="left", wraplength=165)
+        note.pack(anchor="w")
+        self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
+
+        main = tk.Frame(shell, bg=C["bg"], padx=24, pady=20)
         main.pack(side="left", fill="both", expand=True)
-        top = tk.Frame(main, bg=BG)
+
+        top = tk.Frame(main, bg=C["bg"])
         top.pack(fill="x")
-        titlebox = tk.Frame(top, bg=BG)
-        titlebox.pack(side="left")
-        tk.Label(titlebox, text="Good to see you", bg=BG, fg=MUTED,
-                 font=("Segoe UI", 10)).pack(anchor="w")
-        tk.Label(titlebox, text="Accessibility dashboard", bg=BG, fg=TEXT,
-                 font=("Segoe UI", 22, "bold")).pack(anchor="w")
-        tk.Label(top, text="SEE BEYOND. UNDERSTAND MORE.", bg=BG, fg=ACCENT,
-                 font=("Segoe UI", 8, "bold")).pack(side="right", anchor="center")
+        heading = tk.Frame(top, bg=C["bg"])
+        heading.pack(side="left")
+        self._label(heading, "INTELLIGENT ACCESSIBILITY PLATFORM", 8, C["cyan"], True).pack(anchor="w")
+        self._label(heading, "Your vision workspace", 23, C["text"], True).pack(anchor="w", pady=(4, 0))
+        righttop = tk.Frame(top, bg=C["bg"])
+        righttop.pack(side="right", anchor="center")
+        self._label(righttop, "●  LOCAL MODE", 9, C["green"], True,
+                    bg=C["panel"], padx=12, pady=8).pack(side="right")
 
-        cards = tk.Frame(main, bg=BG)
-        cards.pack(fill="x", pady=(22, 18))
-        self.camera_card_value = self._metric_card(cards, "CAMERA", "OFF", "Waiting for camera")
-        self.ocr_card_value = self._metric_card(cards, "ENGLISH OCR", "READY TO CHECK", "Tesseract required")
-        self.model_card_value = self._metric_card(cards, "AI MODELS", "NOT CONFIGURED", "ONNX model files required")
+        metrics = tk.Frame(main, bg=C["bg"])
+        metrics.pack(fill="x", pady=(20, 16))
+        self.camera_metric = self._metric(metrics, "CAMERA INPUT", "STANDBY", "Device 0 · Not connected", C["cyan"])
+        self.ocr_metric = self._metric(metrics, "PRINTED ENGLISH OCR", "ADAPTER READY", "Tesseract executable needed", C["blue"])
+        self.model_metric = self._metric(metrics, "AI INFERENCE", "AWAITING MODELS", "ONNX weights not configured", C["purple"])
 
-        body = tk.Frame(main, bg=BG)
-        body.pack(fill="both", expand=True)
-        left = tk.Frame(body, bg=PANEL, highlightbackground=BORDER, highlightthickness=1)
+        workspace = tk.Frame(main, bg=C["bg"])
+        workspace.pack(fill="both", expand=True)
+        left = tk.Frame(workspace, bg=C["bg"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 14))
-        preview_head = tk.Frame(left, bg=PANEL, padx=18, pady=15)
-        preview_head.pack(fill="x")
-        tk.Label(preview_head, text="LIVE CAMERA", bg=PANEL, fg=TEXT,
-                 font=("Segoe UI", 11, "bold")).pack(side="left")
-        tk.Label(preview_head, text="LOCAL PREVIEW", bg=PANEL, fg=ACCENT,
-                 font=("Segoe UI", 8, "bold")).pack(side="right")
-        self.preview = tk.Label(left, text="Camera is off\n\nPress  Start camera  to begin",
-                                bg="#070d17", fg=MUTED, font=("Segoe UI", 13),
-                                justify="center")
-        self.preview.pack(fill="both", expand=True, padx=14, pady=(0, 14))
-
-        right = tk.Frame(body, bg=BG, width=260)
+        right = tk.Frame(workspace, bg=C["bg"], width=300)
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
-        self._section_title(right, "QUICK ACTIONS")
-        ttk.Button(right, text="▶  Start camera", style="Accent.TButton",
-                   command=self.start_camera).pack(fill="x", pady=(4, 8))
-        ttk.Button(right, text="■  Stop camera", style="Secondary.TButton",
-                   command=self.stop_camera).pack(fill="x", pady=4)
-        ttk.Button(right, text="Aa  Read English text", style="Secondary.TButton",
-                   command=self.read_text).pack(fill="x", pady=4)
-        ttk.Button(right, text="◎  Analyze scene", style="Secondary.TButton",
-                   command=self.analyze).pack(fill="x", pady=4)
-        ttk.Button(right, text="♫  Speak result", style="Secondary.TButton",
-                   command=self.speak_result).pack(fill="x", pady=4)
-        self._section_title(right, "LATEST RESULT", pady=(24, 8))
-        self.result = tk.Text(right, height=8, wrap="word", bg=PANEL, fg=TEXT,
-                              insertbackground=TEXT, relief="flat", padx=12, pady=12,
-                              font=("Segoe UI", 9), highlightbackground=BORDER,
-                              highlightthickness=1)
-        self.result.pack(fill="x")
-        self.result.insert("1.0", "No analysis yet. Start the camera and choose an action.")
+
+        preview_panel = self._panel(left, padx=0, pady=0)
+        preview_panel.pack(fill="both", expand=True)
+        phead = tk.Frame(preview_panel, bg=C["panel"], padx=18, pady=13)
+        phead.pack(fill="x")
+        self._label(phead, "LIVE VISION", 10, C["text"], True).pack(side="left")
+        self.preview_state = self._label(phead, "●  CAMERA OFF", 8, C["muted"], True)
+        self.preview_state.pack(side="right")
+        self.preview = tk.Label(
+            preview_panel, text="NO LIVE FEED\n\nConnect your camera to start seeing.",
+            bg="#060c16", fg=C["muted"], font=("Segoe UI", 12),
+            justify="center", compound="center",
+        )
+        self.preview.pack(fill="both", expand=True, padx=12, pady=12)
+        pfoot = tk.Frame(preview_panel, bg=C["panel"], padx=14, pady=12)
+        pfoot.pack(fill="x")
+        self._button(pfoot, "▶  Start camera", self.start_camera, True).pack(side="left", padx=(0, 8))
+        self._button(pfoot, "■  Stop", self.stop_camera, False, True).pack(side="left")
+        self._label(pfoot, "IMAGE POSITION ONLY · NOT NAVIGATION", 7, C["muted"], True).pack(side="right")
+
+        self._label(right, "AI CONTROL DECK", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
+        actions = self._panel(right, padx=14, pady=14)
+        actions.pack(fill="x")
+        self._label(actions, "Quick actions", 14, C["text"], True).pack(anchor="w", pady=(0, 12))
+        self._button(actions, "Aa   Read printed English", self.read_text, True).pack(fill="x", pady=4)
+        self._button(actions, "⌗   Analyze objects & currency", self.analyze).pack(fill="x", pady=4)
+        self._button(actions, "♫   Speak latest result", self.speak_result).pack(fill="x", pady=4)
+
+        self._label(right, "INTELLIGENCE OUTPUT", 8, C["muted"], True).pack(anchor="w", pady=(18, 8))
+        output_panel = self._panel(right, padx=13, pady=12)
+        output_panel.pack(fill="both", expand=True)
+        self._label(output_panel, "Latest insight", 12, C["text"], True).pack(anchor="w")
+        self.result = tk.Text(
+            output_panel, height=10, wrap="word", bg=C["panel"], fg=C["muted"],
+            insertbackground=C["text"], relief="flat", bd=0, padx=0, pady=10,
+            font=("Segoe UI", 9), highlightthickness=0,
+        )
+        self.result.pack(fill="both", expand=True)
+        self.result.insert("1.0", "Your results will appear here.\n\nStart the camera, then choose an action.")
         self.result.configure(state="disabled")
 
-        footer = tk.Frame(main, bg=BG, pady=14)
-        footer.pack(fill="x")
-        self.status_dot = tk.Label(footer, text="●", bg=BG, fg=ACCENT)
-        self.status_dot.pack(side="left")
-        self.status_label = tk.Label(footer, text="Ready", bg=BG, fg=TEXT,
-                                     font=("Segoe UI", 9, "bold"))
-        self.status_label.pack(side="left", padx=(7, 10))
-        self.status_detail = tk.Label(footer, text="", bg=BG, fg=MUTED,
-                                      font=("Segoe UI", 9))
-        self.status_detail.pack(side="left")
-        tk.Label(main, text="Image-relative position is not distance or navigation guidance. "
-                 "This prototype does not replace a white cane or guide dog.",
-                 bg=BG, fg=MUTED, font=("Segoe UI", 8), wraplength=900,
-                 justify="left").pack(anchor="w")
+        features = tk.Frame(main, bg=C["bg"])
+        features.pack(fill="x", pady=(15, 12))
+        self._feature(features, "01", "TEXT READER", "Printed English · OCR", C["blue"])
+        self._feature(features, "02", "OBJECT AWARENESS", "Image-relative positions", C["cyan"])
+        self._feature(features, "03", "CURRENCY ESTIMATE", "Pakistani banknote classes", C["purple"])
 
-    def _nav_item(self, parent, icon, label, active):
-        bg = PANEL_ALT if active else "#0e1929"
-        fg = ACCENT if active else MUTED
+        footer = tk.Frame(main, bg=C["bg"])
+        footer.pack(fill="x")
+        self.status_dot = self._label(footer, "●", 9, C["cyan"], True)
+        self.status_dot.pack(side="left")
+        self.status_title = self._label(footer, "SYSTEM READY", 8, C["text"], True)
+        self.status_title.pack(side="left", padx=(7, 10))
+        self.status_detail = self._label(footer, "Waiting for user action", 8, C["muted"])
+        self.status_detail.pack(side="left")
+        self._label(main, "Research prototype · Estimates are not authentication · Never use as a replacement for a white cane or guide dog.",
+                    8, C["muted"]).pack(anchor="w", pady=(8, 0))
+
+    def _nav(self, parent, symbol, title, active):
+        bg = C["panel2"] if active else C["sidebar"]
+        fg = C["cyan"] if active else C["muted"]
         item = tk.Frame(parent, bg=bg, padx=10, pady=10)
         item.pack(fill="x", pady=3)
-        tk.Label(item, text=icon, bg=bg, fg=fg, width=3,
-                 font=("Segoe UI", 11, "bold")).pack(side="left")
-        tk.Label(item, text=label, bg=bg, fg=TEXT if active else MUTED,
-                 font=("Segoe UI", 10, "bold" if active else "normal")).pack(side="left")
+        self._label(item, symbol, 12, fg, True, bg=bg, width=3).pack(side="left")
+        self._label(item, title, 9, C["text"] if active else C["muted"],
+                    active, bg=bg).pack(side="left")
 
-    def _metric_card(self, parent, title, value, detail):
-        card = tk.Frame(parent, bg=PANEL, padx=16, pady=13,
-                        highlightbackground=BORDER, highlightthickness=1)
-        card.pack(side="left", fill="x", expand=True, padx=(0, 10))
-        tk.Label(card, text=title, bg=PANEL, fg=MUTED,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w")
-        value_label = tk.Label(card, text=value, bg=PANEL, fg=TEXT,
-                               font=("Segoe UI", 12, "bold"))
-        value_label.pack(anchor="w", pady=(7, 3))
-        tk.Label(card, text=detail, bg=PANEL, fg=MUTED,
-                 font=("Segoe UI", 8)).pack(anchor="w")
-        return value_label
+    def _metric(self, parent, title, value, detail, accent):
+        card = self._panel(parent, padx=14, pady=11)
+        card.pack(side="left", fill="x", expand=True, padx=(0, 9))
+        self._label(card, title, 8, C["muted"], True).pack(anchor="w")
+        val = self._label(card, value, 12, accent, True)
+        val.pack(anchor="w", pady=(7, 3))
+        self._label(card, detail, 8, C["muted"]).pack(anchor="w")
+        return val
 
-    def _section_title(self, parent, text, pady=(0, 10)):
-        tk.Label(parent, text=text, bg=BG, fg=MUTED,
-                 font=("Segoe UI", 8, "bold")).pack(anchor="w", pady=pady)
+    def _feature(self, parent, number, title, detail, accent):
+        card = self._panel(parent, padx=13, pady=10)
+        card.pack(side="left", fill="x", expand=True, padx=(0, 9))
+        self._label(card, number, 8, accent, True).pack(anchor="w")
+        self._label(card, title, 9, C["text"], True).pack(anchor="w", pady=(4, 2))
+        self._label(card, detail, 8, C["muted"]).pack(anchor="w")
 
-    def _set_status(self, title, detail, color=ACCENT):
-        self.status_label.configure(text=title)
+    def _set_status(self, title, detail, color):
+        self.status_title.configure(text=title)
         self.status_detail.configure(text=detail)
         self.status_dot.configure(fg=color)
 
@@ -215,13 +246,14 @@ class NoorixApp:
         try:
             self.camera = self.WebcamCapture(self.camera_index)
             self.camera.start()
-            self.camera_card_value.configure(text="LIVE", fg=ACCENT)
-            self._set_status("Camera active", "Frames remain local and are not saved automatically.")
+            self.camera_metric.configure(text="LIVE", fg=C["green"])
+            self.preview_state.configure(text="●  LIVE FEED", fg=C["green"])
+            self._set_status("CAMERA ACTIVE", "Frames are processed locally and not saved.", C["green"])
             self._update_frame()
         except Exception as exc:
             self.camera = None
-            self.camera_card_value.configure(text="UNAVAILABLE", fg=WARNING)
-            self._set_status("Camera error", str(exc), WARNING)
+            self.camera_metric.configure(text="UNAVAILABLE", fg=C["amber"])
+            self._set_status("CAMERA ERROR", str(exc), C["amber"])
             messagebox.showerror("NOORIX AI — Camera error", str(exc))
 
     def _update_frame(self):
@@ -229,21 +261,18 @@ class NoorixApp:
             return
         try:
             from PIL import Image, ImageTk
-
             frame = self.camera.read()
             self.current_frame = frame.copy()
-            height, width = frame.shape[:2]
-            target_w = max(320, self.preview.winfo_width() - 12)
-            target_h = max(240, self.preview.winfo_height() - 12)
-            scale = min(target_w / width, target_h / height)
-            resized = self.cv2.resize(frame, (int(width * scale), int(height * scale)))
-            rgb = self.cv2.cvtColor(resized, self.cv2.COLOR_BGR2RGB)
+            width = max(360, self.preview.winfo_width() - 18)
+            height = max(260, self.preview.winfo_height() - 18)
+            rgb = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
             image = Image.fromarray(rgb)
-            self.photo = ImageTk.PhotoImage(image=image, master=self.root)
+            image.thumbnail((width, height), Image.Resampling.LANCZOS)
+            self.photo = ImageTk.PhotoImage(image, master=self.root)
             self.preview.configure(image=self.photo, text="")
             self.after_id = self.root.after(33, self._update_frame)
         except Exception as exc:
-            self._set_status("Preview stopped", str(exc), WARNING)
+            self._set_status("PREVIEW STOPPED", str(exc), C["amber"])
             self.stop_camera()
 
     def stop_camera(self):
@@ -256,34 +285,34 @@ class NoorixApp:
         if self.camera is not None:
             self.camera.stop()
             self.camera = None
-        if hasattr(self, "camera_card_value"):
-            self.camera_card_value.configure(text="OFF", fg=TEXT)
-        if hasattr(self, "preview"):
-            self.preview.configure(image="", text="Camera is off\n\nPress  Start camera  to begin")
+        if hasattr(self, "camera_metric"):
+            self.camera_metric.configure(text="STANDBY", fg=C["cyan"])
+            self.preview_state.configure(text="●  CAMERA OFF", fg=C["muted"])
+            self.preview.configure(image="", text="NO LIVE FEED\n\nConnect your camera to start seeing.")
         self.photo = None
         self.current_frame = None
-        if hasattr(self, "status_label"):
-            self._set_status("Camera stopped", "Camera released safely.")
+        if hasattr(self, "status_title"):
+            self._set_status("SYSTEM READY", "Camera released safely.", C["cyan"])
 
     def read_text(self):
         if self.current_frame is None:
             self._set_result("Start the camera first.")
-            self._set_status("Camera required", "Start the camera before reading text.", WARNING)
+            self._set_status("CAMERA REQUIRED", "Start the camera before reading text.", C["amber"])
             return
         try:
             from noorix.ocr import PrintedEnglishOCR
-            text = PrintedEnglishOCR().read(self.current_frame)
-            output = text or "No clear printed English text found."
+            output = PrintedEnglishOCR().read(self.current_frame) or "No clear printed English text found."
             self._set_result(output)
-            self._set_status("Text reading complete", "English OCR result is shown at right.")
+            self.ocr_metric.configure(text="REQUEST COMPLETED", fg=C["green"])
+            self._set_status("TEXT READING COMPLETE", "English OCR output is ready.", C["green"])
         except Exception as exc:
             self._set_result(f"OCR unavailable: {exc}")
-            self._set_status("OCR unavailable", "Install and configure the Tesseract executable.", WARNING)
+            self._set_status("OCR UNAVAILABLE", "Tesseract executable is required.", C["amber"])
 
     def analyze(self):
         if self.current_frame is None:
             self._set_result("Start the camera first.")
-            self._set_status("Camera required", "Start the camera before scene analysis.", WARNING)
+            self._set_status("CAMERA REQUIRED", "Start the camera before scene analysis.", C["amber"])
             return
         results = []
         try:
@@ -295,11 +324,8 @@ class NoorixApp:
                         model["model_path"], model["labels"],
                         confidence_threshold=float(model.get("confidence_threshold", 0.5)),
                     )
-                detections = self.detector.detect(self.current_frame)
-                results.extend(
-                    f"{item['label']} — image {item['position']} ({item['confidence']:.0%})"
-                    for item in detections
-                )
+                for item in self.detector.detect(self.current_frame):
+                    results.append(f"{item['label']} — image {item['position']} ({item['confidence']:.0%})")
             currency = self.config.get("currency", {})
             if currency.get("model_path") and currency.get("labels"):
                 from noorix.currency import CurrencyEstimator
@@ -314,16 +340,18 @@ class NoorixApp:
                     f"(score {estimate['confidence']:.0%}; estimate only)"
                 )
             output = "\n".join(results) if results else (
-                "AI models are not configured yet. Add validated ONNX model paths "
-                "and matching labels in config.json."
+                "No trained models are configured. Add compatible ONNX model files "
+                "and their exact labels in config.json."
             )
             self._set_result(output)
-            self._set_status("Analysis complete" if results else "Models not configured",
-                             "Predictions are estimates and require evaluation.",
-                             ACCENT if results else WARNING)
+            self.model_metric.configure(text="INFERENCE COMPLETE" if results else "AWAITING MODELS",
+                                        fg=C["green"] if results else C["purple"])
+            self._set_status("ANALYSIS COMPLETE" if results else "MODELS NOT CONFIGURED",
+                             "Predictions are estimates and require validation.",
+                             C["green"] if results else C["amber"])
         except Exception as exc:
             self._set_result(f"Analysis unavailable: {exc}")
-            self._set_status("Analysis error", "Check model files, labels and configuration.", WARNING)
+            self._set_status("ANALYSIS ERROR", "Check model files, labels and configuration.", C["amber"])
 
     def speak_result(self):
         text = self.result.get("1.0", "end").strip()
@@ -335,11 +363,12 @@ class NoorixApp:
                 SpeechOutput().speak(text)
             except Exception as exc:
                 error = str(exc)
-                self.root.after(0, lambda: self._set_status(
-                    "Speech unavailable", error, WARNING
-                ))
+                try:
+                    self.root.after(0, lambda: self._set_status("SPEECH UNAVAILABLE", error, C["amber"]))
+                except tk.TclError:
+                    pass
         threading.Thread(target=worker, daemon=True).start()
-        self._set_status("Speech requested", "Local voice availability depends on Windows voices.")
+        self._set_status("SPEECH REQUESTED", "Uses an installed local system voice.", C["cyan"])
 
     def close(self):
         self.stop_camera()
