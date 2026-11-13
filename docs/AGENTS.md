@@ -13,7 +13,7 @@ imply an autonomous LLM or unrestricted tool access.
 | Currency | Camera frame | Run configured ONNX classifier; estimate denomination only |
 | Speech | Text | Speak through an installed local system voice |
 | Safety | Specialist results | Attach conservative warnings and disclose failed tasks |
-| System Health | Local configuration | Report adapter, executable and model-file readiness |
+| System Health | Local configuration | Report adapter, executable and model-file readiness |\n| Frame Quality | Camera frame | Check dimensions, brightness and blur; report image suitability only |\n| Voice Command | Transcribed text | Map a small English/Roman Urdu/Urdu allowlist to an intent; require caller confirmation |
 
 ## Coordinator
 
