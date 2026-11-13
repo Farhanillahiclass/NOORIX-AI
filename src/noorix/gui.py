@@ -230,7 +230,8 @@ class NoorixApp:
         if self.agent_coordinator is None:
             from noorix.agents import (
                 AgentCoordinator, CurrencyAgent, ObjectDetectionAgent,
-                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,\n                FrameQualityAgent, VoiceCommandAgent,
+                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
+                FrameQualityAgent, VoiceCommandAgent,
             )
             self.agent_coordinator = AgentCoordinator([
                 OCRAgent(),
