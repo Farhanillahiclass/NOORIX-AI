@@ -23,7 +23,8 @@
 - [x] Add OCR, object, currency, speech, safety and system-health agents.
 - [x] Add deterministic coordinator and vision pipeline.
 - [x] Add desktop Agent Console and system-health view.
-- [x] Add frame-quality checks for resolution, brightness and blur.\n- [x] Add a confirmation-gated English/Roman Urdu/Urdu command-intent parser.
+- [x] Add frame-quality checks for resolution, brightness and blur.
+- [x] Add a confirmation-gated English/Roman Urdu/Urdu command-intent parser.
 - [x] Add unit tests for agent contracts and failure handling.
 
 ## Milestone 4 — Evaluation
