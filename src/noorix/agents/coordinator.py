@@ -43,5 +43,8 @@ class AgentCoordinator:
                                warnings=("The task did not complete; do not rely on a prediction.",))
 
     def run_vision(self, frame: Any) -> list[AgentResult]:
+        quality = self.run("frame_quality", frame) if "frame_quality" in self._agents else None
         results = [self.run("object_detection", frame), self.run("currency", frame)]
+        if quality is not None:
+            results.insert(0, quality)
         return [*results, self.run("safety", results)]

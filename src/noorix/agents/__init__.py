@@ -2,5 +2,7 @@
 from noorix.agents.base import AgentResult, AgentState
 from noorix.agents.coordinator import AgentCoordinator
 from noorix.agents.specialists import CurrencyAgent, ObjectDetectionAgent, OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent
+from noorix.agents.frame_quality import FrameQualityAgent
+from noorix.agents.voice_commands import VoiceCommandAgent
 
-__all__ = ["AgentResult", "AgentState", "AgentCoordinator", "OCRAgent", "ObjectDetectionAgent", "CurrencyAgent", "SpeechAgent", "SafetyAgent", "SystemHealthAgent"]
+__all__ = ["AgentResult", "AgentState", "AgentCoordinator", "OCRAgent", "ObjectDetectionAgent", "CurrencyAgent", "SpeechAgent", "SafetyAgent", "SystemHealthAgent", "FrameQualityAgent", "VoiceCommandAgent"]

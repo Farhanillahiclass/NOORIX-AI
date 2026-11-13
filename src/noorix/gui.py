@@ -9,7 +9,7 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 
 
 C = {
@@ -231,6 +231,7 @@ class NoorixApp:
             from noorix.agents import (
                 AgentCoordinator, CurrencyAgent, ObjectDetectionAgent,
                 OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
+                FrameQualityAgent, VoiceCommandAgent,
             )
             self.agent_coordinator = AgentCoordinator([
                 OCRAgent(),
@@ -239,6 +240,8 @@ class NoorixApp:
                 SpeechAgent(),
                 SafetyAgent(),
                 SystemHealthAgent(self.config_path),
+                FrameQualityAgent(),
+                VoiceCommandAgent(),
             ])
         return self.agent_coordinator
 
@@ -289,6 +292,8 @@ class NoorixApp:
             ("OCR Agent", "ocr", lambda: self.current_frame),
             ("Object Detection", "object_detection", lambda: self.current_frame),
             ("Currency Agent", "currency", lambda: self.current_frame),
+            ("Frame Quality", "frame_quality", lambda: self.current_frame),
+            ("Voice Command Parser", "voice_command", lambda: simpledialog.askstring("NOORIX command", "Enter a supported English / Urdu command (text only):", parent=window)),
             ("Speech Agent", "speech", lambda: self.result.get("1.0", "end").strip()),
             ("Safety Agent", "safety", lambda: []),
             ("System Health", "system_health", lambda: None),
