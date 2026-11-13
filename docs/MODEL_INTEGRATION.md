@@ -85,3 +85,17 @@ The referenced TensorFlow Object Detection API implementation provides an additi
 - The source predictor implementation documents a channels-last reshape. The inspected ONNX graph exposes NCHW Conv tensors and does not contain the TensorFlow reshape nodes. A candidate interpretation is to transpose each ONNX head from NCHW to NHWC and then apply the corresponding anchor/slot reshape, but that remains a hypothesis until it is checked against the exact export or trusted reference outputs.
 
 This source comparison narrows the expected TensorFlow reference layout, but does not prove that the particular Kalray ONNX export preserves the same channel packing and feature-map flattening. In particular, do not yet assume the exported Conv output channel index maps to a specific anchor and coordinate/class slot without numerical equivalence testing. The raw multi-head adapter remains unsupported.
+
+### Pinned TensorFlow graph reference artifact
+
+The exact Hugging Face revision pinned for the ONNX artifact is `9b8fd4f109071d88f3127424f2bf879bc8ae4fa4`. The repository tree at that same revision contains both `ssd-mobilenet-v2.onnx` and `ssd-mobilenet-v2.pb`. The TensorFlow graph file is therefore a concrete candidate reference artifact co-located with the pinned ONNX file, rather than a separately selected TensorFlow Model Zoo download.
+
+The Hugging Face file metadata for the TensorFlow graph identifies:
+- File: `ssd-mobilenet-v2.pb`
+- Size: 67,386,385 bytes
+- SHA256: `b3a28ca449b75b5aefe763f406150ad65f3e1bc0398fcc4b083f0da526cd5d0b`
+- File upload commit: `0d69759efbc58eec472934ce08f62d15de947e80`
+
+The ONNX artifact metadata identifies SHA256 `f0d9458cd8ae5c0cde8eadf22b75c6451059f4d9dd46df266e996dcbec417a8f`. Both files are present in the pinned repository snapshot, but co-location alone does not prove that the TensorFlow graph is the exact graph used to produce the ONNX artifact or that preprocessing and exported tensor semantics are identical.
+
+Next verification step: download the pinned `.pb` artifact, verify its SHA256 before parsing, inspect its GraphDef input/output and intermediate tensor names, and compare numerically against the ONNX model on identical, explicitly documented input tensors. Do not enable SSD decoding unless the compared tensors, preprocessing, layout, and numerical tolerances are established. TensorFlow runtime installation is intentionally not prescribed until the graph format and execution requirements have been inspected.
