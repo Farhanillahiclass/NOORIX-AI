@@ -104,15 +104,17 @@ class ObjectDetector:
                     and 0.0 <= x2 <= 1.0 and 0.0 <= y2 <= 1.0):
                 continue
             centre_x = ((x1 + x2) / 2.0) * width
+            # Round float32 normalized coordinates to avoid truncation from
+            # representation error (for example, 0.7 * 200 becoming 139).
             results.append({
                 "label": self.labels[class_index],
                 "confidence": confidence,
                 "position": image_relative_position(centre_x, width),
                 "box": [
-                    max(0, min(width, int(x1 * width))),
-                    max(0, min(height, int(y1 * height))),
-                    max(0, min(width, int(x2 * width))),
-                    max(0, min(height, int(y2 * height))),
+                    max(0, min(width, round(x1 * width))),
+                    max(0, min(height, round(y1 * height))),
+                    max(0, min(width, round(x2 * width))),
+                    max(0, min(height, round(y2 * height))),
                 ],
             })
         return results
