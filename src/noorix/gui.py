@@ -107,15 +107,13 @@ class NoorixApp:
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
-        self._panel(side, bg=C["panel3"], padx=12, pady=12).pack(fill="x", pady=(10, 14))
-        note = self._label(side, "PRIVACY FIRST\n\nFrames are processed locally.\nNo automatic image saving.", 9, C["muted"],
-                           justify="left", wraplength=165, bg=C["panel3"])
-        note.place_forget()
-        # Keep the privacy note inside a dedicated panel.
-        privacy = side.winfo_children()[-1]
-        note.master if False else None
-        note = self._label(privacy, "PRIVACY FIRST\n\nFrames are processed locally.\nNo automatic image saving.",
-                           9, C["muted"], justify="left", wraplength=165)
+        privacy = self._panel(side, bg=C["panel3"], padx=12, pady=12)
+        privacy.pack(fill="x", pady=(10, 14))
+        note = self._label(
+            privacy,
+            "PRIVACY FIRST\\n\\nFrames are processed locally.\\nNo automatic image saving.",
+            9, C["muted"], justify="left", wraplength=165,
+        )
         note.pack(anchor="w")
         self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
 
