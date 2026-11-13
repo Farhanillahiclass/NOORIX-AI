@@ -9,7 +9,7 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox
+from tkinter import messagebox, simpledialog
 
 
 C = {
@@ -230,7 +230,7 @@ class NoorixApp:
         if self.agent_coordinator is None:
             from noorix.agents import (
                 AgentCoordinator, CurrencyAgent, ObjectDetectionAgent,
-                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
+                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,\n                FrameQualityAgent, VoiceCommandAgent,
             )
             self.agent_coordinator = AgentCoordinator([
                 OCRAgent(),
