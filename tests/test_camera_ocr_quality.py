@@ -1,5 +1,6 @@
-import numpy as np
 import pytest
+
+np = pytest.importorskip("numpy")
 
 from noorix.camera import WebcamCapture
 from noorix.ocr import PrintedEnglishOCR
@@ -66,7 +67,7 @@ def test_ocr_converts_opencv_bgr_to_rgb():
 
 def test_ocr_tries_enhanced_variants_and_returns_best_text(monkeypatch):
     pytest.importorskip("PIL")
-    import pytesseract
+    pytesseract = pytest.importorskip("pytesseract")
 
     calls = []
 
