@@ -97,7 +97,7 @@ class NoorixApp:
         return button
 
     def _build_ui(self):
-        """Premium white AI workspace with hybrid sidebar and top command bar."""
+        """Dark navy AI workspace with consistent contrast and hybrid navigation."""
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
@@ -151,7 +151,7 @@ class NoorixApp:
         top_actions.pack(side="right")
         self._button(top_actions, "Refresh", self.refresh_overview, compact=True).pack(side="left", padx=(0, 7))
         self._label(top_actions, "● LOCAL MODE", 8, C["green"], True,
-                    bg="#e9f7f0", padx=10, pady=7).pack(side="left")
+                    bg=C["panel2"], padx=10, pady=7).pack(side="left")
 
         title_row = tk.Frame(main, bg=C["bg"])
         title_row.pack(fill="x")
