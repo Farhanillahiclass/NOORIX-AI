@@ -6,6 +6,7 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[1]
 INCOMING = ROOT / "models" / "incoming"
 DEST = ROOT / "models" / "imported"
+DATA_INCOMING = ROOT / "data" / "datasets" / "incoming"
 TEMP = ROOT / "models" / ".staging"
 ALLOWED_SUFFIXES = {".onnx",".pth",".pt",".safetensors",".bin",".json",".txt",".model",".vocab",".merges",".tiktoken",".yaml",".yml",".cfg",".pb",".xml",".data"}
 SKIP_PARTS = {"__pycache__",".ipynb_checkpoints","runs","wandb","logs","samples","sample","images","datasets","dataset","cache","caches","test_images"}
@@ -29,21 +30,34 @@ def main():
     parser.add_argument("--since-hours",type=float,default=2.0,help="Only include Downloads ZIPs modified within this many hours.")
     parser.add_argument("--delete-zips",action="store_true",help="Delete source ZIPs after successful import (not recommended).")
     args=parser.parse_args()
-    INCOMING.mkdir(parents=True,exist_ok=True); DEST.mkdir(parents=True,exist_ok=True); TEMP.mkdir(parents=True,exist_ok=True)
+    INCOMING.mkdir(parents=True,exist_ok=True); DEST.mkdir(parents=True,exist_ok=True); DATA_INCOMING.mkdir(parents=True,exist_ok=True); TEMP.mkdir(parents=True,exist_ok=True)
     archives={p.resolve():p for p in INCOMING.glob("*.zip")}
     if args.scan_downloads:
         downloads=Path(args.downloads_dir).expanduser()
         cutoff=datetime.now().timestamp()-max(0,args.since_hours)*3600
         if downloads.is_dir():
+            recent=[]
             for p in downloads.glob("*.zip"):
                 try:
-                    if p.is_file() and p.stat().st_mtime>=cutoff: archives[p.resolve()]=p
+                    if p.is_file() and p.stat().st_mtime>=cutoff: recent.append(p)
                 except OSError: pass
             print(f"Scanning recent ZIP downloads in: {downloads}")
             print(f"Time window: last {args.since_hours:g} hour(s)")
+            for p in recent:
+                # NOORIX-named archives are trained model packages.
+                # Other recent ZIPs are copied intact into the dataset inbox.
+                if p.name.upper().startswith("NOORIX_") or p.name.upper().startswith("NOORIX-"):
+                    archives[p.resolve()]=p
+                else:
+                    target=DATA_INCOMING/p.name
+                    if target.exists():
+                        print(f"Dataset ZIP already present (skip): {target.name}")
+                    else:
+                        shutil.copy2(p,target)
+                        print(f"DATASET ZIP COPIED: {p.name} -> {target}")
         else: print(f"Downloads folder not found: {downloads}")
     if not archives:
-        print(f"No ZIP files found in {INCOMING}" + (f" or recent Downloads ({args.downloads_dir})" if args.scan_downloads else ""))
+        print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
         return 0
     for archive in sorted(archives.values(),key=lambda p:p.stat().st_mtime):
         slug=archive.stem.replace(" ","_")
