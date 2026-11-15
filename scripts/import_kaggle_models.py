@@ -15,7 +15,7 @@ MAX_MEMBER_BYTES = 4 * 1024 * 1024 * 1024
 
 def safe_extract_member(zf, info, target):
     # ZIP entry names may use Windows separators even when processed on POSIX.
-    normalized=info.filename.replace("\\\\","/")
+    normalized=info.filename.replace("\\","/")
     raw=PurePosixPath(normalized)
     mode=(info.external_attr >> 16) & 0o170000
     if (not normalized or "\\x00" in normalized or raw.is_absolute()
