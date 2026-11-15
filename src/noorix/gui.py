@@ -38,10 +38,17 @@ class NoorixApp:
         self.currency = None
         self.config_path = config_path
         self.agent_coordinator = None
+        self.session_history = []
+        self.active_section = "Overview"
         self.config = self._read_config(config_path)
+        try:
+            self.camera_index = int(self.config.get("camera_index", camera_index))
+        except (TypeError, ValueError):
+            self.camera_index = camera_index
         self._setup_window()
         self._build_ui()
         self._set_status("SYSTEM READY", "Start the camera to begin a local session.", C["cyan"])
+        self.refresh_overview()
 
     @staticmethod
     def _read_config(path: Path) -> dict:
@@ -55,8 +62,8 @@ class NoorixApp:
 
     def _setup_window(self):
         self.root.title("NOORIX AI — See Beyond. Understand More.")
-        self.root.geometry("1320x850")
-        self.root.minsize(1040, 700)
+        self.root.geometry("1280x760")
+        self.root.minsize(960, 620)
         self.root.configure(bg=C["bg"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -89,7 +96,7 @@ class NoorixApp:
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
-        side = tk.Frame(shell, bg=C["sidebar"], width=218, padx=18, pady=22)
+        side = tk.Frame(shell, bg=C["sidebar"], width=196, padx=14, pady=18)
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
         brand = tk.Frame(side, bg=C["sidebar"])
@@ -107,6 +114,8 @@ class NoorixApp:
         self._nav(side, "⌗", "Scene analysis", False)
         self._nav(side, "⚙", "System status", False)
         self._nav(side, "✦", "Agent console", False)
+        self._nav(side, "◷", "Session history", False)
+        self._nav(side, "⚙", "Settings", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
@@ -114,13 +123,13 @@ class NoorixApp:
         privacy.pack(fill="x", pady=(10, 14))
         note = self._label(
             privacy,
-            "PRIVACY FIRST\\n\\nFrames are processed locally.\\nNo automatic image saving.",
+            "PRIVACY FIRST\nFrames stay on this device.\nNo automatic image saving.",
             9, C["muted"], justify="left", wraplength=165,
         )
         note.pack(anchor="w")
         self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
 
-        main = tk.Frame(shell, bg=C["bg"], padx=24, pady=20)
+        main = tk.Frame(shell, bg=C["bg"], padx=18, pady=14)
         main.pack(side="left", fill="both", expand=True)
 
         top = tk.Frame(main, bg=C["bg"])
@@ -131,6 +140,7 @@ class NoorixApp:
         self._label(heading, "Your vision workspace", 23, C["text"], True).pack(anchor="w", pady=(4, 0))
         righttop = tk.Frame(top, bg=C["bg"])
         righttop.pack(side="right", anchor="center")
+        self._button(righttop, "↻  Refresh readiness", self.refresh_overview, compact=True).pack(side="left", padx=(0, 8))
         self._label(righttop, "●  LOCAL MODE", 9, C["green"], True,
                     bg=C["panel"], padx=12, pady=8).pack(side="right")
 
@@ -144,7 +154,7 @@ class NoorixApp:
         workspace.pack(fill="both", expand=True)
         left = tk.Frame(workspace, bg=C["bg"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 14))
-        right = tk.Frame(workspace, bg=C["bg"], width=300)
+        right = tk.Frame(workspace, bg=C["bg"], width=270)
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
 
@@ -188,12 +198,6 @@ class NoorixApp:
         self.result.insert("1.0", "Your results will appear here.\n\nStart the camera, then choose an action.")
         self.result.configure(state="disabled")
 
-        features = tk.Frame(main, bg=C["bg"])
-        features.pack(fill="x", pady=(15, 12))
-        self._feature(features, "01", "TEXT READER", "Printed English · OCR", C["blue"])
-        self._feature(features, "02", "OBJECT AWARENESS", "Image-relative positions", C["cyan"])
-        self._feature(features, "03", "CURRENCY ESTIMATE", "Pakistani banknote classes", C["purple"])
-
         footer = tk.Frame(main, bg=C["bg"])
         footer.pack(fill="x")
         self.status_dot = self._label(footer, "●", 9, C["cyan"], True)
@@ -206,25 +210,171 @@ class NoorixApp:
                     8, C["muted"]).pack(anchor="w", pady=(8, 0))
 
     def _nav(self, parent, symbol, title, active):
-        bg = C["panel2"] if active else C["sidebar"]
-        fg = C["cyan"] if active else C["muted"]
+        if not hasattr(self, "_nav_buttons"):
+            self._nav_buttons = []
         actions = {
-            "Overview": lambda: self._set_status("OVERVIEW", "NOORIX local workspace.", C["cyan"]),
+            "Overview": self.refresh_overview,
             "Live vision": self.start_camera,
             "Text reading": self.read_text,
             "Scene analysis": self.analyze,
             "System status": self.show_system_status,
             "Agent console": self.show_agents_console,
+            "Session history": self.show_session_history,
+            "Settings": self.show_settings,
         }
         button = tk.Button(
-            parent, text=f"{symbol}   {title}", command=actions.get(title, lambda: None),
-            bg=bg, fg=C["text"] if active else fg,
+            parent, text=f"{symbol}   {title}", command=lambda t=title: self._navigate(t),
+            bg=C["panel2"] if active else C["sidebar"],
+            fg=C["text"] if active else C["muted"],
             activebackground=C["panel2"], activeforeground=C["cyan"],
             relief="flat", bd=0, cursor="hand2", anchor="w",
             font=("Segoe UI", 9, "bold" if active else "normal"),
             padx=12, pady=10,
         )
         button.pack(fill="x", pady=3)
+        self._nav_buttons.append((title, button))
+
+    def _navigate(self, title):
+        self.active_section = title
+        for name, button in getattr(self, "_nav_buttons", []):
+            selected = name == title
+            button.configure(
+                bg=C["panel2"] if selected else C["sidebar"],
+                fg=C["text"] if selected else C["muted"],
+                font=("Segoe UI", 9, "bold" if selected else "normal"),
+            )
+        actions = {
+            "Overview": self.refresh_overview,
+            "Live vision": self.start_camera,
+            "Text reading": self.read_text,
+            "Scene analysis": self.analyze,
+            "System status": self.show_system_status,
+            "Agent console": self.show_agents_console,
+            "Session history": self.show_session_history,
+            "Settings": self.show_settings,
+        }
+        action = actions.get(title)
+        if action:
+            action()
+
+    def _record_activity(self, action, summary):
+        from datetime import datetime
+        self.session_history.append({
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "action": str(action),
+            "summary": str(summary).replace("\n", " ")[:240],
+        })
+        self.session_history = self.session_history[-50:]
+
+    def refresh_overview(self):
+        import shutil
+        from noorix.paths import resolve_config_path
+
+        camera_live = getattr(self, "camera", None) is not None
+        self.camera_metric.configure(
+            text="LIVE" if camera_live else "STANDBY",
+            fg=C["green"] if camera_live else C["cyan"],
+        )
+        camera_detail = getattr(self, "camera_input_detail", None)
+        if camera_detail is not None:
+            camera_detail.configure(
+                text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
+            )
+
+        tesseract_ready = shutil.which("tesseract") is not None
+        self.ocr_metric.configure(
+            text="READY" if tesseract_ready else "NEEDS SETUP",
+            fg=C["green"] if tesseract_ready else C["amber"],
+        )
+        ocr_detail = getattr(self, "printed_english_ocr_detail", None)
+        if ocr_detail is not None:
+            ocr_detail.configure(text="Tesseract executable found" if tesseract_ready else "Install Tesseract and add it to PATH")
+
+        object_config = self.config.get("object_detection", {})
+        model_value = object_config.get("model_path") if isinstance(object_config, dict) else None
+        model_path = resolve_config_path(model_value, self.config_path) if model_value else None
+        model_ready = bool(model_path and model_path.is_file())
+        self.model_metric.configure(
+            text="MODEL READY" if model_ready else ("MODEL MISSING" if model_value else "NOT CONFIGURED"),
+            fg=C["green"] if model_ready else (C["amber"] if model_value else C["purple"]),
+        )
+        model_detail = getattr(self, "ai_inference_detail", None)
+        if model_detail is not None:
+            model_detail.configure(
+                text=str(model_path) if model_value else "Set object_detection.model_path in config.json"
+            )
+
+        camera_state = "Camera live" if getattr(self, "camera", None) is not None else "Camera standby"
+        self._set_status("OVERVIEW UPDATED", f"{camera_state} · {len(getattr(self, 'session_history', []))} session events", C["cyan"])
+
+    def show_session_history(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Session History")
+        window.geometry("720x520")
+        window.configure(bg=C["bg"])
+        self._label(window, "SESSION ACTIVITY", 17, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=20, pady=(18, 4))
+        self._label(window, "In-memory event log only · cleared when the app closes", 9, C["muted"], bg=C["bg"]).pack(anchor="w", padx=20, pady=(0, 12))
+        output = tk.Text(window, wrap="word", bg=C["panel"], fg=C["text"], relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12)
+        output.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        entries = getattr(self, "session_history", [])
+        if entries:
+            for item in reversed(entries):
+                output.insert("end", f"[{item['time']}] {item['action']}\n{item['summary']}\n\n")
+        else:
+            output.insert("end", "No activity recorded in this session yet.")
+        output.configure(state="disabled")
+        self._button(window, "Clear session history", lambda: self._clear_session_history(output), compact=True).pack(anchor="e", padx=20, pady=(0, 16))
+
+    def _clear_session_history(self, output):
+        self.session_history.clear()
+        output.configure(state="normal")
+        output.delete("1.0", "end")
+        output.insert("end", "Session history cleared.")
+        output.configure(state="disabled")
+
+    def show_settings(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Local Settings")
+        window.geometry("560x430")
+        window.configure(bg=C["bg"])
+        self._label(window, "LOCAL CONFIGURATION", 17, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=20, pady=(18, 4))
+        self._label(window, "Settings are stored in your local config file, not uploaded.", 9, C["muted"], bg=C["bg"]).pack(anchor="w", padx=20, pady=(0, 16))
+        form = self._panel(window, padx=16, pady=14)
+        form.pack(fill="x", padx=20)
+        self._label(form, "Camera device index", 9, C["muted"], True).pack(anchor="w")
+        camera_var = tk.StringVar(value=str(self.camera_index))
+        camera_entry = tk.Entry(form, textvariable=camera_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        camera_entry.pack(fill="x", pady=(5, 14), ipady=7)
+        self._label(form, "Object confidence threshold (0.05–0.95)", 9, C["muted"], True).pack(anchor="w")
+        object_config = self.config.get("object_detection", {})
+        if not isinstance(object_config, dict):
+            object_config = {}
+        threshold_var = tk.StringVar(value=str(object_config.get("confidence_threshold", 0.3)))
+        threshold_entry = tk.Entry(form, textvariable=threshold_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        threshold_entry.pack(fill="x", pady=(5, 12), ipady=7)
+
+        def save_settings():
+            try:
+                camera_index = int(camera_var.get())
+                threshold = float(threshold_var.get())
+                if camera_index < 0 or not 0.05 <= threshold <= 0.95:
+                    raise ValueError("Camera index must be non-negative and threshold must be between 0.05 and 0.95.")
+                updated = dict(self.config)
+                updated_object = dict(updated.get("object_detection", {}))
+                updated_object["confidence_threshold"] = threshold
+                updated["object_detection"] = updated_object
+                updated["camera_index"] = camera_index
+                self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+                self.config = updated
+                self.camera_index = camera_index
+                self.agent_coordinator = None
+                self.refresh_overview()
+                messagebox.showinfo("NOORIX AI", "Local settings saved. Restart the camera if its device index changed.", parent=window)
+                window.destroy()
+            except (ValueError, OSError, TypeError) as exc:
+                messagebox.showerror("Settings not saved", str(exc), parent=window)
+
+        self._button(window, "Save local settings", save_settings, True).pack(anchor="e", padx=20, pady=16)
 
     def _get_agent_coordinator(self):
         if self.agent_coordinator is None:
@@ -344,7 +494,10 @@ class NoorixApp:
         self._label(card, title, 8, C["muted"], True).pack(anchor="w")
         val = self._label(card, value, 12, accent, True)
         val.pack(anchor="w", pady=(7, 3))
-        self._label(card, detail, 8, C["muted"]).pack(anchor="w")
+        detail_label = self._label(card, detail, 8, C["muted"])
+        detail_label.pack(anchor="w")
+        key = title.lower().replace(" ", "_")
+        setattr(self, f"{key}_detail", detail_label)
         return val
 
     def _feature(self, parent, number, title, detail, accent):
@@ -428,6 +581,8 @@ class NoorixApp:
             from noorix.ocr import PrintedEnglishOCR
             output = PrintedEnglishOCR().read(self.current_frame) or "No clear printed English text found."
             self._set_result(output)
+            if hasattr(self, "_record_activity"):
+                self._record_activity("Text reading", output)
             self.ocr_metric.configure(text="REQUEST COMPLETED", fg=C["green"])
             self._set_status("TEXT READING COMPLETE", "English OCR output is ready.", C["green"])
         except Exception as exc:
@@ -441,46 +596,95 @@ class NoorixApp:
     def analyze(self):
         if self.current_frame is None:
             self._set_result("Start the camera first.")
-            self._set_status("CAMERA REQUIRED", "Start the camera before scene analysis.", C["amber"])
-            return
-        results = []
-        try:
-            model = self.config.get("object_detection", {})
-            if model.get("model_path") and model.get("labels"):
-                from noorix.objects import ObjectDetector
-                if self.detector is None:
-                    self.detector = ObjectDetector(
-                        self._resolve_model_path(model["model_path"]), model["labels"],
-                        confidence_threshold=float(model.get("confidence_threshold", 0.5)),
-                    )
-                for item in self.detector.detect(self.current_frame):
-                    results.append(f"{item['label']} — image {item['position']} ({item['confidence']:.0%})")
-            currency = self.config.get("currency", {})
-            if currency.get("model_path") and currency.get("labels"):
-                from noorix.currency import CurrencyEstimator
-                if self.currency is None:
-                    self.currency = CurrencyEstimator(
-                        self._resolve_model_path(currency["model_path"]), currency["labels"],
-                        input_size=int(currency.get("input_size", 224)),
-                    )
-                estimate = self.currency.predict(self.current_frame)
-                results.append(
-                    f"Possible banknote: {estimate['denomination']} "
-                    f"(score {estimate['confidence']:.0%}; estimate only)"
-                )
-            output = "\n".join(results) if results else (
-                "No trained models are configured. Add compatible ONNX model files "
-                "and their exact labels in config.json."
+            self._set_status(
+                "CAMERA REQUIRED",
+                "Start the camera before scene analysis.",
+                C["amber"],
             )
-            self._set_result(output)
-            self.model_metric.configure(text="INFERENCE COMPLETE" if results else "AWAITING MODELS",
-                                        fg=C["green"] if results else C["purple"])
-            self._set_status("ANALYSIS COMPLETE" if results else "MODELS NOT CONFIGURED",
-                             "Predictions are estimates and require validation.",
-                             C["green"] if results else C["amber"])
+            return
+
+        try:
+            coordinator = self._get_agent_coordinator()
+            results = coordinator.run_vision(self.current_frame)
+
+            sections = []
+            for result in results:
+                sections.append(
+                    f"AGENT: {result.agent.upper()}\n"
+                    f"STATE: {result.state.value.upper()}\n"
+                    f"{result.summary}"
+                )
+
+                for warning in result.warnings:
+                    sections.append(f"WARNING: {warning}")
+
+                if result.data is not None:
+                    sections.append(
+                        "DETAILS:\n" +
+                        json.dumps(
+                            result.data,
+                            ensure_ascii=False,
+                            indent=2,
+                            default=str,
+                        )
+                    )
+
+            output = "\n\n".join(sections)
+            self._set_result(output or "No agent results were returned.")
+            if hasattr(self, "_record_activity"):
+                self._record_activity("Scene analysis", output or "No agent results were returned.")
+
+            model_results = [
+                result for result in results
+                if result.agent in ("object_detection", "currency")
+            ]
+            completed = [
+                result for result in model_results
+                if result.successful
+            ]
+            errors = [
+                result for result in results
+                if result.state.value == "error"
+            ]
+
+            if errors:
+                self.model_metric.configure(
+                    text="SOME TASKS FAILED",
+                    fg=C["amber"],
+                )
+                self._set_status(
+                    "PARTIAL ANALYSIS",
+                    "One or more agents could not complete their tasks.",
+                    C["amber"],
+                )
+            elif completed:
+                self.model_metric.configure(
+                    text="INFERENCE COMPLETE",
+                    fg=C["green"],
+                )
+                self._set_status(
+                    "ANALYSIS COMPLETE",
+                    "Agent results are estimates and require independent validation.",
+                    C["green"],
+                )
+            else:
+                self.model_metric.configure(
+                    text="AWAITING MODELS",
+                    fg=C["purple"],
+                )
+                self._set_status(
+                    "MODELS NOT READY",
+                    "Configure compatible models before requesting predictions.",
+                    C["amber"],
+                )
+
         except Exception as exc:
-            self._set_result(f"Analysis unavailable: {exc}")
-            self._set_status("ANALYSIS ERROR", "Check model files, labels and configuration.", C["amber"])
+            self._set_result(f"Analysis unavailable: {type(exc).__name__}: {exc}")
+            self._set_status(
+                "ANALYSIS ERROR",
+                "Check agent registration and configuration.",
+                C["amber"],
+            )
 
     def speak_result(self):
         text = self.result.get("1.0", "end").strip()

@@ -75,17 +75,28 @@ def test_absolute_model_path_is_preserved(tmp_path):
     assert resolve_config_path(absolute, tmp_path / "config.json") == absolute
 
 
-def test_object_agent_resolves_relative_path_from_config(tmp_path, monkeypatch):
+def test_object_agent_uses_shared_detector_factory(tmp_path, monkeypatch):
     import noorix.agents.specialists as specialists
+
     captured = {}
+
     class DummyDetector:
-        def __init__(self, model_path, labels, confidence_threshold):
-            captured["path"] = Path(model_path)
         def detect(self, frame):
             return []
-    monkeypatch.setattr(specialists, "ObjectDetector", DummyDetector)
-    agent = ObjectDetectionAgent({"model_path": "models/objects.onnx", "labels": ["cup"]},
-                                 config_path=tmp_path / "config.json")
+
+    def fake_factory(config, config_path):
+        captured["config"] = config
+        captured["config_path"] = Path(config_path)
+        return DummyDetector()
+
+    monkeypatch.setattr(specialists, "create_object_detector", fake_factory)
+
+    config = {"model_path": "models/objects.onnx", "labels": ["cup"]}
+    config_path = tmp_path / "config.json"
+    agent = ObjectDetectionAgent(config, config_path=config_path)
+
     result = agent.run(object())
+
     assert result.successful
-    assert captured["path"] == (tmp_path / "models/objects.onnx").resolve()
+    assert captured["config"] == config
+    assert captured["config_path"] == config_path

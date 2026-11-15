@@ -6,7 +6,7 @@ from typing import Any, Mapping
 from noorix.agents.base import AgentResult, AgentState
 from noorix.capabilities import capability_status
 from noorix.currency import CurrencyEstimator
-from noorix.objects import ObjectDetector
+from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
 from noorix.paths import resolve_config_path
@@ -26,19 +26,21 @@ class OCRAgent:
 class ObjectDetectionAgent:
     name = "object_detection"
     description = "Detect supported objects and report image-relative positions."
-    def __init__(self, config: Mapping[str, Any], adapter: ObjectDetector | None = None, config_path: str | Path = "config.json"):
+    def __init__(self, config: Mapping[str, Any], adapter: Any | None = None, config_path: str | Path = "config.json"):
         self.config, self.adapter = dict(config), adapter
         self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
         if payload is None:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
         if self.adapter is None:
-            model_path, labels = self.config.get("model_path"), self.config.get("labels")
-            if not model_path or not labels:
+            if not self.config.get("model_path"):
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
-                                   "Object model and exact class labels are not configured.")
-            self.adapter = ObjectDetector(resolve_config_path(model_path, self.config_path), labels,
-                confidence_threshold=float(self.config.get("confidence_threshold", 0.5)))
+                                   "Object detection model is not configured.")
+            try:
+                self.adapter = create_object_detector(self.config, self.config_path)
+            except (OSError, ValueError, TypeError) as exc:
+                return AgentResult(self.name, AgentState.NEEDS_SETUP,
+                                   f"Object detection setup error: {exc}")
         detections = self.adapter.detect(payload)
         if not detections:
             return AgentResult(self.name, AgentState.COMPLETED, "No supported objects detected.",

@@ -44,3 +44,79 @@ def test_speech_validates_text_and_settings():
         SpeechOutput(rate=0)
     with pytest.raises(ValueError, match="volume"):
         SpeechOutput(volume=2.0)
+
+
+def test_object_detector_decodes_postprocessed_seven_column_output():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class FakeNet:
+        def getUnconnectedOutLayersNames(self):
+            return ["detections"]
+
+        def setInput(self, blob):
+            self.blob = blob
+
+        def forward(self, names):
+            assert names == ["detections"]
+            return [np.array([[[[0, 0, 0.9, 0.3, 0.2, 0.7, 0.8]]]], dtype=np.float32)]
+
+    detector = ObjectDetector("unused.onnx", ["person"], confidence_threshold=0.5)
+    detector._net = FakeNet()
+    image = np.zeros((100, 200, 3), dtype=np.uint8)
+
+    results = detector.detect(image)
+
+    assert len(results) == 1
+    assert results[0]["label"] == "person"
+    assert results[0]["confidence"] == pytest.approx(0.9)
+    assert results[0]["position"] == "centre"
+    assert results[0]["box"] == [60, 20, 140, 80]
+
+
+def test_object_detector_rejects_raw_multi_head_ssd_outputs():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class FakeNet:
+        def getUnconnectedOutLayersNames(self):
+            return ["boxes", "scores"]
+
+        def setInput(self, blob):
+            self.blob = blob
+
+        def forward(self, names):
+            return [
+                np.zeros((1, 4, 10, 10), dtype=np.float32),
+                np.zeros((1, 90, 10, 10), dtype=np.float32),
+            ]
+
+    detector = ObjectDetector("unused.onnx", ["person"])
+    detector._net = FakeNet()
+
+    with pytest.raises(NotImplementedError, match="model-specific SSD decoder"):
+        detector.detect(np.zeros((100, 200, 3), dtype=np.uint8))
+
+
+def test_object_detector_ignores_invalid_boxes_and_non_finite_rows():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class FakeNet:
+        def getUnconnectedOutLayersNames(self):
+            return ["detections"]
+
+        def setInput(self, blob):
+            self.blob = blob
+
+        def forward(self, names):
+            return [np.array([
+                [0, 0, 0.99, 0.8, 0.2, 0.3, 0.9],
+                [0, 0, np.nan, 0.1, 0.2, 0.5, 0.8],
+                [0, 0, 0.99, -0.1, 0.2, 0.5, 0.8],
+            ], dtype=np.float32)]
+
+    detector = ObjectDetector("unused.onnx", ["person"])
+    detector._net = FakeNet()
+
+    assert detector.detect(np.zeros((100, 200, 3), dtype=np.uint8)) == []
