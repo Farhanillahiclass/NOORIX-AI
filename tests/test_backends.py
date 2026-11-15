@@ -30,9 +30,12 @@ def test_object_detector_requires_model_file():
         detector.load()
 
 
-def test_ocr_is_limited_to_english_and_rejects_empty_image():
-    with pytest.raises(ValueError, match="English"):
-        PrintedEnglishOCR(language="urd")
+def test_ocr_supports_english_and_urdu_and_rejects_invalid_input():
+    assert PrintedEnglishOCR(language="eng").language == "eng"
+    assert PrintedEnglishOCR(language="urd").language == "urd"
+    assert PrintedEnglishOCR(language="eng+urd").language == "eng+urd"
+    with pytest.raises(ValueError):
+        PrintedEnglishOCR(language="invalid")
     with pytest.raises(ValueError, match="must not be None"):
         PrintedEnglishOCR().read(None)
 
