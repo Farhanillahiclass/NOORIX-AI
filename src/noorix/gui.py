@@ -300,9 +300,14 @@ class NoorixApp:
             text="LIVE" if camera_live else "STANDBY",
             fg=C["green"] if camera_live else C["blue"],
         )
-        self.camera_input_detail.configure(
-            text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
-        )
+        camera_detail = f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
+        if camera_live:
+            capture_info = self.camera.capture_info
+            actual_width = capture_info.get("actual_width", 0)
+            actual_height = capture_info.get("actual_height", 0)
+            if actual_width and actual_height:
+                camera_detail += f" · {actual_width}×{actual_height}"
+        self.camera_input_detail.configure(text=camera_detail)
 
         tesseract = shutil.which("tesseract")
         ocr_config = self.config.get("ocr", {})
@@ -579,8 +584,15 @@ class NoorixApp:
             self.camera = self.WebcamCapture(self.camera_index)
             self.camera.start()
             self.camera_metric.configure(text="LIVE", fg=C["green"])
+            capture_info = self.camera.capture_info
+            actual_width = capture_info.get("actual_width", 0)
+            actual_height = capture_info.get("actual_height", 0)
+            camera_detail = f"Device {self.camera_index} · Connected"
+            if actual_width and actual_height:
+                camera_detail += f" · {actual_width}×{actual_height}"
+            self.camera_input_detail.configure(text=camera_detail)
             self.preview_state.configure(text="●  LIVE FEED", fg=C["green"])
-            self._set_status("CAMERA ACTIVE", "Frames are processed locally and not saved.", C["green"])
+            self._set_status("CAMERA ACTIVE", camera_detail + " · Frames stay local.", C["green"])
             self._update_frame()
         except Exception as exc:
             self.camera = None
@@ -637,11 +649,21 @@ class NoorixApp:
             ocr_config = self.config.get("ocr", {})
             language = ocr_config.get("language", "eng") if isinstance(ocr_config, dict) else "eng"
             output = PrintedEnglishOCR(language=language).read(self.current_frame) or "No clear printed text found."
+            from noorix.agents.frame_quality import FrameQualityAgent
+            quality = FrameQualityAgent().run(self.current_frame)
+            quality_notes = list(quality.warnings)
+            if quality_notes:
+                output += "\n\nIMAGE QUALITY CHECK\n" + "\n".join("• " + note for note in quality_notes)
+            else:
+                output += "\n\nIMAGE QUALITY CHECK\nFrame quality checks passed."
             self._set_result(output)
             if hasattr(self, "_record_activity"):
                 self._record_activity("Text reading", output)
             self.ocr_metric.configure(text="REQUEST COMPLETED", fg=C["green"])
-            self._set_status("TEXT READING COMPLETE", f"OCR output ready ({language}).", C["green"])
+            detail = f"OCR output ready ({language})"
+            if quality_notes:
+                detail += " · Improve focus, lighting or contrast"
+            self._set_status("TEXT READING COMPLETE", detail, C["green"] if not quality_notes else C["amber"])
         except Exception as exc:
             self._set_result(f"OCR unavailable: {exc}")
             self._set_status("OCR UNAVAILABLE", "Tesseract executable is required.", C["amber"])
