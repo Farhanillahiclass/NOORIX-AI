@@ -13,7 +13,7 @@ from noorix.paths import resolve_config_path
 
 class OCRAgent:
     name = "ocr"
-    description = "Read clear printed English from the current camera frame."
+    description = "Extract printed page text using configured Tesseract languages."
     def __init__(self, adapter: PrintedEnglishOCR | None = None):
         self.adapter = adapter or PrintedEnglishOCR()
     def run(self, payload: Any = None) -> AgentResult:
@@ -21,7 +21,7 @@ class OCRAgent:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
         text = self.adapter.read(payload)
         return AgentResult(self.name, AgentState.COMPLETED,
-                           text or "No clear printed English text detected.", data=text)
+                           text or "No clear printed text detected.", data=text)
 
 class ObjectDetectionAgent:
     name = "object_detection"

@@ -13,11 +13,11 @@ from tkinter import messagebox, simpledialog
 
 
 C = {
-    "bg": "#080f1d", "sidebar": "#0c1728", "panel": "#101e31",
-    "panel2": "#14253b", "panel3": "#0b1626", "line": "#263b55",
-    "text": "#edf5ff", "muted": "#91a6bf", "cyan": "#55e1d0",
-    "blue": "#6daaff", "purple": "#a78bfa", "amber": "#f5c16c",
-    "green": "#65d6a5", "red": "#ff8585",
+    "bg": "#f4f7fb", "sidebar": "#ffffff", "panel": "#ffffff",
+    "panel2": "#eaf1f8", "panel3": "#f8fafc", "line": "#dbe4ee",
+    "text": "#172b4d", "muted": "#60748a", "cyan": "#0f9f91",
+    "blue": "#2563eb", "purple": "#7c3aed", "amber": "#b7791f",
+    "green": "#16845b", "red": "#c24141",
 }
 
 
@@ -39,6 +39,10 @@ class NoorixApp:
         self.config_path = config_path
         self.agent_coordinator = None
         self.session_history = []
+        self.auto_mode = False
+        self.auto_after_id = None
+        self.auto_busy = False
+        self.last_spoken_signature = None
         self.active_section = "Overview"
         self.config = self._read_config(config_path)
         try:
@@ -62,8 +66,8 @@ class NoorixApp:
 
     def _setup_window(self):
         self.root.title("NOORIX AI — See Beyond. Understand More.")
-        self.root.geometry("1280x760")
-        self.root.minsize(960, 620)
+        self.root.geometry("1360x820")
+        self.root.minsize(1080, 680)
         self.root.configure(bg=C["bg"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -93,121 +97,142 @@ class NoorixApp:
         return button
 
     def _build_ui(self):
+        """Premium white AI workspace with hybrid sidebar and top command bar."""
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
-        side = tk.Frame(shell, bg=C["sidebar"], width=196, padx=14, pady=18)
+        # Persistent navigation rail.
+        side = tk.Frame(shell, bg=C["sidebar"], width=210, padx=16, pady=18,
+                        highlightbackground=C["line"], highlightthickness=1)
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
+
         brand = tk.Frame(side, bg=C["sidebar"])
         brand.pack(fill="x", pady=(2, 28))
-        self._label(brand, "N", 22, C["cyan"], True, bg=C["panel2"], width=2, height=1).pack(side="left")
-        name = tk.Frame(brand, bg=C["sidebar"])
-        name.pack(side="left", padx=9)
-        self._label(name, "NOORIX AI", 15, C["text"], True).pack(anchor="w")
-        self._label(name, "SEE BEYOND", 7, C["cyan"], True).pack(anchor="w")
+        logo = tk.Frame(brand, bg="#172b4d", width=42, height=42)
+        logo.pack(side="left")
+        logo.pack_propagate(False)
+        self._label(logo, "N", 23, "#ffffff", True, bg="#172b4d").pack(expand=True)
+        brand_text = tk.Frame(brand, bg=C["sidebar"])
+        brand_text.pack(side="left", padx=10)
+        self._label(brand_text, "NOORIX AI", 15, C["text"], True).pack(anchor="w")
+        self._label(brand_text, "SEE BEYOND", 7, C["cyan"], True).pack(anchor="w")
 
-        self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
-        self._nav(side, "◈", "Overview", True)
+        self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 9))
+        self._nav(side, "⌂", "Overview", True)
         self._nav(side, "◉", "Live vision", False)
         self._nav(side, "Aa", "Text reading", False)
         self._nav(side, "⌗", "Scene analysis", False)
-        self._nav(side, "⚙", "System status", False)
+        self._label(side, "MANAGEMENT", 8, C["muted"], True).pack(anchor="w", pady=(20, 9))
         self._nav(side, "✦", "Agent console", False)
+        self._nav(side, "▤", "System status", False)
         self._nav(side, "◷", "Session history", False)
         self._nav(side, "⚙", "Settings", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
-        privacy = self._panel(side, bg=C["panel3"], padx=12, pady=12)
-        privacy.pack(fill="x", pady=(10, 14))
-        note = self._label(
-            privacy,
-            "PRIVACY FIRST\nFrames stay on this device.\nNo automatic image saving.",
-            9, C["muted"], justify="left", wraplength=165,
-        )
-        note.pack(anchor="w")
+        privacy = self._panel(side, bg=C["panel3"], padx=11, pady=11)
+        privacy.pack(fill="x", pady=(8, 12))
+        self._label(privacy, "PRIVATE BY DESIGN", 8, C["cyan"], True).pack(anchor="w")
+        self._label(privacy, "Frames are processed locally. Nothing is saved automatically.",
+                    8, C["muted"], justify="left", wraplength=165).pack(anchor="w", pady=(5, 0))
         self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
 
-        main = tk.Frame(shell, bg=C["bg"], padx=18, pady=14)
+        # Main workspace and hybrid top command bar.
+        main = tk.Frame(shell, bg=C["bg"], padx=22, pady=16)
         main.pack(side="left", fill="both", expand=True)
+        topbar = tk.Frame(main, bg=C["panel"], padx=15, pady=10,
+                          highlightbackground=C["line"], highlightthickness=1)
+        topbar.pack(fill="x", pady=(0, 18))
+        self._label(topbar, "MRS  /  NOORIX AI", 9, C["text"], True).pack(side="left")
+        self._label(topbar, "LOCAL WORKSPACE", 8, C["muted"], True).pack(side="left", padx=(18, 0))
+        top_actions = tk.Frame(topbar, bg=C["panel"])
+        top_actions.pack(side="right")
+        self._button(top_actions, "Refresh", self.refresh_overview, compact=True).pack(side="left", padx=(0, 7))
+        self._label(top_actions, "● LOCAL MODE", 8, C["green"], True,
+                    bg="#e9f7f0", padx=10, pady=7).pack(side="left")
 
-        top = tk.Frame(main, bg=C["bg"])
-        top.pack(fill="x")
-        heading = tk.Frame(top, bg=C["bg"])
+        title_row = tk.Frame(main, bg=C["bg"])
+        title_row.pack(fill="x")
+        heading = tk.Frame(title_row, bg=C["bg"])
         heading.pack(side="left")
-        self._label(heading, "INTELLIGENT ACCESSIBILITY PLATFORM", 8, C["cyan"], True).pack(anchor="w")
-        self._label(heading, "Your vision workspace", 23, C["text"], True).pack(anchor="w", pady=(4, 0))
-        righttop = tk.Frame(top, bg=C["bg"])
-        righttop.pack(side="right", anchor="center")
-        self._button(righttop, "↻  Refresh readiness", self.refresh_overview, compact=True).pack(side="left", padx=(0, 8))
-        self._label(righttop, "●  LOCAL MODE", 9, C["green"], True,
-                    bg=C["panel"], padx=12, pady=8).pack(side="right")
+        self._label(heading, "INTELLIGENCE OVERVIEW", 8, C["cyan"], True).pack(anchor="w")
+        self._label(heading, "Your vision workspace", 24, C["text"], True).pack(anchor="w", pady=(4, 0))
+        self._label(heading, "A clear view of your camera, recognition tools and local AI agents.",
+                    9, C["muted"]).pack(anchor="w", pady=(4, 0))
+        self.auto_button = self._button(title_row, "Enable Auto Scan", self.toggle_auto_mode, True, True)
+        self.auto_button.pack(side="right", anchor="center")
 
         metrics = tk.Frame(main, bg=C["bg"])
-        metrics.pack(fill="x", pady=(20, 16))
-        self.camera_metric = self._metric(metrics, "CAMERA INPUT", "STANDBY", "Device 0 · Not connected", C["cyan"])
-        self.ocr_metric = self._metric(metrics, "PRINTED ENGLISH OCR", "ADAPTER READY", "Tesseract executable needed", C["blue"])
-        self.model_metric = self._metric(metrics, "AI INFERENCE", "AWAITING MODELS", "ONNX weights not configured", C["purple"])
+        metrics.pack(fill="x", pady=(18, 16))
+        self.camera_metric = self._metric(metrics, "CAMERA INPUT", "STANDBY",
+                                          f"Device {self.camera_index} · Not connected", C["blue"])
+        self.ocr_metric = self._metric(metrics, "PRINTED TEXT OCR", "CHECKING",
+                                       "Tesseract availability", C["cyan"])
+        self.model_metric = self._metric(metrics, "OBJECT MODEL", "CHECKING",
+                                         "Model configuration", C["purple"])
+        self.currency_metric = self._metric(metrics, "CURRENCY MODEL", "NOT CONFIGURED",
+                                             "Verified model required", C["amber"])
 
         workspace = tk.Frame(main, bg=C["bg"])
         workspace.pack(fill="both", expand=True)
         left = tk.Frame(workspace, bg=C["bg"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 14))
-        right = tk.Frame(workspace, bg=C["bg"], width=270)
+        right = tk.Frame(workspace, bg=C["bg"], width=300)
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
 
         preview_panel = self._panel(left, padx=0, pady=0)
         preview_panel.pack(fill="both", expand=True)
-        phead = tk.Frame(preview_panel, bg=C["panel"], padx=18, pady=13)
+        phead = tk.Frame(preview_panel, bg=C["panel"], padx=16, pady=12)
         phead.pack(fill="x")
-        self._label(phead, "LIVE VISION", 10, C["text"], True).pack(side="left")
-        self.preview_state = self._label(phead, "●  CAMERA OFF", 8, C["muted"], True)
+        self._label(phead, "LIVE VISION CANVAS", 9, C["text"], True).pack(side="left")
+        self.preview_state = self._label(phead, "● CAMERA OFF", 8, C["muted"], True)
         self.preview_state.pack(side="right")
         self.preview = tk.Label(
-            preview_panel, text="NO LIVE FEED\n\nConnect your camera to start seeing.",
-            bg="#060c16", fg=C["muted"], font=("Segoe UI", 12),
+            preview_panel,
+            text="NO CAMERA FEED\n\nConnect your camera to begin live analysis.",
+            bg="#edf2f8", fg=C["muted"], font=("Segoe UI", 12),
             justify="center", compound="center",
         )
         self.preview.pack(fill="both", expand=True, padx=12, pady=12)
-        pfoot = tk.Frame(preview_panel, bg=C["panel"], padx=14, pady=12)
+        pfoot = tk.Frame(preview_panel, bg=C["panel"], padx=12, pady=11)
         pfoot.pack(fill="x")
-        self._button(pfoot, "▶  Start camera", self.start_camera, True).pack(side="left", padx=(0, 8))
-        self._button(pfoot, "■  Stop", self.stop_camera, False, True).pack(side="left")
-        self._label(pfoot, "IMAGE POSITION ONLY · NOT NAVIGATION", 7, C["muted"], True).pack(side="right")
+        self._button(pfoot, "Start camera", self.start_camera, True, True).pack(side="left", padx=(0, 7))
+        self._button(pfoot, "Stop", self.stop_camera, False, True).pack(side="left")
+        self._label(pfoot, "LOCAL FRAME ANALYSIS · NOT NAVIGATION", 7, C["muted"], True).pack(side="right")
 
-        self._label(right, "AI CONTROL DECK", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
-        actions = self._panel(right, padx=14, pady=14)
-        actions.pack(fill="x")
-        self._label(actions, "Quick actions", 14, C["text"], True).pack(anchor="w", pady=(0, 12))
-        self._button(actions, "Aa   Read printed English", self.read_text, True).pack(fill="x", pady=4)
-        self._button(actions, "⌗   Analyze objects & currency", self.analyze).pack(fill="x", pady=4)
-        self._button(actions, "♫   Speak latest result", self.speak_result).pack(fill="x", pady=4)
+        self._label(right, "TOOLS & RESULTS", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
+        actions = self._panel(right, padx=13, pady=13)
+        actions.pack(fill="x", pady=(0, 10))
+        self._label(actions, "Quick actions", 13, C["text"], True).pack(anchor="w", pady=(0, 9))
+        self._button(actions, "Read printed page", self.read_text, True, True).pack(fill="x", pady=3)
+        self._button(actions, "Analyze objects & currency", self.analyze, False, True).pack(fill="x", pady=3)
+        self._button(actions, "Speak latest result", self.speak_result, False, True).pack(fill="x", pady=3)
 
-        self._label(right, "INTELLIGENCE OUTPUT", 8, C["muted"], True).pack(anchor="w", pady=(18, 8))
-        output_panel = self._panel(right, padx=13, pady=12)
+        output_panel = self._panel(right, padx=12, pady=11)
         output_panel.pack(fill="both", expand=True)
-        self._label(output_panel, "Latest insight", 12, C["text"], True).pack(anchor="w")
+        self._label(output_panel, "LATEST INTELLIGENCE", 9, C["text"], True).pack(anchor="w")
         self.result = tk.Text(
-            output_panel, height=10, wrap="word", bg=C["panel"], fg=C["muted"],
-            insertbackground=C["text"], relief="flat", bd=0, padx=0, pady=10,
-            font=("Segoe UI", 9), highlightthickness=0,
+            output_panel, height=12, wrap="word", bg=C["panel3"], fg=C["text"],
+            insertbackground=C["text"], relief="flat", bd=0, padx=9, pady=9,
+            font=("Segoe UI", 9), highlightthickness=1,
+            highlightbackground=C["line"],
         )
-        self.result.pack(fill="both", expand=True)
-        self.result.insert("1.0", "Your results will appear here.\n\nStart the camera, then choose an action.")
+        self.result.pack(fill="both", expand=True, pady=(8, 0))
+        self.result.insert("1.0", "No analysis yet.\n\nStart the camera and choose a task, or enable Auto Scan.")
         self.result.configure(state="disabled")
 
-        footer = tk.Frame(main, bg=C["bg"])
+        footer = tk.Frame(main, bg=C["bg"], pady=9)
         footer.pack(fill="x")
         self.status_dot = self._label(footer, "●", 9, C["cyan"], True)
         self.status_dot.pack(side="left")
         self.status_title = self._label(footer, "SYSTEM READY", 8, C["text"], True)
-        self.status_title.pack(side="left", padx=(7, 10))
+        self.status_title.pack(side="left", padx=(7, 9))
         self.status_detail = self._label(footer, "Waiting for user action", 8, C["muted"])
         self.status_detail.pack(side="left")
-        self._label(main, "Research prototype · Estimates are not authentication · Never use as a replacement for a white cane or guide dog.",
-                    8, C["muted"]).pack(anchor="w", pady=(8, 0))
+        self._label(main, "NOORIX AI · Powered by MRS  |  Research prototype · Not a mobility or navigation aid.",
+                    7, C["muted"]).pack(anchor="w", pady=(2, 0))
 
     def _nav(self, parent, symbol, title, active):
         if not hasattr(self, "_nav_buttons"):
@@ -273,39 +298,65 @@ class NoorixApp:
         camera_live = getattr(self, "camera", None) is not None
         self.camera_metric.configure(
             text="LIVE" if camera_live else "STANDBY",
-            fg=C["green"] if camera_live else C["cyan"],
+            fg=C["green"] if camera_live else C["blue"],
         )
-        camera_detail = getattr(self, "camera_input_detail", None)
-        if camera_detail is not None:
-            camera_detail.configure(
-                text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
-            )
+        self.camera_input_detail.configure(
+            text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
+        )
 
-        tesseract_ready = shutil.which("tesseract") is not None
-        self.ocr_metric.configure(
-            text="READY" if tesseract_ready else "NEEDS SETUP",
-            fg=C["green"] if tesseract_ready else C["amber"],
-        )
-        ocr_detail = getattr(self, "printed_english_ocr_detail", None)
-        if ocr_detail is not None:
-            ocr_detail.configure(text="Tesseract executable found" if tesseract_ready else "Install Tesseract and add it to PATH")
+        tesseract = shutil.which("tesseract")
+        ocr_config = self.config.get("ocr", {})
+        language = ocr_config.get("language", "eng") if isinstance(ocr_config, dict) else "eng"
+        if not tesseract:
+            ocr_state, ocr_detail, ocr_color = "NEEDS SETUP", "Tesseract executable not found", C["amber"]
+        else:
+            try:
+                import pytesseract
+                installed_languages = set(pytesseract.get_languages(config=""))
+                requested = set(language.split("+"))
+                missing = sorted(requested - installed_languages)
+                if missing:
+                    ocr_state = "LANGUAGE DATA MISSING"
+                    ocr_detail = "Install Tesseract data: " + ", ".join(missing)
+                    ocr_color = C["amber"]
+                else:
+                    ocr_state, ocr_detail, ocr_color = "READY", f"OCR languages: {language}", C["green"]
+            except Exception:
+                ocr_state, ocr_detail, ocr_color = "CHECK REQUIRED", "Could not verify Tesseract language data", C["amber"]
+        self.ocr_metric.configure(text=ocr_state, fg=ocr_color)
+        self.printed_text_ocr_detail.configure(text=ocr_detail)
 
         object_config = self.config.get("object_detection", {})
-        model_value = object_config.get("model_path") if isinstance(object_config, dict) else None
-        model_path = resolve_config_path(model_value, self.config_path) if model_value else None
-        model_ready = bool(model_path and model_path.is_file())
+        object_value = object_config.get("model_path") if isinstance(object_config, dict) else None
+        object_path = resolve_config_path(object_value, self.config_path) if object_value else None
+        object_ready = bool(object_path and object_path.is_file())
         self.model_metric.configure(
-            text="MODEL READY" if model_ready else ("MODEL MISSING" if model_value else "NOT CONFIGURED"),
-            fg=C["green"] if model_ready else (C["amber"] if model_value else C["purple"]),
+            text="MODEL FILE READY" if object_ready else ("MODEL FILE MISSING" if object_value else "NOT CONFIGURED"),
+            fg=C["green"] if object_ready else (C["amber"] if object_value else C["purple"]),
         )
-        model_detail = getattr(self, "ai_inference_detail", None)
-        if model_detail is not None:
-            model_detail.configure(
-                text=str(model_path) if model_value else "Set object_detection.model_path in config.json"
-            )
+        self.object_model_detail.configure(
+            text=str(object_path) if object_value else "Configure object_detection.model_path"
+        )
 
-        camera_state = "Camera live" if getattr(self, "camera", None) is not None else "Camera standby"
-        self._set_status("OVERVIEW UPDATED", f"{camera_state} · {len(getattr(self, 'session_history', []))} session events", C["cyan"])
+        currency_config = self.config.get("currency", {})
+        currency_value = currency_config.get("model_path") if isinstance(currency_config, dict) else None
+        currency_labels = currency_config.get("labels") if isinstance(currency_config, dict) else None
+        currency_path = resolve_config_path(currency_value, self.config_path) if currency_value else None
+        currency_ready = bool(currency_path and currency_path.is_file() and currency_labels)
+        self.currency_metric.configure(
+            text="MODEL FILE READY" if currency_ready else ("MODEL FILE MISSING" if currency_value else "NOT CONFIGURED"),
+            fg=C["green"] if currency_ready else (C["amber"] if currency_value else C["amber"]),
+        )
+        self.currency_model_detail.configure(
+            text=str(currency_path) if currency_value else "Requires a compatible trained model and labels"
+        )
+
+        camera_state = "Camera live" if camera_live else "Camera standby"
+        self._set_status(
+            "READINESS REFRESHED",
+            f"{camera_state} · OCR {ocr_state.lower()} · Objects {'ready' if object_ready else 'not ready'} · Currency {'ready' if currency_ready else 'not ready'}",
+            C["cyan"],
+        )
 
     def show_session_history(self):
         window = tk.Toplevel(self.root)
@@ -383,8 +434,11 @@ class NoorixApp:
                 OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
                 FrameQualityAgent, VoiceCommandAgent,
             )
+            from noorix.ocr import PrintedEnglishOCR
+            ocr_config = self.config.get("ocr", {})
+            ocr_language = ocr_config.get("language", "eng") if isinstance(ocr_config, dict) else "eng"
             self.agent_coordinator = AgentCoordinator([
-                OCRAgent(),
+                OCRAgent(adapter=PrintedEnglishOCR(language=ocr_language)),
                 ObjectDetectionAgent(self.config.get("object_detection", {}), config_path=self.config_path),
                 CurrencyAgent(self.config.get("currency", {}), config_path=self.config_path),
                 SpeechAgent(),
@@ -554,6 +608,7 @@ class NoorixApp:
             self.stop_camera()
 
     def stop_camera(self):
+        self.disable_auto_mode()
         if self.after_id is not None:
             try:
                 self.root.after_cancel(self.after_id)
@@ -566,7 +621,7 @@ class NoorixApp:
         if hasattr(self, "camera_metric"):
             self.camera_metric.configure(text="STANDBY", fg=C["cyan"])
             self.preview_state.configure(text="●  CAMERA OFF", fg=C["muted"])
-            self.preview.configure(image="", text="NO LIVE FEED\n\nConnect your camera to start seeing.")
+            self.preview.configure(image="", text="CAMERA PREVIEW\n\nStart your camera to begin.")
         self.photo = None
         self.current_frame = None
         if hasattr(self, "status_title"):
@@ -579,12 +634,14 @@ class NoorixApp:
             return
         try:
             from noorix.ocr import PrintedEnglishOCR
-            output = PrintedEnglishOCR().read(self.current_frame) or "No clear printed English text found."
+            ocr_config = self.config.get("ocr", {})
+            language = ocr_config.get("language", "eng") if isinstance(ocr_config, dict) else "eng"
+            output = PrintedEnglishOCR(language=language).read(self.current_frame) or "No clear printed text found."
             self._set_result(output)
             if hasattr(self, "_record_activity"):
                 self._record_activity("Text reading", output)
             self.ocr_metric.configure(text="REQUEST COMPLETED", fg=C["green"])
-            self._set_status("TEXT READING COMPLETE", "English OCR output is ready.", C["green"])
+            self._set_status("TEXT READING COMPLETE", f"OCR output ready ({language}).", C["green"])
         except Exception as exc:
             self._set_result(f"OCR unavailable: {exc}")
             self._set_status("OCR UNAVAILABLE", "Tesseract executable is required.", C["amber"])
@@ -703,7 +760,139 @@ class NoorixApp:
         threading.Thread(target=worker, daemon=True).start()
         self._set_status("SPEECH REQUESTED", "Uses an installed local system voice.", C["cyan"])
 
+
+    def toggle_auto_mode(self):
+        if self.auto_mode:
+            self.disable_auto_mode()
+            self._set_status("AUTO SCAN PAUSED", "Automatic analysis has stopped.", C["cyan"])
+            return
+        if self.camera is None or self.current_frame is None:
+            self._set_status("CAMERA REQUIRED", "Start the camera before enabling Auto Scan.", C["amber"])
+            return
+        self.auto_mode = True
+        self.auto_button.configure(text="Pause Auto Scan", bg="#fee2e2", fg="#991b1b")
+        self._set_status("AUTO SCAN ACTIVE", "Scanning text and configured recognition models every 5 seconds.", C["green"])
+        self._auto_scan_tick()
+
+    def disable_auto_mode(self):
+        self.auto_mode = False
+        if getattr(self, "auto_after_id", None) is not None:
+            try:
+                self.root.after_cancel(self.auto_after_id)
+            except tk.TclError:
+                pass
+            self.auto_after_id = None
+        if hasattr(self, "auto_button"):
+            self.auto_button.configure(text="Enable Auto Scan", bg=C["panel2"], fg=C["text"])
+
+    def _auto_scan_tick(self):
+        if not self.auto_mode or self.camera is None:
+            return
+        if self.auto_busy:
+            self.auto_after_id = self.root.after(1000, self._auto_scan_tick)
+            return
+        if self.current_frame is None:
+            self.auto_after_id = self.root.after(1000, self._auto_scan_tick)
+            return
+        frame = self.current_frame.copy()
+        self.auto_busy = True
+
+        def worker():
+            try:
+                coordinator = self._get_agent_coordinator()
+                results = [
+                    coordinator.run("frame_quality", frame),
+                    coordinator.run("ocr", frame),
+                    coordinator.run("object_detection", frame),
+                    coordinator.run("currency", frame),
+                ]
+                self.root.after(0, lambda r=results: self._auto_scan_complete(r))
+            except Exception as exc:
+                error = f"{type(exc).__name__}: {exc}"
+                self.root.after(0, lambda e=error: self._auto_scan_failed(e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _auto_scan_complete(self, results):
+        self.auto_busy = False
+        lines = ["AUTO SCAN RESULTS"]
+        spoken_parts = ["NOORIX کیمرہ تجزیہ"]
+        for result in results:
+            lines.append(f"{result.agent.upper()} · {result.state.value.upper()}")
+            lines.append(result.summary)
+            if result.warnings:
+                lines.extend(f"Warning: {warning}" for warning in result.warnings)
+            if result.agent == "object_detection" and isinstance(result.data, list):
+                for item in result.data[:8]:
+                    label = str(item.get("label", "object"))
+                    position = str(item.get("position", "unknown"))
+                    lines.append(f"  • {label} — {position}")
+                    spoken_parts.append(self._urdu_object_phrase(label, position))
+            elif result.agent == "currency" and isinstance(result.data, dict):
+                denomination = str(result.data.get("denomination", ""))
+                confidence = float(result.data.get("confidence", 0.0))
+                lines.append(f"  • Possible note: {denomination} ({confidence:.0%})")
+                spoken_parts.append(f"ممکنہ کرنسی نوٹ {denomination} ہے۔ اعتماد کا اسکور {confidence:.0%} ہے۔ براہ کرم خود بھی تصدیق کریں۔")
+            elif result.agent == "ocr" and result.data:
+                lines.append("  • Extracted page text:")
+                lines.append(str(result.data)[:1800])
+                spoken_parts.append("صفحے پر یہ عبارت پڑھی گئی ہے۔ " + str(result.data)[:700])
+            elif result.agent == "ocr" and not result.successful:
+                spoken_parts.append("متن پڑھنے کا نظام دستیاب نہیں۔")
+        output = "\n".join(lines)
+        self._set_result(output)
+        self._record_activity("Auto scan", output)
+        signature = output[:1200]
+        if signature != self.last_spoken_signature:
+            self.last_spoken_signature = signature
+            self._speak_urdu(" ".join(spoken_parts))
+        self._set_status("AUTO SCAN COMPLETE", "Results are estimates; missing models are reported as not configured.", C["green"])
+        if self.auto_mode and self.camera is not None:
+            self.auto_after_id = self.root.after(5000, self._auto_scan_tick)
+
+    def _auto_scan_failed(self, error):
+        self.auto_busy = False
+        self._set_result("Automatic analysis failed: " + error)
+        self._set_status("AUTO SCAN ERROR", error, C["amber"])
+        if self.auto_mode and self.camera is not None:
+            self.auto_after_id = self.root.after(5000, self._auto_scan_tick)
+
+    @staticmethod
+    def _urdu_object_phrase(label, position):
+        labels = {
+            "person": "شخص", "chair": "کرسی", "table": "میز", "book": "کتاب",
+            "bottle": "بوتل", "cup": "کپ", "cell phone": "موبائل فون",
+            "laptop": "لیپ ٹاپ", "door": "دروازہ", "car": "گاڑی",
+            "backpack": "بیگ", "handbag": "ہینڈ بیگ",
+        }
+        positions = {"left": "بائیں طرف", "centre": "درمیان میں", "center": "درمیان میں", "right": "دائیں طرف"}
+        return f"{labels.get(label.lower(), label)} تصویر میں {positions.get(position.lower(), position)} نظر آ رہا ہے۔"
+
+    def _speak_urdu(self, text):
+        def worker():
+            try:
+                from noorix.speech import SpeechOutput
+                voices = SpeechOutput.available_voices()
+                urdu_voice = None
+                for voice in voices:
+                    description = (voice.get("name", "") + " " + voice.get("id", "")).lower()
+                    language_data = str(voice.get("languages", "")).lower()
+                    if "urdu" in description or "ur-pk" in description or "ur_" in description or "urdu" in language_data:
+                        urdu_voice = voice.get("id")
+                        break
+                if not urdu_voice:
+                    raise RuntimeError("No Urdu-compatible Windows speech voice was detected. Install an Urdu voice in Windows Speech settings.")
+                SpeechOutput(voice_id=urdu_voice).speak(text)
+            except Exception as exc:
+                error = str(exc)
+                try:
+                    self.root.after(0, lambda e=error: self._set_status("URDU VOICE UNAVAILABLE", e, C["amber"]))
+                except tk.TclError:
+                    pass
+        threading.Thread(target=worker, daemon=True).start()
+
     def close(self):
+        self.disable_auto_mode()
         self.stop_camera()
         self.root.destroy()
 

@@ -13,8 +13,12 @@
   },
   "notes": [
     "Copy this file to config.json.",
+    "Set ocr.language to eng, urd, or eng+urd only when the matching Tesseract language data is installed.",
     "Provide only compatible, licensed ONNX models.",
     "Labels must be in the exact order used during model training.",
     "Do not treat model scores as guaranteed accuracy or banknote authentication."
-  ]
+  ],
+  "ocr": {
+    "language": "eng"
+  }
 }

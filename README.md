@@ -45,9 +45,13 @@ The desktop app includes an Agent Console with bounded OCR, object detection, cu
 
 Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX models and the exact class-label order from each model's training process. Relative model paths are resolved from the folder containing `config.json`, regardless of the folder from which NOORIX is launched. Do not guess labels or use arbitrary ONNX models: model input/output conventions differ. Currency scores are estimates, not note authentication.
 
+The desktop camera workspace includes an optional Auto Scan mode. When enabled, it periodically runs frame quality, printed-page OCR, object detection and currency estimation against the current in-memory frame. Missing models are reported as unavailable; Auto Scan does not create recognition capability by itself. Stop Auto Scan or close the app to end the loop.
+
+Set `ocr.language` in `config.json` to `eng`, `urd`, or `eng+urd`. Urdu OCR requires the matching Tesseract Urdu trained-data file to be installed; the default remains English. This extracts visible printed text from a book or page but does not identify a book's title, author or edition.
+
 ## External requirements
 - OCR: install the Tesseract application separately and ensure `tesseract --version` works in the terminal.
-- Speech: pyttsx3 uses voices installed on the computer. Urdu speech is not guaranteed; verify an Urdu-capable local voice.
+- Speech: pyttsx3 uses voices installed on the computer. Auto Scan looks for an installed Urdu-compatible voice before speaking Urdu summaries; if none is found, it reports that limitation.
 - Recognition: no trained currency or object model weights are bundled. The adapters require compatible model files.
 - GUI: Tkinter is included with most standard Python Windows installations.
 
@@ -55,7 +59,7 @@ Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX mo
 - Camera frames are held in memory for the current session and are not saved automatically.
 - Left/centre/right describes only position within the camera image. It is not physical distance, obstacle avoidance or safe-navigation guidance.
 - NOORIX is not a replacement for a white cane, guide dog or trained mobility support.
-- OCR scope is clear printed English; handwriting and Urdu OCR are not claimed.
+- OCR is for visible printed text; handwriting and book metadata recognition are not claimed. Urdu OCR requires installed Tesseract Urdu language data.
 - Do not rely on this prototype for safety-critical decisions. Test results in supervised, controlled conditions.
 
 ## Project status

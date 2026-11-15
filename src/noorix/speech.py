@@ -45,6 +45,16 @@ class SpeechOutput:
             raise RuntimeError("Offline speech requires: pip install -e '.[speech]'") from exc
         engine = pyttsx3.init()
         try:
-            return [{"id": voice.id, "name": voice.name} for voice in engine.getProperty("voices")]
+            return [
+                {
+                    "id": voice.id,
+                    "name": voice.name,
+                    "languages": [
+                        item.decode("utf-8", errors="ignore") if isinstance(item, bytes) else str(item)
+                        for item in getattr(voice, "languages", [])
+                    ],
+                }
+                for voice in engine.getProperty("voices")
+            ]
         finally:
             engine.stop()
