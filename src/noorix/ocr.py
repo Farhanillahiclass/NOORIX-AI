@@ -93,7 +93,7 @@ class PrintedEnglishOCR:
             probe = image.copy()
             probe.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
             details = pytesseract.image_to_osd(probe, config="--psm 0")
-            match = re.search(r"Rotate:\\s*(0|90|180|270)", details)
+            match = re.search(r"Rotate:\s*(0|90|180|270)", details)
             if not match:
                 return image
             rotation = int(match.group(1))
