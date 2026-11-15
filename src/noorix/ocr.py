@@ -84,6 +84,28 @@ class PrintedEnglishOCR:
         return None
 
     @staticmethod
+    def _correct_orientation(image, pytesseract):
+        """Use Tesseract OSD to correct sideways pages; fall back safely if uncertain."""
+        import re
+        from PIL import Image
+
+        try:
+            probe = image.copy()
+            probe.thumbnail((1600, 1600), Image.Resampling.LANCZOS)
+            details = pytesseract.image_to_osd(probe, config="--psm 0")
+            match = re.search(r"Rotate:\\s*(0|90|180|270)", details)
+            if not match:
+                return image
+            rotation = int(match.group(1))
+            if rotation == 0:
+                return image
+            # Tesseract reports the clockwise correction required; PIL rotates CCW.
+            return image.rotate(-rotation, expand=True)
+        except Exception:
+            # OSD can fail on short, mixed-script, or low-quality frames.
+            return image
+
+    @staticmethod
     def _prepare_variants(image):
         from PIL import Image, ImageEnhance, ImageOps
 
@@ -129,6 +151,7 @@ class PrintedEnglishOCR:
 
         try:
             pil_image = self._to_pil(image)
+            pil_image = self._correct_orientation(pil_image, pytesseract)
             variants = self._prepare_variants(pil_image)
             base_config = self.config.strip()
             candidates = []
