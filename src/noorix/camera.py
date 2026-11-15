@@ -1,20 +1,54 @@
-"""Explicitly managed webcam capture with deterministic cleanup."""
+"""Explicitly managed webcam capture with quality-oriented defaults and safe cleanup."""
 from __future__ import annotations
 
 from typing import Any, Callable
 
 
 class WebcamCapture:
-    def __init__(self, device_index: int = 0, capture_factory: Callable[[int], Any] | None = None):
+    """Manage a webcam and request a useful preview resolution when supported.
+
+    Camera drivers may ignore requested properties. capture_info reports the
+    actual dimensions so callers never assume that a request was accepted.
+    """
+
+    def __init__(self, device_index: int = 0, capture_factory: Callable[[int], Any] | None = None,
+                 width: int = 1280, height: int = 720, autofocus: bool = True):
         if device_index < 0:
             raise ValueError("device_index must be zero or greater")
+        if width < 160 or height < 120:
+            raise ValueError("Requested camera dimensions are too small")
         self.device_index = device_index
+        self.requested_width = int(width)
+        self.requested_height = int(height)
+        self.autofocus = bool(autofocus)
         self._capture_factory = capture_factory
         self._capture = None
+        self._cv2 = None
 
     @property
     def is_running(self) -> bool:
         return self._capture is not None
+
+    @property
+    def capture_info(self) -> dict[str, int | bool]:
+        """Return requested and actual capture properties where available."""
+        info: dict[str, int | bool] = {
+            "device_index": self.device_index,
+            "requested_width": self.requested_width,
+            "requested_height": self.requested_height,
+            "autofocus_requested": self.autofocus,
+        }
+        if self._capture is not None and self._cv2 is not None:
+            try:
+                info["actual_width"] = int(self._capture.get(self._cv2.CAP_PROP_FRAME_WIDTH))
+                info["actual_height"] = int(self._capture.get(self._cv2.CAP_PROP_FRAME_HEIGHT))
+                if hasattr(self._cv2, "CAP_PROP_AUTOFOCUS"):
+                    info["autofocus_enabled"] = bool(
+                        self._capture.get(self._cv2.CAP_PROP_AUTOFOCUS)
+                    )
+            except Exception:
+                pass
+        return info
 
     def start(self) -> None:
         if self._capture is not None:
@@ -24,15 +58,31 @@ class WebcamCapture:
             try:
                 import cv2
             except ImportError as exc:
-                raise RuntimeError(
-                    "Camera support requires: python -m pip install -e '.[camera]'"
-                ) from exc
+                raise RuntimeError("Camera support requires: python -m pip install -e '.[camera]'") from exc
+            self._cv2 = cv2
             factory = cv2.VideoCapture
+        else:
+            try:
+                import cv2
+                self._cv2 = cv2
+            except ImportError:
+                self._cv2 = None
+
         capture = factory(self.device_index)
         if capture is None or not capture.isOpened():
             if capture is not None:
                 capture.release()
             raise RuntimeError(f"Could not open webcam device {self.device_index}")
+
+        try:
+            if self._cv2 is not None:
+                capture.set(self._cv2.CAP_PROP_FRAME_WIDTH, self.requested_width)
+                capture.set(self._cv2.CAP_PROP_FRAME_HEIGHT, self.requested_height)
+                if self.autofocus and hasattr(self._cv2, "CAP_PROP_AUTOFOCUS"):
+                    capture.set(self._cv2.CAP_PROP_AUTOFOCUS, 1)
+        except Exception:
+            # Some webcam drivers do not expose these controls.
+            pass
         self._capture = capture
 
     def read(self):
