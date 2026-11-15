@@ -104,7 +104,11 @@ class PrintedEnglishOCR:
             thresholded = Image.fromarray(binary)
         except ImportError:
             thresholded = enlarged.point(lambda value: 255 if value > 160 else 0)
-        variants = [image]\n        if document is not None:\n            variants.append(document)\n        variants.extend((enlarged, thresholded))\n        return tuple(variants)
+        variants = [image]
+        if document is not None:
+            variants.append(document)
+        variants.extend((enlarged, thresholded))
+        return tuple(variants)
 
     @staticmethod
     def _text_score(text: str) -> tuple[int, int]:
