@@ -101,7 +101,7 @@ def test_ocr_corrects_sideways_page_using_tesseract_osd(monkeypatch):
     monkeypatch.setattr(
         pytesseract,
         "image_to_osd",
-        lambda image, config: "Page number: 0\\nRotate: 90\\nOrientation in degrees: 270",
+        lambda image, config: "Page number: 0\nRotate: 90\nOrientation in degrees: 270",
     )
 
     def fake_image_to_string(image, lang, config):
