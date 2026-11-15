@@ -19,3 +19,28 @@ src/*.egg-info/
 
 # Local machine configuration
 config.json
+
+# Credentials, private keys and local secrets
+.kaggle/
+**/kaggle.json
+.secrets/
+**/secrets.*
+**/credentials.*
+*.pem
+*.key
+*.p12
+*.pfx
+*.jks
+*.keystore
+*.sqlite3
+*.db
+*.secret
+*.token
+
+# Local datasets and generated artifacts (keep these out of public Git)
+data/datasets/
+data/raw/
+data/processed/
+models/incoming/
+models/imported/
+models/.staging/
