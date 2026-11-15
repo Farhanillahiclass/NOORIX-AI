@@ -6,14 +6,12 @@ echo NOORIX-AI Kaggle Model Import
 echo ============================================
 if not exist "models\incoming" mkdir "models\incoming"
 echo.
-echo 1. Copy your Kaggle ZIP files into:
-echo    %CD%\models\incoming
+echo ZIP sources:
+echo  - models\incoming\  (all ZIP files placed here)
+echo  - %%USERPROFILE%%\Downloads\  (ZIP files downloaded in the last 2 hours)
 echo.
-echo 2. This tool extracts only recognized model weights and config files.
-echo 3. Temporary extracted files that are not needed are discarded.
-echo 4. Original ZIP files are kept for safety.
-echo.
-python scripts\import_kaggle_models.py
+echo The importer keeps original ZIP files and imports only recognized model/config artifacts.
+python scripts\import_kaggle_models.py --scan-downloads --since-hours 2
 if errorlevel 1 (
   echo.
   echo Import reported an error. Original ZIP files are preserved.
@@ -21,5 +19,5 @@ if errorlevel 1 (
   exit /b 1
 )
 echo.
-echo Import finished. Check models\imported\
+echo Import finished. Review models\imported\ and each import_manifest.json
 pause
