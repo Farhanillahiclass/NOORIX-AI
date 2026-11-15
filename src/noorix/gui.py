@@ -298,39 +298,65 @@ class NoorixApp:
         camera_live = getattr(self, "camera", None) is not None
         self.camera_metric.configure(
             text="LIVE" if camera_live else "STANDBY",
-            fg=C["green"] if camera_live else C["cyan"],
+            fg=C["green"] if camera_live else C["blue"],
         )
-        camera_detail = getattr(self, "camera_input_detail", None)
-        if camera_detail is not None:
-            camera_detail.configure(
-                text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
-            )
+        self.camera_input_detail.configure(
+            text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
+        )
 
-        tesseract_ready = shutil.which("tesseract") is not None
-        self.ocr_metric.configure(
-            text="READY" if tesseract_ready else "NEEDS SETUP",
-            fg=C["green"] if tesseract_ready else C["amber"],
-        )
-        ocr_detail = getattr(self, "printed_english_ocr_detail", None)
-        if ocr_detail is not None:
-            ocr_detail.configure(text="Tesseract executable found" if tesseract_ready else "Install Tesseract and add it to PATH")
+        tesseract = shutil.which("tesseract")
+        ocr_config = self.config.get("ocr", {})
+        language = ocr_config.get("language", "eng") if isinstance(ocr_config, dict) else "eng"
+        if not tesseract:
+            ocr_state, ocr_detail, ocr_color = "NEEDS SETUP", "Tesseract executable not found", C["amber"]
+        else:
+            try:
+                import pytesseract
+                installed_languages = set(pytesseract.get_languages(config=""))
+                requested = set(language.split("+"))
+                missing = sorted(requested - installed_languages)
+                if missing:
+                    ocr_state = "LANGUAGE DATA MISSING"
+                    ocr_detail = "Install Tesseract data: " + ", ".join(missing)
+                    ocr_color = C["amber"]
+                else:
+                    ocr_state, ocr_detail, ocr_color = "READY", f"OCR languages: {language}", C["green"]
+            except Exception:
+                ocr_state, ocr_detail, ocr_color = "CHECK REQUIRED", "Could not verify Tesseract language data", C["amber"]
+        self.ocr_metric.configure(text=ocr_state, fg=ocr_color)
+        self.printed_text_ocr_detail.configure(text=ocr_detail)
 
         object_config = self.config.get("object_detection", {})
-        model_value = object_config.get("model_path") if isinstance(object_config, dict) else None
-        model_path = resolve_config_path(model_value, self.config_path) if model_value else None
-        model_ready = bool(model_path and model_path.is_file())
+        object_value = object_config.get("model_path") if isinstance(object_config, dict) else None
+        object_path = resolve_config_path(object_value, self.config_path) if object_value else None
+        object_ready = bool(object_path and object_path.is_file())
         self.model_metric.configure(
-            text="MODEL READY" if model_ready else ("MODEL MISSING" if model_value else "NOT CONFIGURED"),
-            fg=C["green"] if model_ready else (C["amber"] if model_value else C["purple"]),
+            text="MODEL FILE READY" if object_ready else ("MODEL FILE MISSING" if object_value else "NOT CONFIGURED"),
+            fg=C["green"] if object_ready else (C["amber"] if object_value else C["purple"]),
         )
-        model_detail = getattr(self, "ai_inference_detail", None)
-        if model_detail is not None:
-            model_detail.configure(
-                text=str(model_path) if model_value else "Set object_detection.model_path in config.json"
-            )
+        self.object_model_detail.configure(
+            text=str(object_path) if object_value else "Configure object_detection.model_path"
+        )
 
-        camera_state = "Camera live" if getattr(self, "camera", None) is not None else "Camera standby"
-        self._set_status("OVERVIEW UPDATED", f"{camera_state} · {len(getattr(self, 'session_history', []))} session events", C["cyan"])
+        currency_config = self.config.get("currency", {})
+        currency_value = currency_config.get("model_path") if isinstance(currency_config, dict) else None
+        currency_labels = currency_config.get("labels") if isinstance(currency_config, dict) else None
+        currency_path = resolve_config_path(currency_value, self.config_path) if currency_value else None
+        currency_ready = bool(currency_path and currency_path.is_file() and currency_labels)
+        self.currency_metric.configure(
+            text="MODEL FILE READY" if currency_ready else ("MODEL FILE MISSING" if currency_value else "NOT CONFIGURED"),
+            fg=C["green"] if currency_ready else (C["amber"] if currency_value else C["amber"]),
+        )
+        self.currency_model_detail.configure(
+            text=str(currency_path) if currency_value else "Requires a compatible trained model and labels"
+        )
+
+        camera_state = "Camera live" if camera_live else "Camera standby"
+        self._set_status(
+            "READINESS REFRESHED",
+            f"{camera_state} · OCR {ocr_state.lower()} · Objects {'ready' if object_ready else 'not ready'} · Currency {'ready' if currency_ready else 'not ready'}",
+            C["cyan"],
+        )
 
     def show_session_history(self):
         window = tk.Toplevel(self.root)
