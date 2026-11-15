@@ -97,123 +97,142 @@ class NoorixApp:
         return button
 
     def _build_ui(self):
+        """Premium white AI workspace with hybrid sidebar and top command bar."""
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
-        side = tk.Frame(shell, bg=C["sidebar"], width=196, padx=14, pady=18)
+        # Persistent navigation rail.
+        side = tk.Frame(shell, bg=C["sidebar"], width=210, padx=16, pady=18,
+                        highlightbackground=C["line"], highlightthickness=1)
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
+
         brand = tk.Frame(side, bg=C["sidebar"])
         brand.pack(fill="x", pady=(2, 28))
-        self._label(brand, "N", 22, C["cyan"], True, bg=C["panel2"], width=2, height=1).pack(side="left")
-        name = tk.Frame(brand, bg=C["sidebar"])
-        name.pack(side="left", padx=9)
-        self._label(name, "NOORIX AI", 15, C["text"], True).pack(anchor="w")
-        self._label(name, "ACCESSIBILITY WORKSPACE", 7, C["cyan"], True).pack(anchor="w")
+        logo = tk.Frame(brand, bg="#172b4d", width=42, height=42)
+        logo.pack(side="left")
+        logo.pack_propagate(False)
+        self._label(logo, "N", 23, "#ffffff", True, bg="#172b4d").pack(expand=True)
+        brand_text = tk.Frame(brand, bg=C["sidebar"])
+        brand_text.pack(side="left", padx=10)
+        self._label(brand_text, "NOORIX AI", 15, C["text"], True).pack(anchor="w")
+        self._label(brand_text, "SEE BEYOND", 7, C["cyan"], True).pack(anchor="w")
 
-        self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
-        self._nav(side, "◈", "Overview", True)
+        self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 9))
+        self._nav(side, "⌂", "Overview", True)
         self._nav(side, "◉", "Live vision", False)
         self._nav(side, "Aa", "Text reading", False)
         self._nav(side, "⌗", "Scene analysis", False)
-        self._nav(side, "⚙", "System status", False)
+        self._label(side, "MANAGEMENT", 8, C["muted"], True).pack(anchor="w", pady=(20, 9))
         self._nav(side, "✦", "Agent console", False)
+        self._nav(side, "▤", "System status", False)
         self._nav(side, "◷", "Session history", False)
         self._nav(side, "⚙", "Settings", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
-        privacy = self._panel(side, bg=C["panel3"], padx=12, pady=12)
-        privacy.pack(fill="x", pady=(10, 14))
-        note = self._label(
-            privacy,
-            "PRIVACY FIRST\nFrames stay on this device.\nNo automatic image saving.",
-            9, C["muted"], justify="left", wraplength=165,
-        )
-        note.pack(anchor="w")
+        privacy = self._panel(side, bg=C["panel3"], padx=11, pady=11)
+        privacy.pack(fill="x", pady=(8, 12))
+        self._label(privacy, "PRIVATE BY DESIGN", 8, C["cyan"], True).pack(anchor="w")
+        self._label(privacy, "Frames are processed locally. Nothing is saved automatically.",
+                    8, C["muted"], justify="left", wraplength=165).pack(anchor="w", pady=(5, 0))
         self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
 
-        main = tk.Frame(shell, bg=C["bg"], padx=18, pady=14)
+        # Main workspace and hybrid top command bar.
+        main = tk.Frame(shell, bg=C["bg"], padx=22, pady=16)
         main.pack(side="left", fill="both", expand=True)
+        topbar = tk.Frame(main, bg=C["panel"], padx=15, pady=10,
+                          highlightbackground=C["line"], highlightthickness=1)
+        topbar.pack(fill="x", pady=(0, 18))
+        self._label(topbar, "MRS  /  NOORIX AI", 9, C["text"], True).pack(side="left")
+        self._label(topbar, "LOCAL WORKSPACE", 8, C["muted"], True).pack(side="left", padx=(18, 0))
+        top_actions = tk.Frame(topbar, bg=C["panel"])
+        top_actions.pack(side="right")
+        self._button(top_actions, "Refresh", self.refresh_overview, compact=True).pack(side="left", padx=(0, 7))
+        self._label(top_actions, "● LOCAL MODE", 8, C["green"], True,
+                    bg="#e9f7f0", padx=10, pady=7).pack(side="left")
 
-        top = tk.Frame(main, bg=C["bg"])
-        top.pack(fill="x")
-        heading = tk.Frame(top, bg=C["bg"])
+        title_row = tk.Frame(main, bg=C["bg"])
+        title_row.pack(fill="x")
+        heading = tk.Frame(title_row, bg=C["bg"])
         heading.pack(side="left")
-        self._label(heading, "INTELLIGENT ACCESSIBILITY PLATFORM", 8, C["cyan"], True).pack(anchor="w")
-        self._label(heading, "Your vision workspace", 23, C["text"], True).pack(anchor="w", pady=(4, 0))
-        righttop = tk.Frame(top, bg=C["bg"])
-        righttop.pack(side="right", anchor="center")
-        self._button(righttop, "↻  Refresh readiness", self.refresh_overview, compact=True).pack(side="left", padx=(0, 8))
-        self._label(righttop, "●  LOCAL MODE", 9, C["green"], True,
-                    bg=C["panel"], padx=12, pady=8).pack(side="right")
+        self._label(heading, "INTELLIGENCE OVERVIEW", 8, C["cyan"], True).pack(anchor="w")
+        self._label(heading, "Your vision workspace", 24, C["text"], True).pack(anchor="w", pady=(4, 0))
+        self._label(heading, "A clear view of your camera, recognition tools and local AI agents.",
+                    9, C["muted"]).pack(anchor="w", pady=(4, 0))
+        self.auto_button = self._button(title_row, "Enable Auto Scan", self.toggle_auto_mode, True, True)
+        self.auto_button.pack(side="right", anchor="center")
 
         metrics = tk.Frame(main, bg=C["bg"])
-        metrics.pack(fill="x", pady=(20, 16))
-        self.camera_metric = self._metric(metrics, "CAMERA INPUT", "STANDBY", "Device 0 · Not connected", C["cyan"])
-        self.ocr_metric = self._metric(metrics, "PRINTED ENGLISH OCR", "ADAPTER READY", "Tesseract executable needed", C["blue"])
-        self.model_metric = self._metric(metrics, "AI INFERENCE", "AWAITING MODELS", "ONNX weights not configured", C["purple"])
+        metrics.pack(fill="x", pady=(18, 16))
+        self.camera_metric = self._metric(metrics, "CAMERA INPUT", "STANDBY",
+                                          f"Device {self.camera_index} · Not connected", C["blue"])
+        self.ocr_metric = self._metric(metrics, "PRINTED TEXT OCR", "CHECKING",
+                                       "Tesseract availability", C["cyan"])
+        self.model_metric = self._metric(metrics, "OBJECT MODEL", "CHECKING",
+                                         "Model configuration", C["purple"])
+        self.currency_metric = self._metric(metrics, "CURRENCY MODEL", "NOT CONFIGURED",
+                                             "Verified model required", C["amber"])
 
         workspace = tk.Frame(main, bg=C["bg"])
         workspace.pack(fill="both", expand=True)
         left = tk.Frame(workspace, bg=C["bg"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 14))
-        right = tk.Frame(workspace, bg=C["bg"], width=270)
+        right = tk.Frame(workspace, bg=C["bg"], width=300)
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
 
         preview_panel = self._panel(left, padx=0, pady=0)
         preview_panel.pack(fill="both", expand=True)
-        phead = tk.Frame(preview_panel, bg=C["panel"], padx=18, pady=13)
+        phead = tk.Frame(preview_panel, bg=C["panel"], padx=16, pady=12)
         phead.pack(fill="x")
-        self._label(phead, "LIVE VISION", 10, C["text"], True).pack(side="left")
-        self.preview_state = self._label(phead, "●  CAMERA OFF", 8, C["muted"], True)
+        self._label(phead, "LIVE VISION CANVAS", 9, C["text"], True).pack(side="left")
+        self.preview_state = self._label(phead, "● CAMERA OFF", 8, C["muted"], True)
         self.preview_state.pack(side="right")
         self.preview = tk.Label(
-            preview_panel, text="CAMERA PREVIEW\n\nStart your camera to begin.",
-            bg="#f1f5f9", fg=C["muted"], font=("Segoe UI", 12),
+            preview_panel,
+            text="NO CAMERA FEED\n\nConnect your camera to begin live analysis.",
+            bg="#edf2f8", fg=C["muted"], font=("Segoe UI", 12),
             justify="center", compound="center",
         )
         self.preview.pack(fill="both", expand=True, padx=12, pady=12)
-        pfoot = tk.Frame(preview_panel, bg=C["panel"], padx=14, pady=12)
+        pfoot = tk.Frame(preview_panel, bg=C["panel"], padx=12, pady=11)
         pfoot.pack(fill="x")
-        self._button(pfoot, "Start camera", self.start_camera, True).pack(side="left", padx=(0, 8))
-        self._button(pfoot, "Stop", self.stop_camera, False, True).pack(side="left", padx=(0, 8))
-        self.auto_button = self._button(pfoot, "Enable Auto Scan", self.toggle_auto_mode, False, True)
-        self.auto_button.pack(side="left")
-        self._label(pfoot, "LOCAL PROCESSING · IMAGE POSITION ONLY", 7, C["muted"], True).pack(side="right")
+        self._button(pfoot, "Start camera", self.start_camera, True, True).pack(side="left", padx=(0, 7))
+        self._button(pfoot, "Stop", self.stop_camera, False, True).pack(side="left")
+        self._label(pfoot, "LOCAL FRAME ANALYSIS · NOT NAVIGATION", 7, C["muted"], True).pack(side="right")
 
-        self._label(right, "WORKSPACE TOOLS", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
-        actions = self._panel(right, padx=14, pady=14)
-        actions.pack(fill="x")
-        self._label(actions, "Quick actions", 14, C["text"], True).pack(anchor="w", pady=(0, 12))
-        self._button(actions, "Aa   Read printed English", self.read_text, True).pack(fill="x", pady=4)
-        self._button(actions, "⌗   Analyze objects & currency", self.analyze).pack(fill="x", pady=4)
-        self._button(actions, "♫   Speak latest result", self.speak_result).pack(fill="x", pady=4)
+        self._label(right, "TOOLS & RESULTS", 8, C["muted"], True).pack(anchor="w", pady=(0, 8))
+        actions = self._panel(right, padx=13, pady=13)
+        actions.pack(fill="x", pady=(0, 10))
+        self._label(actions, "Quick actions", 13, C["text"], True).pack(anchor="w", pady=(0, 9))
+        self._button(actions, "Read printed page", self.read_text, True, True).pack(fill="x", pady=3)
+        self._button(actions, "Analyze objects & currency", self.analyze, False, True).pack(fill="x", pady=3)
+        self._button(actions, "Speak latest result", self.speak_result, False, True).pack(fill="x", pady=3)
 
-        self._label(right, "INTELLIGENCE OUTPUT", 8, C["muted"], True).pack(anchor="w", pady=(18, 8))
-        output_panel = self._panel(right, padx=13, pady=12)
+        output_panel = self._panel(right, padx=12, pady=11)
         output_panel.pack(fill="both", expand=True)
-        self._label(output_panel, "Latest insight", 12, C["text"], True).pack(anchor="w")
+        self._label(output_panel, "LATEST INTELLIGENCE", 9, C["text"], True).pack(anchor="w")
         self.result = tk.Text(
-            output_panel, height=10, wrap="word", bg=C["panel"], fg=C["muted"],
-            insertbackground=C["text"], relief="flat", bd=0, padx=0, pady=10,
-            font=("Segoe UI", 9), highlightthickness=0,
+            output_panel, height=12, wrap="word", bg=C["panel3"], fg=C["text"],
+            insertbackground=C["text"], relief="flat", bd=0, padx=9, pady=9,
+            font=("Segoe UI", 9), highlightthickness=1,
+            highlightbackground=C["line"],
         )
-        self.result.pack(fill="both", expand=True)
-        self.result.insert("1.0", "Your results will appear here.\n\nStart the camera, then choose an action.")
+        self.result.pack(fill="both", expand=True, pady=(8, 0))
+        self.result.insert("1.0", "No analysis yet.\n\nStart the camera and choose a task, or enable Auto Scan.")
         self.result.configure(state="disabled")
 
-        footer = tk.Frame(main, bg=C["bg"])
+        footer = tk.Frame(main, bg=C["bg"], pady=9)
         footer.pack(fill="x")
         self.status_dot = self._label(footer, "●", 9, C["cyan"], True)
         self.status_dot.pack(side="left")
         self.status_title = self._label(footer, "SYSTEM READY", 8, C["text"], True)
-        self.status_title.pack(side="left", padx=(7, 10))
+        self.status_title.pack(side="left", padx=(7, 9))
         self.status_detail = self._label(footer, "Waiting for user action", 8, C["muted"])
         self.status_detail.pack(side="left")
-        self._label(main, "Research prototype · Not a navigation aid · Verify all object and currency estimates independently.",
-                    8, C["muted"]).pack(anchor="w", pady=(8, 0))
+        self._label(main, "NOORIX AI · Powered by MRS  |  Research prototype · Not a mobility or navigation aid.",
+                    7, C["muted"]).pack(anchor="w", pady=(2, 0))
 
     def _nav(self, parent, symbol, title, active):
         if not hasattr(self, "_nav_buttons"):
