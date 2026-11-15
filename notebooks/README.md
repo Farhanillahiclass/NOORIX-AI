@@ -5,6 +5,10 @@ All Kaggle training notebooks live in `notebooks/` on branch `feature/kaggle-ocr
 
 > **Accuracy promise:** No responsible workflow can promise “99% functional” or 99% model accuracy in advance. Real performance depends on camera quality, lighting, dataset quality, language, handwriting variation, hardware, and independent testing. We will measure each feature separately and expose uncertainty instead of pretending every result is correct.
 
+## Master orchestrator
+
+`NOORIX_MASTER_AI_TRAINING_MUHAMMAD_FARHAN.ipynb` runs the specialist notebooks as isolated stages, records stage failures without stopping later stages, and packages produced model archives into per-stage ZIPs plus `NOORIX_AI_ALL_MODELS.zip`. Configure the exact dataset paths in its `CONFIG` cell first. Kaggle datasets must still be attached in the Kaggle Input panel unless a permitted download source is explicitly configured; the notebook does not bypass dataset licenses or Kaggle access controls. Start with one stage and inspect its validation metrics before enabling more.
+
 ## 1. Notebook inventory
 
 | Feature | Notebook file | Kaggle notebook title | Dataset to attach | Output ZIP |
