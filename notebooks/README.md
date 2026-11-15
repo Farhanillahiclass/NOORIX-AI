@@ -7,7 +7,9 @@ All Kaggle training notebooks live in `notebooks/` on branch `feature/kaggle-ocr
 
 ## Master orchestrator
 
-`NOORIX_MASTER_AI_TRAINING_MUHAMMAD_FARHAN.ipynb` runs the specialist notebooks as isolated stages, records stage failures without stopping later stages, and packages produced model archives into per-stage ZIPs plus `NOORIX_AI_ALL_MODELS.zip`. Configure the exact dataset paths in its `CONFIG` cell first. Kaggle datasets must still be attached in the Kaggle Input panel unless a permitted download source is explicitly configured; the notebook does not bypass dataset licenses or Kaggle access controls. Start with one stage and inspect its validation metrics before enabling more.
+**Recommended public-release notebook:** [`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb`](NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb).
+
+`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb` is the recommended public-release master. It embeds its specialist notebooks, so it does not clone this GitHub repository or require a GitHub token. It automatically searches attached Kaggle inputs for a supported PKR ImageFolder dataset and runs the pretrained YOLOv8n/COCO stage. OCR and ASR remain disabled by default because they require correctly labelled image/audio manifests. It removes stale stage ZIPs before a run, records failures, and checks the combined ZIP integrity. Kaggle datasets must still be attached in the Kaggle Input panel; the notebook cannot attach private datasets or bypass dataset licenses/access controls. Inspect each stage's validation metrics and sample predictions before integrating any model.
 
 ## 1. Notebook inventory
 
