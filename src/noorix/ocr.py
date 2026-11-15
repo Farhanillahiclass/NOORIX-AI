@@ -78,7 +78,8 @@ class PrintedEnglishOCR:
                 transform = cv2.getPerspectiveTransform(ordered, target)
                 warped = cv2.warpPerspective(rgb, transform, (width, height))
                 return Image.fromarray(warped)
-        except (ImportError, cv2.error if "cv2" in locals() else Exception):
+        except Exception:
+            # Page detection is optional; fall back to full-frame OCR on any failure.
             return None
         return None
 
