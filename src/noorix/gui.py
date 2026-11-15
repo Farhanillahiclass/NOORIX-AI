@@ -62,8 +62,8 @@ class NoorixApp:
 
     def _setup_window(self):
         self.root.title("NOORIX AI — See Beyond. Understand More.")
-        self.root.geometry("1320x850")
-        self.root.minsize(1040, 700)
+        self.root.geometry("1280x760")
+        self.root.minsize(960, 620)
         self.root.configure(bg=C["bg"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -96,7 +96,7 @@ class NoorixApp:
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
-        side = tk.Frame(shell, bg=C["sidebar"], width=218, padx=18, pady=22)
+        side = tk.Frame(shell, bg=C["sidebar"], width=196, padx=14, pady=18)
         side.pack(side="left", fill="y")
         side.pack_propagate(False)
         brand = tk.Frame(side, bg=C["sidebar"])
@@ -123,13 +123,13 @@ class NoorixApp:
         privacy.pack(fill="x", pady=(10, 14))
         note = self._label(
             privacy,
-            "PRIVACY FIRST\\n\\nFrames are processed locally.\\nNo automatic image saving.",
+            "PRIVACY FIRST\nFrames stay on this device.\nNo automatic image saving.",
             9, C["muted"], justify="left", wraplength=165,
         )
         note.pack(anchor="w")
         self._label(side, "POWERED BY MRS", 8, C["muted"], True).pack(anchor="w")
 
-        main = tk.Frame(shell, bg=C["bg"], padx=24, pady=20)
+        main = tk.Frame(shell, bg=C["bg"], padx=18, pady=14)
         main.pack(side="left", fill="both", expand=True)
 
         top = tk.Frame(main, bg=C["bg"])
@@ -154,7 +154,7 @@ class NoorixApp:
         workspace.pack(fill="both", expand=True)
         left = tk.Frame(workspace, bg=C["bg"])
         left.pack(side="left", fill="both", expand=True, padx=(0, 14))
-        right = tk.Frame(workspace, bg=C["bg"], width=300)
+        right = tk.Frame(workspace, bg=C["bg"], width=270)
         right.pack(side="right", fill="y")
         right.pack_propagate(False)
 
@@ -197,12 +197,6 @@ class NoorixApp:
         self.result.pack(fill="both", expand=True)
         self.result.insert("1.0", "Your results will appear here.\n\nStart the camera, then choose an action.")
         self.result.configure(state="disabled")
-
-        features = tk.Frame(main, bg=C["bg"])
-        features.pack(fill="x", pady=(15, 12))
-        self._feature(features, "01", "TEXT READER", "Printed English · OCR", C["blue"])
-        self._feature(features, "02", "OBJECT AWARENESS", "Image-relative positions", C["cyan"])
-        self._feature(features, "03", "CURRENCY ESTIMATE", "Pakistani banknote classes", C["purple"])
 
         footer = tk.Frame(main, bg=C["bg"])
         footer.pack(fill="x")
