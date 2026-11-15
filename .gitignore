@@ -10,7 +10,10 @@ venv/
 dist/
 build/
 *.spec
-models/
+models/*
+!models/object_detection/
+models/object_detection/*
+!models/object_detection/coco_labels.json
 data/private/
 *.log
 .DS_Store
