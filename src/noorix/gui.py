@@ -38,6 +38,8 @@ class NoorixApp:
         self.currency = None
         self.config_path = config_path
         self.agent_coordinator = None
+        self.session_history = []
+        self.active_section = "Overview"
         self.config = self._read_config(config_path)
         self._setup_window()
         self._build_ui()
@@ -107,6 +109,8 @@ class NoorixApp:
         self._nav(side, "⌗", "Scene analysis", False)
         self._nav(side, "⚙", "System status", False)
         self._nav(side, "✦", "Agent console", False)
+        self._nav(side, "◷", "Session history", False)
+        self._nav(side, "⚙", "Settings", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
@@ -131,6 +135,7 @@ class NoorixApp:
         self._label(heading, "Your vision workspace", 23, C["text"], True).pack(anchor="w", pady=(4, 0))
         righttop = tk.Frame(top, bg=C["bg"])
         righttop.pack(side="right", anchor="center")
+        self._button(righttop, "↻  Refresh readiness", self.refresh_overview, compact=True).pack(side="left", padx=(0, 8))
         self._label(righttop, "●  LOCAL MODE", 9, C["green"], True,
                     bg=C["panel"], padx=12, pady=8).pack(side="right")
 
@@ -206,25 +211,155 @@ class NoorixApp:
                     8, C["muted"]).pack(anchor="w", pady=(8, 0))
 
     def _nav(self, parent, symbol, title, active):
-        bg = C["panel2"] if active else C["sidebar"]
-        fg = C["cyan"] if active else C["muted"]
+        if not hasattr(self, "_nav_buttons"):
+            self._nav_buttons = []
         actions = {
-            "Overview": lambda: self._set_status("OVERVIEW", "NOORIX local workspace.", C["cyan"]),
+            "Overview": self.refresh_overview,
             "Live vision": self.start_camera,
             "Text reading": self.read_text,
             "Scene analysis": self.analyze,
             "System status": self.show_system_status,
             "Agent console": self.show_agents_console,
+            "Session history": self.show_session_history,
+            "Settings": self.show_settings,
         }
         button = tk.Button(
-            parent, text=f"{symbol}   {title}", command=actions.get(title, lambda: None),
-            bg=bg, fg=C["text"] if active else fg,
+            parent, text=f"{symbol}   {title}", command=lambda t=title: self._navigate(t),
+            bg=C["panel2"] if active else C["sidebar"],
+            fg=C["text"] if active else C["muted"],
             activebackground=C["panel2"], activeforeground=C["cyan"],
             relief="flat", bd=0, cursor="hand2", anchor="w",
             font=("Segoe UI", 9, "bold" if active else "normal"),
             padx=12, pady=10,
         )
         button.pack(fill="x", pady=3)
+        self._nav_buttons.append((title, button))
+
+    def _navigate(self, title):
+        self.active_section = title
+        for name, button in getattr(self, "_nav_buttons", []):
+            selected = name == title
+            button.configure(
+                bg=C["panel2"] if selected else C["sidebar"],
+                fg=C["text"] if selected else C["muted"],
+                font=("Segoe UI", 9, "bold" if selected else "normal"),
+            )
+        actions = {
+            "Overview": self.refresh_overview,
+            "Live vision": self.start_camera,
+            "Text reading": self.read_text,
+            "Scene analysis": self.analyze,
+            "System status": self.show_system_status,
+            "Agent console": self.show_agents_console,
+            "Session history": self.show_session_history,
+            "Settings": self.show_settings,
+        }
+        action = actions.get(title)
+        if action:
+            action()
+
+    def _record_activity(self, action, summary):
+        from datetime import datetime
+        self.session_history.append({
+            "time": datetime.now().strftime("%H:%M:%S"),
+            "action": str(action),
+            "summary": str(summary).replace("\\n", " ")[:240],
+        })
+        self.session_history = self.session_history[-50:]
+
+    def refresh_overview(self):
+        import shutil
+        from noorix.paths import resolve_config_path
+
+        if getattr(self, "camera", None) is not None:
+            self.camera_metric.configure(text="LIVE", fg=C["green"])
+        else:
+            self.camera_metric.configure(text="STANDBY", fg=C["cyan"])
+
+        if shutil.which("tesseract"):
+            self.ocr_metric.configure(text="READY", fg=C["green"])
+        else:
+            self.ocr_metric.configure(text="NEEDS SETUP", fg=C["amber"])
+
+        object_config = self.config.get("object_detection", {})
+        model_value = object_config.get("model_path") if isinstance(object_config, dict) else None
+        if model_value:
+            model_path = resolve_config_path(model_value, self.config_path)
+            self.model_metric.configure(
+                text="MODEL AVAILABLE" if model_path.is_file() else "MODEL MISSING",
+                fg=C["green"] if model_path.is_file() else C["amber"],
+            )
+        else:
+            self.model_metric.configure(text="NOT CONFIGURED", fg=C["purple"])
+
+        camera_state = "Camera live" if getattr(self, "camera", None) is not None else "Camera standby"
+        self._set_status("OVERVIEW UPDATED", f"{camera_state} · {len(getattr(self, 'session_history', []))} session events", C["cyan"])
+
+    def show_session_history(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Session History")
+        window.geometry("720x520")
+        window.configure(bg=C["bg"])
+        self._label(window, "SESSION ACTIVITY", 17, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=20, pady=(18, 4))
+        self._label(window, "In-memory event log only · cleared when the app closes", 9, C["muted"], bg=C["bg"]).pack(anchor="w", padx=20, pady=(0, 12))
+        output = tk.Text(window, wrap="word", bg=C["panel"], fg=C["text"], relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12)
+        output.pack(fill="both", expand=True, padx=20, pady=(0, 12))
+        entries = getattr(self, "session_history", [])
+        if entries:
+            for item in reversed(entries):
+                output.insert("end", f"[{item['time']}] {item['action']}\\n{item['summary']}\\n\\n")
+        else:
+            output.insert("end", "No activity recorded in this session yet.")
+        output.configure(state="disabled")
+        self._button(window, "Clear session history", lambda: self._clear_session_history(output), compact=True).pack(anchor="e", padx=20, pady=(0, 16))
+
+    def _clear_session_history(self, output):
+        self.session_history.clear()
+        output.configure(state="normal")
+        output.delete("1.0", "end")
+        output.insert("end", "Session history cleared.")
+        output.configure(state="disabled")
+
+    def show_settings(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Local Settings")
+        window.geometry("560x430")
+        window.configure(bg=C["bg"])
+        self._label(window, "LOCAL CONFIGURATION", 17, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=20, pady=(18, 4))
+        self._label(window, "Settings are stored in your local config file, not uploaded.", 9, C["muted"], bg=C["bg"]).pack(anchor="w", padx=20, pady=(0, 16))
+        form = self._panel(window, padx=16, pady=14)
+        form.pack(fill="x", padx=20)
+        self._label(form, "Camera device index", 9, C["muted"], True).pack(anchor="w")
+        camera_var = tk.StringVar(value=str(self.camera_index))
+        camera_entry = tk.Entry(form, textvariable=camera_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        camera_entry.pack(fill="x", pady=(5, 14), ipady=7)
+        self._label(form, "Object confidence threshold (0.05–0.95)", 9, C["muted"], True).pack(anchor="w")
+        object_config = self.config.setdefault("object_detection", {})
+        threshold_var = tk.StringVar(value=str(object_config.get("confidence_threshold", 0.3)))
+        threshold_entry = tk.Entry(form, textvariable=threshold_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        threshold_entry.pack(fill="x", pady=(5, 12), ipady=7)
+
+        def save_settings():
+            try:
+                camera_index = int(camera_var.get())
+                threshold = float(threshold_var.get())
+                if camera_index < 0 or not 0.05 <= threshold <= 0.95:
+                    raise ValueError("Camera index must be non-negative and threshold must be between 0.05 and 0.95.")
+                updated = dict(self.config)
+                updated_object = dict(updated.get("object_detection", {}))
+                updated_object["confidence_threshold"] = threshold
+                updated["object_detection"] = updated_object
+                self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+                self.config = updated
+                self.camera_index = camera_index
+                self.agent_coordinator = None
+                self.refresh_overview()
+                messagebox.showinfo("NOORIX AI", "Local settings saved. Restart the camera if its device index changed.", parent=window)
+                window.destroy()
+            except (ValueError, OSError, TypeError) as exc:
+                messagebox.showerror("Settings not saved", str(exc), parent=window)
+
+        self._button(window, "Save local settings", save_settings, True).pack(anchor="e", padx=20, pady=16)
 
     def _get_agent_coordinator(self):
         if self.agent_coordinator is None:
@@ -366,7 +501,6 @@ class NoorixApp:
         self.result.configure(state="disabled")
 
     def start_camera(self):
-        print("DEBUG: START CAMERA BUTTON CLICKED", flush=True)
         if self.camera is not None:
             return
         try:
@@ -398,9 +532,6 @@ class NoorixApp:
             self.preview.configure(image=self.photo, text="")
             self.after_id = self.root.after(33, self._update_frame)
         except Exception as exc:
-            print(f"CAMERA PREVIEW ERROR: {type(exc).__name__}: {exc}", flush=True)
-            import traceback
-            traceback.print_exc()
             self._set_status("PREVIEW STOPPED", str(exc), C["amber"])
             self.stop_camera()
 
@@ -432,6 +563,8 @@ class NoorixApp:
             from noorix.ocr import PrintedEnglishOCR
             output = PrintedEnglishOCR().read(self.current_frame) or "No clear printed English text found."
             self._set_result(output)
+            if hasattr(self, "_record_activity"):
+                self._record_activity("Text reading", output)
             self.ocr_metric.configure(text="REQUEST COMPLETED", fg=C["green"])
             self._set_status("TEXT READING COMPLETE", "English OCR output is ready.", C["green"])
         except Exception as exc:
@@ -480,6 +613,8 @@ class NoorixApp:
 
             output = "\n\n".join(sections)
             self._set_result(output or "No agent results were returned.")
+            if hasattr(self, "_record_activity"):
+                self._record_activity("Scene analysis", output or "No agent results were returned.")
 
             model_results = [
                 result for result in results
