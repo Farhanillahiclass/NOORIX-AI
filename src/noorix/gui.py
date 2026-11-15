@@ -13,11 +13,11 @@ from tkinter import messagebox, simpledialog
 
 
 C = {
-    "bg": "#f4f7fb", "sidebar": "#ffffff", "panel": "#ffffff",
-    "panel2": "#eaf1f8", "panel3": "#f8fafc", "line": "#dbe4ee",
-    "text": "#172b4d", "muted": "#60748a", "cyan": "#0f9f91",
-    "blue": "#2563eb", "purple": "#7c3aed", "amber": "#b7791f",
-    "green": "#16845b", "red": "#c24141",
+    "bg": "#07111f", "sidebar": "#0b1728", "panel": "#101f33",
+    "panel2": "#162a43", "panel3": "#0b1728", "line": "#21364f",
+    "text": "#e6f0ff", "muted": "#91a4bd", "cyan": "#22d3ee",
+    "blue": "#60a5fa", "purple": "#a78bfa", "amber": "#fbbf24",
+    "green": "#34d399", "red": "#fb7185",
 }
 
 
@@ -97,7 +97,7 @@ class NoorixApp:
         return button
 
     def _build_ui(self):
-        """Premium white AI workspace with hybrid sidebar and top command bar."""
+        """Dark navy AI workspace with consistent contrast and hybrid navigation."""
         shell = tk.Frame(self.root, bg=C["bg"])
         shell.pack(fill="both", expand=True)
 
@@ -128,6 +128,7 @@ class NoorixApp:
         self._nav(side, "▤", "System status", False)
         self._nav(side, "◷", "Session history", False)
         self._nav(side, "⚙", "Settings", False)
+        self._nav(side, "◎", "About Farhan", False)
 
         spacer = tk.Frame(side, bg=C["sidebar"])
         spacer.pack(fill="both", expand=True)
@@ -150,7 +151,7 @@ class NoorixApp:
         top_actions.pack(side="right")
         self._button(top_actions, "Refresh", self.refresh_overview, compact=True).pack(side="left", padx=(0, 7))
         self._label(top_actions, "● LOCAL MODE", 8, C["green"], True,
-                    bg="#e9f7f0", padx=10, pady=7).pack(side="left")
+                    bg=C["panel2"], padx=10, pady=7).pack(side="left")
 
         title_row = tk.Frame(main, bg=C["bg"])
         title_row.pack(fill="x")
@@ -192,7 +193,7 @@ class NoorixApp:
         self.preview = tk.Label(
             preview_panel,
             text="NO CAMERA FEED\n\nConnect your camera to begin live analysis.",
-            bg="#edf2f8", fg=C["muted"], font=("Segoe UI", 12),
+            bg="#0b1728", fg=C["muted"], font=("Segoe UI", 12),
             justify="center", compound="center",
         )
         self.preview.pack(fill="both", expand=True, padx=12, pady=12)
@@ -246,6 +247,7 @@ class NoorixApp:
             "Agent console": self.show_agents_console,
             "Session history": self.show_session_history,
             "Settings": self.show_settings,
+            "About Farhan": self.show_about,
         }
         button = tk.Button(
             parent, text=f"{symbol}   {title}", command=lambda t=title: self._navigate(t),
@@ -277,6 +279,7 @@ class NoorixApp:
             "Agent console": self.show_agents_console,
             "Session history": self.show_session_history,
             "Settings": self.show_settings,
+            "About Farhan": self.show_about,
         }
         action = actions.get(title)
         if action:
@@ -387,6 +390,77 @@ class NoorixApp:
         output.delete("1.0", "end")
         output.insert("end", "Session history cleared.")
         output.configure(state="disabled")
+
+    def show_about(self):
+        """Show the creator profile and selected public project portfolio."""
+        import webbrowser
+
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — About the Creator")
+        window.geometry("780x680")
+        window.minsize(640, 540)
+        window.configure(bg=C["bg"])
+
+        header = self._panel(window, bg="#172b4d", padx=22, pady=20)
+        header.pack(fill="x", padx=18, pady=(18, 12))
+        self._label(header, "NOORIX AI  /  ABOUT THE CREATOR", 9, "#67e8f9", True,
+                    bg="#172b4d").pack(anchor="w")
+        self._label(header, "Muhammad Farhan", 24, "#ffffff", True,
+                    bg="#172b4d").pack(anchor="w", pady=(8, 2))
+        self._label(header, "AI/ML Student  ·  Junior Researcher at MRS  ·  Builder of practical AI systems",
+                    10, "#dbeafe", bg="#172b4d").pack(anchor="w")
+
+        body = tk.Frame(window, bg=C["bg"], padx=20)
+        body.pack(fill="both", expand=True)
+        bio = (
+            "I am an AI/ML student and Junior Researcher at Muslim Revive Skills (MRS), "
+            "interested in building useful, privacy-aware software and intelligent systems. "
+            "My public project work explores Python development, AI/ML, computer vision, "
+            "OCR, local-first assistants, backend engineering and workflow automation. "
+            "I learn by designing, implementing, testing and documenting practical projects."
+        )
+        card = self._panel(body, padx=18, pady=16)
+        card.pack(fill="x", pady=(0, 10))
+        self._label(card, "ABOUT", 9, C["cyan"], True).pack(anchor="w")
+        self._label(card, bio, 10, C["text"], justify="left",
+                    wraplength=690).pack(anchor="w", pady=(8, 0))
+
+        projects = [
+            ("NOORIX-AI", "Offline-first camera accessibility research prototype: OCR, object detection, PKR denomination estimation and spoken feedback."),
+            ("NEXORA", "Hybrid institutional cybersecurity intelligence and research platform with evidence-linked, human-reviewed workflows."),
+            ("FlowForge-AI", "A modular n8n workflow library with 20 reusable business automation workflows and validation guides."),
+            ("ILLI AI", "A local-first Windows assistant exploring voice interaction and desktop automation."),
+            ("Phishing URL Detector", "A URL-text classifier with a documented held-out evaluation and automated tests."),
+            ("GYRUS", "A voice-oriented assistant project with media controls, scheduling and a desktop dashboard."),
+            ("AutoLoom AI", "A documented library of 100 AI-assisted automation workflows with setup guides and validation."),
+            ("CIVID", "A source-verified civilian-impact research dataset with provenance and review requirements."),
+            ("PyGuide AI", "A beginner-friendly Python learning chatbot with CLI and Streamlit interfaces."),
+            ("Python Handbook", "A structured Python learning resource built from notebooks and practical examples."),
+        ]
+        project_card = self._panel(body, padx=18, pady=14)
+        project_card.pack(fill="both", expand=True, pady=(0, 10))
+        self._label(project_card, "SELECTED PROJECTS", 9, C["cyan"], True).pack(anchor="w")
+        for name, description in projects:
+            line = tk.Frame(project_card, bg=C["panel"])
+            line.pack(fill="x", pady=(8, 0))
+            self._label(line, name, 10, C["text"], True).pack(anchor="w")
+            self._label(line, description, 9, C["muted"], justify="left",
+                        wraplength=690).pack(anchor="w", pady=(2, 0))
+
+        links = tk.Frame(body, bg=C["bg"])
+        links.pack(fill="x", pady=(0, 14))
+        for title, url in [
+            ("GitHub", "https://github.com/Farhanillahiclass"),
+            ("LinkedIn", "https://www.linkedin.com/in/muhammadfarhanmrs"),
+            ("Kaggle", "https://www.kaggle.com/muhammadfarhanmrs"),
+            ("Hugging Face", "https://huggingface.co/muhammedfarhan"),
+            ("MRS Platform", "https://mrsplatform.tech/"),
+        ]:
+            self._button(links, title, lambda target=url: webbrowser.open(target),
+                         compact=True).pack(side="left", padx=(0, 6))
+
+        self._label(body, "Profile summary based on public portfolio links and repository documentation.",
+                    8, C["muted"]).pack(anchor="w", pady=(0, 10))
 
     def show_settings(self):
         window = tk.Toplevel(self.root)

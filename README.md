@@ -56,6 +56,8 @@ Set `ocr.language` in `config.json` to `eng`, `urd`, or `eng+urd`. Urdu OCR requ
 - GUI: Tkinter is included with most standard Python Windows installations.
 
 ## Privacy and safety
+
+Before changing repository visibility to Public, review the [Public Release Security Checklist](docs/PUBLIC_RELEASE_CHECKLIST.md).
 - Camera frames are held in memory for the current session and are not saved automatically.
 - Left/centre/right describes only position within the camera image. It is not physical distance, obstacle avoidance or safe-navigation guidance.
 - NOORIX is not a replacement for a white cane, guide dog or trained mobility support.
