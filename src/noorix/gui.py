@@ -407,13 +407,13 @@ class NoorixApp:
                     bg="#172b4d").pack(anchor="w")
         self._label(header, "Muhammad Farhan", 24, "#ffffff", True,
                     bg="#172b4d").pack(anchor="w", pady=(8, 2))
-        self._label(header, "AI Student  ·  Researcher at MRS  ·  Builder of practical AI systems",
+        self._label(header, "AI/ML Student  ·  Junior Researcher at MRS  ·  Builder of practical AI systems",
                     10, "#dbeafe", bg="#172b4d").pack(anchor="w")
 
         body = tk.Frame(window, bg=C["bg"], padx=20)
         body.pack(fill="both", expand=True)
         bio = (
-            "I am an AI student and Researcher at Muslim Revive Skills (MRS), "
+            "I am an AI/ML student and Junior Researcher at Muslim Revive Skills (MRS), "
             "interested in building useful, privacy-aware software and intelligent systems. "
             "My public project work explores Python development, AI/ML, computer vision, "
             "OCR, local-first assistants, backend engineering and workflow automation. "
@@ -432,6 +432,10 @@ class NoorixApp:
             ("ILLI AI", "A local-first Windows assistant exploring voice interaction and desktop automation."),
             ("Phishing URL Detector", "A URL-text classifier with a documented held-out evaluation and automated tests."),
             ("GYRUS", "A voice-oriented assistant project with media controls, scheduling and a desktop dashboard."),
+            ("AutoLoom AI", "A documented library of 100 AI-assisted automation workflows with setup guides and validation."),
+            ("CIVID", "A source-verified civilian-impact research dataset with provenance and review requirements."),
+            ("PyGuide AI", "A beginner-friendly Python learning chatbot with CLI and Streamlit interfaces."),
+            ("Python Handbook", "A structured Python learning resource built from notebooks and practical examples."),
         ]
         project_card = self._panel(body, padx=18, pady=14)
         project_card.pack(fill="both", expand=True, pady=(0, 10))
