@@ -41,6 +41,10 @@ class NoorixApp:
         self.session_history = []
         self.active_section = "Overview"
         self.config = self._read_config(config_path)
+        try:
+            self.camera_index = int(self.config.get("camera_index", camera_index))
+        except (TypeError, ValueError):
+            self.camera_index = camera_index
         self._setup_window()
         self._build_ui()
         self._set_status("SYSTEM READY", "Start the camera to begin a local session.", C["cyan"])
@@ -352,6 +356,7 @@ class NoorixApp:
                 updated_object = dict(updated.get("object_detection", {}))
                 updated_object["confidence_threshold"] = threshold
                 updated["object_detection"] = updated_object
+                updated["camera_index"] = camera_index
                 self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 self.config = updated
                 self.camera_index = camera_index
