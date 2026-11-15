@@ -118,3 +118,59 @@ class ObjectDetector:
                 ],
             })
         return results
+
+def create_object_detector(config: dict, config_path: str | Path = "config.json"):
+    """Create the configured object detector using paths relative to config."""
+    import json
+
+    from noorix.paths import resolve_config_path
+
+    backend = str(config.get("backend", "opencv_dnn")).lower()
+    model_value = config.get("model_path")
+    if not model_value:
+        raise ValueError("Object detection model_path is not configured")
+
+    model_path = resolve_config_path(model_value, config_path)
+    threshold = float(config.get(
+        "confidence_threshold",
+        0.30 if backend == "ssd_mobilenet_v2" else 0.50,
+    ))
+
+    if backend == "ssd_mobilenet_v2":
+        from noorix.ssd_mobilenet_v2 import SSDMobileNetV2Detector
+
+        labels = config.get("labels")
+        labels_path = config.get("labels_path")
+
+        if labels_path:
+            resolved_labels = resolve_config_path(labels_path, config_path)
+            labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
+
+        if not isinstance(labels, list):
+            raise ValueError(
+                "SSD MobileNet V2 requires labels_path or a 90-position labels list"
+            )
+
+        anchors_path = config.get("anchors_path")
+        return SSDMobileNetV2Detector(
+            model_path,
+            labels,
+            confidence_threshold=threshold,
+            anchors_path=(
+                resolve_config_path(anchors_path, config_path)
+                if anchors_path else None
+            ),
+        )
+
+    if backend == "opencv_dnn":
+        labels = config.get("labels")
+        if not isinstance(labels, list) or not labels:
+            raise ValueError("OpenCV DNN requires a non-empty labels list")
+        return ObjectDetector(
+            model_path,
+            labels,
+            confidence_threshold=threshold,
+            input_size=tuple(config.get("input_size", (300, 300))),
+        )
+
+    raise ValueError(f"Unsupported object detection backend: {backend}")

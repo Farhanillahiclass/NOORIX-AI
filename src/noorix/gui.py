@@ -366,6 +366,7 @@ class NoorixApp:
         self.result.configure(state="disabled")
 
     def start_camera(self):
+        print("DEBUG: START CAMERA BUTTON CLICKED", flush=True)
         if self.camera is not None:
             return
         try:
@@ -397,6 +398,9 @@ class NoorixApp:
             self.preview.configure(image=self.photo, text="")
             self.after_id = self.root.after(33, self._update_frame)
         except Exception as exc:
+            print(f"CAMERA PREVIEW ERROR: {type(exc).__name__}: {exc}", flush=True)
+            import traceback
+            traceback.print_exc()
             self._set_status("PREVIEW STOPPED", str(exc), C["amber"])
             self.stop_camera()
 
@@ -441,46 +445,93 @@ class NoorixApp:
     def analyze(self):
         if self.current_frame is None:
             self._set_result("Start the camera first.")
-            self._set_status("CAMERA REQUIRED", "Start the camera before scene analysis.", C["amber"])
-            return
-        results = []
-        try:
-            model = self.config.get("object_detection", {})
-            if model.get("model_path") and model.get("labels"):
-                from noorix.objects import ObjectDetector
-                if self.detector is None:
-                    self.detector = ObjectDetector(
-                        self._resolve_model_path(model["model_path"]), model["labels"],
-                        confidence_threshold=float(model.get("confidence_threshold", 0.5)),
-                    )
-                for item in self.detector.detect(self.current_frame):
-                    results.append(f"{item['label']} — image {item['position']} ({item['confidence']:.0%})")
-            currency = self.config.get("currency", {})
-            if currency.get("model_path") and currency.get("labels"):
-                from noorix.currency import CurrencyEstimator
-                if self.currency is None:
-                    self.currency = CurrencyEstimator(
-                        self._resolve_model_path(currency["model_path"]), currency["labels"],
-                        input_size=int(currency.get("input_size", 224)),
-                    )
-                estimate = self.currency.predict(self.current_frame)
-                results.append(
-                    f"Possible banknote: {estimate['denomination']} "
-                    f"(score {estimate['confidence']:.0%}; estimate only)"
-                )
-            output = "\n".join(results) if results else (
-                "No trained models are configured. Add compatible ONNX model files "
-                "and their exact labels in config.json."
+            self._set_status(
+                "CAMERA REQUIRED",
+                "Start the camera before scene analysis.",
+                C["amber"],
             )
-            self._set_result(output)
-            self.model_metric.configure(text="INFERENCE COMPLETE" if results else "AWAITING MODELS",
-                                        fg=C["green"] if results else C["purple"])
-            self._set_status("ANALYSIS COMPLETE" if results else "MODELS NOT CONFIGURED",
-                             "Predictions are estimates and require validation.",
-                             C["green"] if results else C["amber"])
+            return
+
+        try:
+            coordinator = self._get_agent_coordinator()
+            results = coordinator.run_vision(self.current_frame)
+
+            sections = []
+            for result in results:
+                sections.append(
+                    f"AGENT: {result.agent.upper()}\n"
+                    f"STATE: {result.state.value.upper()}\n"
+                    f"{result.summary}"
+                )
+
+                for warning in result.warnings:
+                    sections.append(f"WARNING: {warning}")
+
+                if result.data is not None:
+                    sections.append(
+                        "DETAILS:\n" +
+                        json.dumps(
+                            result.data,
+                            ensure_ascii=False,
+                            indent=2,
+                            default=str,
+                        )
+                    )
+
+            output = "\n\n".join(sections)
+            self._set_result(output or "No agent results were returned.")
+
+            model_results = [
+                result for result in results
+                if result.agent in ("object_detection", "currency")
+            ]
+            completed = [
+                result for result in model_results
+                if result.successful
+            ]
+            errors = [
+                result for result in results
+                if result.state.value == "error"
+            ]
+
+            if errors:
+                self.model_metric.configure(
+                    text="SOME TASKS FAILED",
+                    fg=C["amber"],
+                )
+                self._set_status(
+                    "PARTIAL ANALYSIS",
+                    "One or more agents could not complete their tasks.",
+                    C["amber"],
+                )
+            elif completed:
+                self.model_metric.configure(
+                    text="INFERENCE COMPLETE",
+                    fg=C["green"],
+                )
+                self._set_status(
+                    "ANALYSIS COMPLETE",
+                    "Agent results are estimates and require independent validation.",
+                    C["green"],
+                )
+            else:
+                self.model_metric.configure(
+                    text="AWAITING MODELS",
+                    fg=C["purple"],
+                )
+                self._set_status(
+                    "MODELS NOT READY",
+                    "Configure compatible models before requesting predictions.",
+                    C["amber"],
+                )
+
         except Exception as exc:
-            self._set_result(f"Analysis unavailable: {exc}")
-            self._set_status("ANALYSIS ERROR", "Check model files, labels and configuration.", C["amber"])
+            self._set_result(f"Analysis unavailable: {type(exc).__name__}: {exc}")
+            self._set_status(
+                "ANALYSIS ERROR",
+                "Check agent registration and configuration.",
+                C["amber"],
+            )
 
     def speak_result(self):
         text = self.result.get("1.0", "end").strip()
