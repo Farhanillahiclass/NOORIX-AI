@@ -91,3 +91,44 @@ def test_ocr_rejects_empty_or_unsupported_arrays():
         PrintedEnglishOCR._to_pil(np.array([], dtype=np.uint8))
     with pytest.raises(ValueError, match="channels"):
         PrintedEnglishOCR._to_pil(np.zeros((5, 5, 2), dtype=np.uint8))
+
+
+def test_ocr_corrects_sideways_page_using_tesseract_osd(monkeypatch):
+    pil = pytest.importorskip("PIL.Image")
+    pytesseract = pytest.importorskip("pytesseract")
+    calls = []
+
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_osd",
+        lambda image, config: "Page number: 0\\nRotate: 90\\nOrientation in degrees: 270",
+    )
+
+    def fake_image_to_string(image, lang, config):
+        calls.append(image.size)
+        return "Printed page text"
+
+    monkeypatch.setattr(pytesseract, "image_to_string", fake_image_to_string)
+    source = pil.new("RGB", (120, 80), "white")
+
+    result = PrintedEnglishOCR(language="eng").read(source)
+
+    assert result == "Printed page text"
+    assert calls
+    assert calls[0] == (80, 120)
+
+
+def test_ocr_orientation_detection_failure_falls_back(monkeypatch):
+    pil = pytest.importorskip("PIL.Image")
+    pytesseract = pytest.importorskip("pytesseract")
+    monkeypatch.setattr(
+        pytesseract,
+        "image_to_osd",
+        lambda image, config: (_ for _ in ()).throw(RuntimeError("OSD unavailable")),
+    )
+    source = pil.new("RGB", (120, 80), "white")
+
+    corrected = PrintedEnglishOCR._correct_orientation(source, pytesseract)
+
+    assert corrected.size == (120, 80)
+
