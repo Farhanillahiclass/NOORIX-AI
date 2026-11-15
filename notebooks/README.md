@@ -68,15 +68,16 @@ NOORIX currently has an operating-system TTS path through `pyttsx3`; this uses i
 
 VAD (voice activity detection) can be added as a lightweight pretrained component later. It is not a substitute for ASR and does not need a custom dataset for the first prototype.
 
-## 6. Safe local import
+## 6. Automatic local ZIP detection (Windows)
 
-1. Download each finished Kaggle ZIP.
-2. Copy the ZIP files into `NOORIX-AI/models/incoming/`.
-3. Run `scripts/import_kaggle_models.bat` from the repository.
-4. Recognized model/config files are copied to `models/imported/<zip-name>/`; unrelated extracted files are discarded.
-5. Original ZIPs are kept for rollback. Temporary extraction folders are removed automatically.
+1. Download Kaggle model output ZIPs and dataset ZIPs normally into `%USERPROFILE%\\Downloads`.
+2. Run `scripts\\import_kaggle_models.bat` from the repository root (double-click also works).
+3. The script checks ZIP files modified in the **last 2 hours**. You can change the window with `--since-hours 4` when running the Python script directly.
+4. ZIP names beginning `NOORIX_` or `NOORIX-` are treated as model packages; recognized model/config files are extracted into `models/imported/<zip-name>/`.
+5. Other recent ZIPs are copied intact into `data/datasets/incoming/` as dataset archives. They are not unpacked into the model folder and are not deleted.
+6. ZIPs manually placed in `models/incoming/` are also imported. Original ZIPs are preserved; review `import_manifest.json` after import.
 
-The importer does **not** connect models to app code automatically. That is deliberate: model-specific adapters, exact labels, preprocessing and validation must be confirmed before activation. Do not delete the original ZIPs until the imported models have been tested.
+The importer does **not** connect models to app code automatically. Model-specific adapters, exact labels, preprocessing and validation must be confirmed before activation. Dataset ZIPs are collected, not automatically attached to Kaggle or unpacked; large archives should be extracted only after checking free disk space.
 
 ## 7. Recommended training order
 
