@@ -44,6 +44,7 @@ class NoorixApp:
         self._setup_window()
         self._build_ui()
         self._set_status("SYSTEM READY", "Start the camera to begin a local session.", C["cyan"])
+        self.refresh_overview()
 
     @staticmethod
     def _read_config(path: Path) -> dict:
@@ -263,7 +264,7 @@ class NoorixApp:
         self.session_history.append({
             "time": datetime.now().strftime("%H:%M:%S"),
             "action": str(action),
-            "summary": str(summary).replace("\\n", " ")[:240],
+            "summary": str(summary).replace("\n", " ")[:240],
         })
         self.session_history = self.session_history[-50:]
 
@@ -307,7 +308,7 @@ class NoorixApp:
         entries = getattr(self, "session_history", [])
         if entries:
             for item in reversed(entries):
-                output.insert("end", f"[{item['time']}] {item['action']}\\n{item['summary']}\\n\\n")
+                output.insert("end", f"[{item['time']}] {item['action']}\n{item['summary']}\n\n")
         else:
             output.insert("end", "No activity recorded in this session yet.")
         output.configure(state="disabled")
@@ -334,7 +335,9 @@ class NoorixApp:
         camera_entry = tk.Entry(form, textvariable=camera_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
         camera_entry.pack(fill="x", pady=(5, 14), ipady=7)
         self._label(form, "Object confidence threshold (0.05–0.95)", 9, C["muted"], True).pack(anchor="w")
-        object_config = self.config.setdefault("object_detection", {})
+        object_config = self.config.get("object_detection", {})
+        if not isinstance(object_config, dict):
+            object_config = {}
         threshold_var = tk.StringVar(value=str(object_config.get("confidence_threshold", 0.3)))
         threshold_entry = tk.Entry(form, textvariable=threshold_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
         threshold_entry.pack(fill="x", pady=(5, 12), ipady=7)
@@ -349,7 +352,7 @@ class NoorixApp:
                 updated_object = dict(updated.get("object_detection", {}))
                 updated_object["confidence_threshold"] = threshold
                 updated["object_detection"] = updated_object
-                self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\\n", encoding="utf-8")
+                self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 self.config = updated
                 self.camera_index = camera_index
                 self.agent_coordinator = None
