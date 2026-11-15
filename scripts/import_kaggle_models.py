@@ -2,6 +2,7 @@ from __future__ import annotations
 import argparse, json, shutil, zipfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
+import stat
 
 ROOT = Path(__file__).resolve().parents[1]
 INCOMING = ROOT / "models" / "incoming"
@@ -13,13 +14,22 @@ SKIP_PARTS = {"__pycache__",".ipynb_checkpoints","runs","wandb","logs","samples"
 MAX_MEMBER_BYTES = 4 * 1024 * 1024 * 1024
 
 def safe_extract_member(zf, info, target):
-    raw=PurePosixPath(info.filename)
-    if raw.is_absolute() or ".." in raw.parts or info.is_dir(): return None
+    # ZIP entry names may use Windows separators even when processed on POSIX.
+    normalized=info.filename.replace("\\\\","/")
+    raw=PurePosixPath(normalized)
+    mode=(info.external_attr >> 16) & 0o170000
+    if (not normalized or "\\x00" in normalized or raw.is_absolute()
+        or ".." in raw.parts or any(":" in part for part in raw.parts)
+        or mode == stat.S_IFLNK or info.is_dir()):
+        return None
     if info.file_size > MAX_MEMBER_BYTES:
         print(f"  SKIP (over 4 GiB): {info.filename}"); return None
     if any(part.lower() in SKIP_PARTS for part in raw.parts): return None
     if Path(raw.name).suffix.lower() not in ALLOWED_SUFFIXES: return None
-    out=target.joinpath(*raw.parts); out.parent.mkdir(parents=True,exist_ok=True)
+    out=target.joinpath(*raw.parts)
+    # Avoid duplicate ZIP entries silently replacing an earlier extracted file.
+    if out.exists(): return None
+    out.parent.mkdir(parents=True,exist_ok=True)
     with zf.open(info) as src, out.open("wb") as dst: shutil.copyfileobj(src,dst)
     return out
 
