@@ -13,11 +13,11 @@ from tkinter import messagebox, simpledialog
 
 
 C = {
-    "bg": "#f4f7fb", "sidebar": "#ffffff", "panel": "#ffffff",
-    "panel2": "#eaf1f8", "panel3": "#f8fafc", "line": "#dbe4ee",
-    "text": "#172b4d", "muted": "#60748a", "cyan": "#0f9f91",
-    "blue": "#2563eb", "purple": "#7c3aed", "amber": "#b7791f",
-    "green": "#16845b", "red": "#c24141",
+    "bg": "#07111f", "sidebar": "#0b1728", "panel": "#101f33",
+    "panel2": "#162a43", "panel3": "#0b1728", "line": "#21364f",
+    "text": "#e6f0ff", "muted": "#91a4bd", "cyan": "#22d3ee",
+    "blue": "#60a5fa", "purple": "#a78bfa", "amber": "#fbbf24",
+    "green": "#34d399", "red": "#fb7185",
 }
 
 
@@ -193,7 +193,7 @@ class NoorixApp:
         self.preview = tk.Label(
             preview_panel,
             text="NO CAMERA FEED\n\nConnect your camera to begin live analysis.",
-            bg="#edf2f8", fg=C["muted"], font=("Segoe UI", 12),
+            bg="#0b1728", fg=C["muted"], font=("Segoe UI", 12),
             justify="center", compound="center",
         )
         self.preview.pack(fill="both", expand=True, padx=12, pady=12)
