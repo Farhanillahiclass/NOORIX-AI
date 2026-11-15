@@ -270,26 +270,39 @@ class NoorixApp:
         import shutil
         from noorix.paths import resolve_config_path
 
-        if getattr(self, "camera", None) is not None:
-            self.camera_metric.configure(text="LIVE", fg=C["green"])
-        else:
-            self.camera_metric.configure(text="STANDBY", fg=C["cyan"])
+        camera_live = getattr(self, "camera", None) is not None
+        self.camera_metric.configure(
+            text="LIVE" if camera_live else "STANDBY",
+            fg=C["green"] if camera_live else C["cyan"],
+        )
+        camera_detail = getattr(self, "camera_input_detail", None)
+        if camera_detail is not None:
+            camera_detail.configure(
+                text=f"Device {self.camera_index} · " + ("Connected" if camera_live else "Not connected")
+            )
 
-        if shutil.which("tesseract"):
-            self.ocr_metric.configure(text="READY", fg=C["green"])
-        else:
-            self.ocr_metric.configure(text="NEEDS SETUP", fg=C["amber"])
+        tesseract_ready = shutil.which("tesseract") is not None
+        self.ocr_metric.configure(
+            text="READY" if tesseract_ready else "NEEDS SETUP",
+            fg=C["green"] if tesseract_ready else C["amber"],
+        )
+        ocr_detail = getattr(self, "printed_english_ocr_detail", None)
+        if ocr_detail is not None:
+            ocr_detail.configure(text="Tesseract executable found" if tesseract_ready else "Install Tesseract and add it to PATH")
 
         object_config = self.config.get("object_detection", {})
         model_value = object_config.get("model_path") if isinstance(object_config, dict) else None
-        if model_value:
-            model_path = resolve_config_path(model_value, self.config_path)
-            self.model_metric.configure(
-                text="MODEL AVAILABLE" if model_path.is_file() else "MODEL MISSING",
-                fg=C["green"] if model_path.is_file() else C["amber"],
+        model_path = resolve_config_path(model_value, self.config_path) if model_value else None
+        model_ready = bool(model_path and model_path.is_file())
+        self.model_metric.configure(
+            text="MODEL READY" if model_ready else ("MODEL MISSING" if model_value else "NOT CONFIGURED"),
+            fg=C["green"] if model_ready else (C["amber"] if model_value else C["purple"]),
+        )
+        model_detail = getattr(self, "ai_inference_detail", None)
+        if model_detail is not None:
+            model_detail.configure(
+                text=str(model_path) if model_value else "Set object_detection.model_path in config.json"
             )
-        else:
-            self.model_metric.configure(text="NOT CONFIGURED", fg=C["purple"])
 
         camera_state = "Camera live" if getattr(self, "camera", None) is not None else "Camera standby"
         self._set_status("OVERVIEW UPDATED", f"{camera_state} · {len(getattr(self, 'session_history', []))} session events", C["cyan"])
@@ -481,7 +494,10 @@ class NoorixApp:
         self._label(card, title, 8, C["muted"], True).pack(anchor="w")
         val = self._label(card, value, 12, accent, True)
         val.pack(anchor="w", pady=(7, 3))
-        self._label(card, detail, 8, C["muted"]).pack(anchor="w")
+        detail_label = self._label(card, detail, 8, C["muted"])
+        detail_label.pack(anchor="w")
+        key = title.lower().replace(" ", "_")
+        setattr(self, f"{key}_detail", detail_label)
         return val
 
     def _feature(self, parent, number, title, detail, accent):
