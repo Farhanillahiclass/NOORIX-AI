@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
 import time
 from dataclasses import asdict, dataclass
@@ -51,8 +52,9 @@ def _load_config(config_path: Path) -> dict:
 
 
 def _test_package(config: dict, config_path: Path):
-    manifest_path = config_path.parent / "manifest.json"
-    checksum_path = config_path.parent / "checksums.sha256"
+    model_root = Path(os.environ.get("NOORIX_MODELS_DIR", config_path.parent)).expanduser()
+    manifest_path = model_root / "manifest.json"
+    checksum_path = model_root / "checksums.sha256"
     if not manifest_path.is_file() and not checksum_path.is_file():
         return "SKIPPED", {"reason": "No manifest.json or checksums.sha256 beside config."}
     checked, failures = 0, []
