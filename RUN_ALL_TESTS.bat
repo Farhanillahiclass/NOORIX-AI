@@ -18,16 +18,21 @@ if not exist "%CONFIG%" (
     echo Using config.example.json. Add config.json for custom settings.
 )
 
+REM Prefer the active Python from PATH (for example, an activated Conda env).
+REM Use the project .venv only when no Python command is available.
 set "PYTHON=python"
-if exist ".venv\Scripts\python.exe" set "PYTHON=.venv\Scripts\python.exe"
-if not exist ".venv\Scripts\python.exe" (
-    where python >nul 2>nul
-    if errorlevel 1 (
+where python >nul 2>nul
+if errorlevel 1 (
+    if exist ".venv\Scripts\python.exe" (
+        set "PYTHON=.venv\Scripts\python.exe"
+    ) else (
         where py >nul 2>nul
         if not errorlevel 1 set "PYTHON=py -3.12"
     )
 )
 
+echo Using Python:
+%PYTHON% -c "import sys; print(sys.executable)"
 %PYTHON% "scripts\test_all_models.py" --config "%CONFIG%"
 set "RESULT=%ERRORLEVEL%"
 
