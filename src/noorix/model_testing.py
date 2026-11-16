@@ -149,6 +149,8 @@ def _test_ocr(config: dict):
     missing = sorted(set(language.split("+")) - installed)
     if missing:
         return "SKIPPED", {"reason": "Tesseract language data missing: " + ", ".join(missing)}
+    if language == "urd":
+        return "WARN", {"language": language, "note": "Urdu trained-data is installed; automated sample OCR is not run without a bundled verified Urdu sample font."}
     image = Image.new("RGB", (720, 180), "white")
     ImageDraw.Draw(image).text((25, 55), "NOORIX TEST 123", fill="black")
     from noorix.ocr import PrintedEnglishOCR
