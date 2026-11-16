@@ -50,7 +50,7 @@ class WhisperASR:
         self._torch = torch
 
     @staticmethod
-    def _audio_input(audio: Any, sampling_rate: int | None):
+    def _audio_input(audio: Any, sampling_rate: int | None = None):
         if isinstance(audio, Mapping):
             sampling_rate = audio.get("sampling_rate", sampling_rate)
             audio = audio.get("audio")
