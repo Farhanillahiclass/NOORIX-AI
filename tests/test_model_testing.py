@@ -78,3 +78,28 @@ def test_test_package_detects_checksum_mismatch(tmp_path):
     (tmp_path / "checksums.sha256").write_text("0" * 64 + "  models.bin\n", encoding="utf-8")
     with pytest.raises(RuntimeError, match="Checksum mismatch"):
         _test_package({}, config)
+
+
+def test_test_package_checksums_from_external_model_root(tmp_path, monkeypatch):
+    import hashlib
+    from noorix.model_testing import _test_package
+
+    repo = tmp_path / "repo"
+    model_root = tmp_path / "EXTRACTED"
+    repo.mkdir()
+    model_root.mkdir()
+    config = repo / "config.json"
+    config.write_text("{}", encoding="utf-8")
+    payload = model_root / "models" / "weights.bin"
+    payload.parent.mkdir()
+    payload.write_bytes(b"external-model-package")
+    digest = hashlib.sha256(payload.read_bytes()).hexdigest()
+    (model_root / "checksums.sha256").write_text(
+        f"{digest}  models/weights.bin\\n", encoding="utf-8"
+    )
+    monkeypatch.setenv("NOORIX_MODELS_DIR", str(model_root))
+
+    status, details = _test_package({}, config)
+
+    assert status == "PASS"
+    assert details["checksum_files_verified"] == 1
