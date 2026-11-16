@@ -69,7 +69,7 @@ def _test_package(config: dict, config_path: Path):
                 failures.append(f"Malformed checksum line: {line[:80]}")
                 continue
             expected, relative = parts[0], parts[1].lstrip("* ")
-            target = config_path.parent / relative
+            target = model_root / relative
             if not target.is_file():
                 failures.append(f"Missing: {relative}")
                 continue
