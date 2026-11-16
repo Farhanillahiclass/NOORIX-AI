@@ -60,6 +60,7 @@ def test_factory_resolves_model_path_relative_to_config(tmp_path):
     )
     assert adapter.model_path == model
     assert adapter.language == "urdu"
+    assert adapter.processor_path == model
 
 
 def test_transcribe_uses_cpu_and_local_mocked_transformers(monkeypatch, tmp_path):
@@ -122,3 +123,24 @@ def test_transcribe_uses_cpu_and_local_mocked_transformers(monkeypatch, tmp_path
     assert calls["model_device"] == "cpu"
     assert calls["prefix"] == {"language": "urdu", "task": "transcribe"}
     assert calls["device"] == "cpu"
+
+
+def test_factory_supports_separate_processor_directory(tmp_path):
+    model = tmp_path / "models" / "model"
+    processor = tmp_path / "models" / "processor"
+    model.mkdir(parents=True)
+    processor.mkdir(parents=True)
+    adapter = create_whisper_asr(
+        {"model_path": "models/model", "processor_path": "models/processor"},
+        tmp_path / "config.json",
+    )
+    assert adapter.model_path == model
+    assert adapter.processor_path == processor
+
+
+def test_whisper_asr_requires_processor_directory(tmp_path):
+    model = tmp_path / "model"
+    model.mkdir()
+    adapter = WhisperASR(model, processor_path=tmp_path / "missing_processor")
+    with pytest.raises(FileNotFoundError, match="processor directory"):
+        adapter.load()
