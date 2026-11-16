@@ -7,19 +7,28 @@ echo       NOORIX AI - ONE COMMAND TEST
 echo ==========================================
 echo.
 
-if not exist "config.json" (
-    echo ERROR: config.json was not found.
-    echo First copy config.example.json to config.json
-    echo Then confirm model paths match your extracted model folders.
-    echo.
-    pause
-    exit /b 2
+if exist "D:\NOORIX_MODELS\EXTRACTED\models" (
+    set "NOORIX_MODELS_DIR=D:\NOORIX_MODELS\EXTRACTED"
+    echo Found extracted model package: D:\NOORIX_MODELS\EXTRACTED
+)
+
+set "CONFIG=config.json"
+if not exist "%CONFIG%" (
+    set "CONFIG=config.example.json"
+    echo Using config.example.json. Add config.json for custom settings.
 )
 
 set "PYTHON=python"
 if exist ".venv\Scripts\python.exe" set "PYTHON=.venv\Scripts\python.exe"
+if not exist ".venv\Scripts\python.exe" (
+    where python >nul 2>nul
+    if errorlevel 1 (
+        where py >nul 2>nul
+        if not errorlevel 1 set "PYTHON=py -3.12"
+    )
+)
 
-%PYTHON% "scripts\test_all_models.py" --config "config.json"
+%PYTHON% "scripts\test_all_models.py" --config "%CONFIG%"
 set "RESULT=%ERRORLEVEL%"
 
 echo.
