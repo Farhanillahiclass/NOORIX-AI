@@ -65,6 +65,7 @@ def main(argv=None) -> int:
     modes.add_argument("--gui", action="store_true", help="Open the desktop interface")
     modes.add_argument("--check", action="store_true", help="Show installed backend readiness")
     modes.add_argument("--transcribe", type=Path, metavar="AUDIO_FILE", help="Transcribe a local audio file with configured Whisper ASR")
+    modes.add_argument("--test-all", action="store_true", help="Run all configured local model smoke tests sequentially")
     parser.add_argument("--camera", type=int, default=0, help="Webcam device index (default: 0)")
     parser.add_argument("--config", type=Path, default=Path("config.json"), help="Optional local model configuration")
     args = parser.parse_args(argv)
@@ -73,6 +74,20 @@ def main(argv=None) -> int:
         parser.error("--camera must be zero or greater")
     if args.camera_preview:
         return camera_preview(args.camera)
+    if args.test_all:
+        from noorix.model_testing import run_all_tests
+        try:
+            report = run_all_tests(args.config)
+            for item in report["results"]:
+                print("[{}] {} ({}s): {}".format(item["status"], item["name"], item["duration_seconds"], item["message"]))
+            print("TOTALS: " + json.dumps(report["totals"]))
+            print("JSON REPORT: " + report["report_json"])
+            print("MARKDOWN REPORT: " + report["report_markdown"])
+            print("PRODUCTION READINESS: NOT CERTIFIED — smoke tests are not accuracy or safety validation.")
+            return 1 if report["totals"]["fail"] else 0
+        except Exception as exc:
+            print("Model test runner failed: {}: {}".format(type(exc).__name__, exc))
+            return 1
     if args.transcribe:
         try:
             from noorix.agents import WhisperASRAgent
