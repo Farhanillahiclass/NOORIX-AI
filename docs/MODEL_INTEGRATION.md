@@ -27,6 +27,24 @@ The bundled research model `ssd-mobilenet-v2.onnx` has multiple raw output heads
 
 The current generic preprocessing path is not a verified preprocessing implementation for every SSD model. Confirm the exact model's resize interpolation, mean, scale, channel order, layout, and output schema before use. Do not infer these from the model filename.
 
+## YOLOv8 ONNX object detection
+
+The `YOLOv8ONNXDetector` is a separate adapter for standard Ultralytics YOLOv8 **Detect** exports. It does not reuse the SSD decoder.
+
+Supported contract:
+- Input: one BGR camera frame; letterboxed to 640x640 with padding value 114.
+- Tensor: RGB, float32 NCHW, values scaled to 0..1.
+- Output: exactly one raw detection tensor, either `[1, 4 + class_count, candidates]` or `[1, candidates, 4 + class_count]`.
+- Each candidate contains `cx, cy, width, height`, followed by one class score per label. This is the standard YOLOv8 Detect layout without an objectness column.
+- Class labels are read from a JSON list or a numeric-keyed object with contiguous indices starting at zero.
+- Boxes are mapped back through the letterbox scale/padding, clipped to the original frame, then class-wise NMS is applied.
+
+Configure `object_detection.backend` as `yolov8_onnx`, with `model_path`, `labels_path`, and an optional `confidence_threshold`. The example config points to the YOLOv8n package folder.
+
+**Compatibility gate:** this adapter rejects multi-output, segmentation, pose, end-to-end/NMS, objectness-based, and other unrecognized output layouts. The Kaggle export notebook records a 640x640 input, but the actual ONNX file is not stored in this repository; therefore, CI tests validate the documented decoder contract with controlled tensors, not the user's particular ONNX artifact. Before relying on a downloaded export, verify its runtime output shape and compare detections against Ultralytics on the same sample images. YOLOv8n in the current package is COCO-pretrained unless a separate labelled custom-training run is documented. It is not a custom NOORIX dataset-trained model.
+
+As with all NOORIX detections, image-relative positions are not distance estimates, obstacle avoidance, or safe-navigation instructions.
+
 ## Printed English OCR
 
 `PrintedEnglishOCR` uses the local Tesseract executable through pytesseract. The Python package alone is insufficient; install Tesseract separately and verify `tesseract --version`. Scope is clear printed English only.
