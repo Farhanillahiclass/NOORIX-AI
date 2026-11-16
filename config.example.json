@@ -18,9 +18,16 @@
     "Labels must be in the exact order used during model training.",
     "The PKR classifier estimates denomination and side only; it does not authenticate banknotes.",
     "Do not treat model scores as guaranteed accuracy.",
-    "YOLOv8 ONNX support accepts standard single-output Detect exports with 4 box values plus one score per class; other YOLO tasks/output layouts are rejected."
+    "YOLOv8 ONNX support accepts standard single-output Detect exports with 4 box values plus one score per class; other YOLO tasks/output layouts are rejected.",
+    "Whisper ASR requires a complete local model and processor directory; install the asr-whisper extra. No model download occurs at inference time."
   ],
   "ocr": {
     "language": "eng"
+  },
+  "asr": {
+    "backend": "whisper_local",
+    "model_path": "models/whisper_urdu_asr/model",
+    "language": "urdu",
+    "max_new_tokens": 128
   }
 }
