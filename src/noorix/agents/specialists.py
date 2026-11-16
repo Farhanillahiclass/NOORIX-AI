@@ -6,6 +6,7 @@ from typing import Any, Mapping
 from noorix.agents.base import AgentResult, AgentState
 from noorix.capabilities import capability_status
 from noorix.currency import CurrencyEstimator
+from noorix.pkr_currency import PytorchPKRCurrencyEstimator
 from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
@@ -51,26 +52,46 @@ class ObjectDetectionAgent:
 
 class CurrencyAgent:
     name = "currency"
-    description = "Estimate Pakistani banknote denomination using a configured model."
-    def __init__(self, config: Mapping[str, Any], adapter: CurrencyEstimator | None = None, config_path: str | Path = "config.json"):
+    description = "Estimate Pakistani banknote denomination and side using a configured model."
+    def __init__(self, config: Mapping[str, Any], adapter: Any | None = None, config_path: str | Path = "config.json"):
         self.config, self.adapter = dict(config), adapter
         self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
         if payload is None:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
         if self.adapter is None:
-            model_path, labels = self.config.get("model_path"), self.config.get("labels")
-            if not model_path or not labels:
-                return AgentResult(self.name, AgentState.NEEDS_SETUP,
-                    "Currency model and verified denomination labels are not configured.")
-            self.adapter = CurrencyEstimator(resolve_config_path(model_path, self.config_path), labels,
-                input_size=int(self.config.get("input_size", 224)))
+            backend = self.config.get("backend", "onnx")
+            model_path = self.config.get("model_path")
+            if not model_path:
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, "Currency model path is not configured.")
+            resolved_model = resolve_config_path(model_path, self.config_path)
+            if backend == "pytorch_mobilenet_v2":
+                labels_path = self.config.get("labels_path")
+                if not labels_path:
+                    return AgentResult(self.name, AgentState.NEEDS_SETUP, "PyTorch currency labels_path is not configured.")
+                self.adapter = PytorchPKRCurrencyEstimator(
+                    resolved_model,
+                    resolve_config_path(labels_path, self.config_path),
+                    input_size=int(self.config.get("input_size", 224)),
+                )
+            elif backend == "onnx":
+                labels = self.config.get("labels")
+                if not labels:
+                    return AgentResult(self.name, AgentState.NEEDS_SETUP, "ONNX currency denomination labels are not configured.")
+                self.adapter = CurrencyEstimator(resolved_model, labels, input_size=int(self.config.get("input_size", 224)))
+            else:
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Unsupported currency backend: {backend}")
         prediction = self.adapter.predict(payload)
         confidence = float(prediction["confidence"])
-        return AgentResult(self.name, AgentState.COMPLETED,
-            f"Possible denomination: {prediction['denomination']} (score {confidence:.0%}).",
+        denomination = prediction["denomination"]
+        side = prediction.get("side")
+        side_text = f", {side} side" if side else ""
+        return AgentResult(
+            self.name, AgentState.COMPLETED,
+            f"Possible denomination: {denomination} PKR{side_text} (score {confidence:.0%}).",
             data=prediction,
-            warnings=("This is an estimate, not banknote authentication. Check the note independently.",))
+            warnings=("This is an estimate, not banknote authentication. Check the note independently.",),
+        )
 
 class SpeechAgent:
     name = "speech"
@@ -122,10 +143,24 @@ class SystemHealthAgent:
         output = {}
         for key in ("object_detection", "currency"):
             section = config.get(key, {})
-            model_path = section.get("model_path") if isinstance(section, dict) else None
+            if not isinstance(section, dict):
+                output[key] = "invalid_configuration"
+                continue
+            model_path = section.get("model_path")
             if not model_path:
                 output[key] = "not_configured"
+                continue
+            model = resolve_config_path(model_path, self.config_path)
+            if not model.is_file():
+                output[key] = "model_file_missing"
+                continue
+            if key == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
+                labels_path = section.get("labels_path")
+                if not labels_path:
+                    output[key] = "labels_path_not_configured"
+                    continue
+                labels = resolve_config_path(labels_path, self.config_path)
+                output[key] = "model_available; labels_available" if labels.is_file() else "model_available; labels_file_missing"
             else:
-                model = resolve_config_path(model_path, self.config_path)
-                output[key] = "available" if model.is_file() else "file_missing"
+                output[key] = "available"
         return output
