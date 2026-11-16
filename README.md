@@ -43,6 +43,8 @@ The desktop app includes an Agent Console with bounded OCR, object detection, cu
 
 ## Model configuration
 
+For the packaged YOLOv8n model, set `object_detection.backend` to `yolov8_onnx` and provide its ONNX file plus the matching `labels.json`. The adapter supports the standard Ultralytics YOLOv8 Detect output only; see [the model integration contract](docs/MODEL_INTEGRATION.md#yolov8-onnx-object-detection). Confirm the exact ONNX export against Ultralytics before relying on its predictions.
+
 Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX models and the exact class-label order from each model's training process. Relative model paths are resolved from the folder containing `config.json`, regardless of the folder from which NOORIX is launched. Do not guess labels or use arbitrary ONNX models: model input/output conventions differ. Currency scores are estimates, not note authentication.
 
 The desktop camera workspace includes an optional Auto Scan mode. When enabled, it periodically runs frame quality, printed-page OCR, object detection and currency estimation against the current in-memory frame. Missing models are reported as unavailable; Auto Scan does not create recognition capability by itself. Stop Auto Scan or close the app to end the loop.

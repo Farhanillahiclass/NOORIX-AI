@@ -1,10 +1,9 @@
 {
   "object_detection": {
-    "backend": "ssd_mobilenet_v2",
-    "model_path": "models/object_detection/ssd-mobilenet-v2.onnx",
-    "labels_path": "models/object_detection/coco_labels.json",
-    "anchors_path": "models/object_detection/ssd-mobilenet-v2-anchors.npz",
-    "confidence_threshold": 0.3
+    "backend": "yolov8_onnx",
+    "model_path": "models/yolo_objects_person/yolov8n.onnx",
+    "labels_path": "models/yolo_objects_person/labels.json",
+    "confidence_threshold": 0.35
   },
   "currency": {
     "backend": "pytorch_mobilenet_v2",
@@ -18,7 +17,10 @@
     "Provide only compatible, licensed model files.",
     "Labels must be in the exact order used during model training.",
     "The PKR classifier estimates denomination and side only; it does not authenticate banknotes.",
-    "Do not treat model scores as guaranteed accuracy."
+    "Do not treat model scores as guaranteed accuracy.",
+    "YOLOv8 ONNX support accepts standard single-output Detect exports with 4 box values plus one score per class; other YOLO tasks/output layouts are rejected."
   ],
-  "ocr": {"language": "eng"}
+  "ocr": {
+    "language": "eng"
+  }
 }
