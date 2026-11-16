@@ -176,12 +176,13 @@ class SystemHealthAgent:
                 output[key] = "not_configured"
                 continue
             model = resolve_config_path(model_path, self.config_path)
+            if key == "asr":
+                output[key] = "available" if model.is_dir() else "model_path_not_directory"
+                continue
             if not model.is_file():
                 output[key] = "model_file_missing"
                 continue
-            if key == "asr":
-                output[key] = "available" if model.is_dir() else "model_path_not_directory"
-            elif key == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
+            if key == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
                 labels_path = section.get("labels_path")
                 if not labels_path:
                     output[key] = "labels_path_not_configured"
