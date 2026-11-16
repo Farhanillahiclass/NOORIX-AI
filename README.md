@@ -61,7 +61,7 @@ Set `ocr.language` in `config.json` to `eng`, `urd`, or `eng+urd`. Urdu OCR requ
 
 ## Offline Whisper speech-to-text
 
-Set `asr.model_path` to the extracted local Whisper model directory (the model and processor files must both be present), and set `asr.language` to `urdu` or `english`. Install the optional `asr-whisper` extra. The adapter accepts a local audio filename or a waveform plus its sample rate, converts audio to mono 16 kHz, and loads the model with `local_files_only=True` on CPU. It does not capture microphone audio itself; a GUI or microphone recorder must supply the audio payload. Whisper is speech-to-text, not text-to-speech. The existing `SpeechAgent`/pyttsx3 adapter remains a separate output path. Model-level Urdu accuracy and CPU latency must be measured on representative recordings before relying on transcripts.
+Set `asr.model_path` to the extracted local Whisper model directory and `asr.processor_path` to its separate processor directory, and set `asr.language` to `urdu` or `english`. Install the optional `asr-whisper` extra. The adapter accepts a local audio filename or a waveform plus its sample rate, converts audio to mono 16 kHz, and loads the model with `local_files_only=True` on CPU. It does not capture microphone audio itself; a GUI or microphone recorder must supply the audio payload. Whisper is speech-to-text, not text-to-speech. The existing `SpeechAgent`/pyttsx3 adapter remains a separate output path. Model-level Urdu accuracy and CPU latency must be measured on representative recordings before relying on transcripts.
 
 ## External requirements
 - OCR: install the Tesseract application separately and ensure `tesseract --version` works in the terminal.
