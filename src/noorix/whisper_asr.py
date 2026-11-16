@@ -14,8 +14,9 @@ import numpy as np
 class WhisperASR:
     SAMPLE_RATE = 16000
 
-    def __init__(self, model_path: str | Path, language: str = "urdu", max_new_tokens: int = 128):
+    def __init__(self, model_path: str | Path, language: str = "urdu", max_new_tokens: int = 128, processor_path: str | Path | None = None):
         self.model_path = Path(model_path)
+        self.processor_path = Path(processor_path) if processor_path is not None else self.model_path
         if language not in {"urdu", "english"}:
             raise ValueError("language must be 'urdu' or 'english'")
         if not 1 <= int(max_new_tokens) <= 448:
@@ -36,8 +37,10 @@ class WhisperASR:
             raise RuntimeError(
                 "Whisper ASR requires the optional extra: pip install -e '.[asr-whisper]'"
             ) from exc
+        if not self.processor_path.is_dir():
+            raise FileNotFoundError(f"Local Whisper processor directory not found: {self.processor_path}")
         self._processor = WhisperProcessor.from_pretrained(
-            str(self.model_path), local_files_only=True
+            str(self.processor_path), local_files_only=True
         )
         self._model = WhisperForConditionalGeneration.from_pretrained(
             str(self.model_path), local_files_only=True, torch_dtype=torch.float32
@@ -117,8 +120,11 @@ def create_whisper_asr(config: dict, config_path: str | Path = "config.json") ->
     model_value = config.get("model_path")
     if not model_value:
         raise ValueError("Whisper ASR requires model_path")
+    processor_value = config.get("processor_path")
+    processor_path = resolve_config_path(processor_value, config_path) if processor_value else None
     return WhisperASR(
         resolve_config_path(model_value, config_path),
         language=str(config.get("language", "urdu")),
         max_new_tokens=int(config.get("max_new_tokens", 128)),
+        processor_path=processor_path,
     )
