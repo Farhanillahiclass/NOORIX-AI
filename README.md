@@ -37,6 +37,14 @@ Check installed components:
 python -m noorix --check
 ```
 
+Transcribe a local audio file with the configured Whisper model:
+
+```bash
+python -m noorix --transcribe "recording.wav" --config "config.json"
+```
+
+This command reads the file locally and prints the transcript and verification warning.
+
 ## Local specialist agents
 
 The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety, system-health, frame-quality and voice-command parsing agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself. The voice-command parser accepts already-transcribed text and returns a confirmation-gated intent. Optional local Whisper ASR can transcribe Urdu or English audio when a complete model directory is configured; it runs on CPU and does not download weights at inference time.
