@@ -13,7 +13,7 @@ python -m venv .venv
 source .venv/Scripts/activate
 # Windows PowerShell:
 .venv\\Scripts\\Activate.ps1
-python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
+python -m pip install -e ".[dev,camera,speech,ocr,onnx,asr-whisper]"
 python -m pytest -q
 ```
 
@@ -37,9 +37,17 @@ Check installed components:
 python -m noorix --check
 ```
 
+Transcribe a local audio file with the configured Whisper model:
+
+```bash
+python -m noorix --transcribe "recording.wav" --config "config.json"
+```
+
+This command reads the file locally and prints the transcript and verification warning.
+
 ## Local specialist agents
 
-The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety, system-health, frame-quality and voice-command parsing agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself. The voice-command parser accepts already-transcribed text and returns a confirmation-gated intent; microphone speech-to-text is a separate pending feature.
+The desktop app includes an Agent Console with bounded OCR, object detection, currency, speech, safety, system-health, frame-quality and voice-command parsing agents. A deterministic coordinator runs only the selected task and returns structured results. Read [docs/AGENTS.md](docs/AGENTS.md) for contracts and limitations. Recognition agents still require compatible trained ONNX model files; the agent framework does not create model accuracy by itself. The voice-command parser accepts already-transcribed text and returns a confirmation-gated intent. Optional local Whisper ASR can transcribe Urdu or English audio when a complete model directory is configured; it runs on CPU and does not download weights at inference time.
 
 ## Model configuration
 
@@ -50,6 +58,10 @@ Copy `config.example.json` to `config.json`. Supply compatible, licensed ONNX mo
 The desktop camera workspace includes an optional Auto Scan mode. When enabled, it periodically runs frame quality, printed-page OCR, object detection and currency estimation against the current in-memory frame. Missing models are reported as unavailable; Auto Scan does not create recognition capability by itself. Stop Auto Scan or close the app to end the loop.
 
 Set `ocr.language` in `config.json` to `eng`, `urd`, or `eng+urd`. Urdu OCR requires the matching Tesseract Urdu trained-data file to be installed; the default remains English. This extracts visible printed text from a book or page but does not identify a book's title, author or edition.
+
+## Offline Whisper speech-to-text
+
+Set `asr.model_path` to the extracted local Whisper model directory and `asr.processor_path` to its separate processor directory, and set `asr.language` to `urdu` or `english`. Install the optional `asr-whisper` extra. The adapter accepts a local audio filename or a waveform plus its sample rate, converts audio to mono 16 kHz, and loads the model with `local_files_only=True` on CPU. It does not capture microphone audio itself; a GUI or microphone recorder must supply the audio payload. Whisper is speech-to-text, not text-to-speech. The existing `SpeechAgent`/pyttsx3 adapter remains a separate output path. Model-level Urdu accuracy and CPU latency must be measured on representative recordings before relying on transcripts.
 
 ## External requirements
 - OCR: install the Tesseract application separately and ensure `tesseract --version` works in the terminal.

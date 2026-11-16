@@ -14,7 +14,10 @@ def capability_status() -> dict[str, str]:
         "camera": "opencv_installed_device_unverified" if find_spec("cv2") else "install_camera_extra",
         "frame_quality": "available" if find_spec("cv2") and find_spec("numpy") else "install_camera_extra",
         "voice_command_parser": "text_intent_parser_available",
-        "microphone_speech_to_text": "not_implemented_yet",
+        "microphone_speech_to_text": (
+            "local_whisper_adapter_available_model_and_audio_input_required"
+            if find_spec("transformers") and find_spec("torch") else "install_asr_whisper_extra"
+        ),
         "pakistani_currency_estimation": "onnx_model_and_validated_labels_required",
         "everyday_object_detection": "ssd_onnx_model_and_labels_required",
         "printed_english_ocr": (

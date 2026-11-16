@@ -64,6 +64,7 @@ def main(argv=None) -> int:
     modes.add_argument("--camera-preview", action="store_true", help="Open a live webcam preview")
     modes.add_argument("--gui", action="store_true", help="Open the desktop interface")
     modes.add_argument("--check", action="store_true", help="Show installed backend readiness")
+    modes.add_argument("--transcribe", type=Path, metavar="AUDIO_FILE", help="Transcribe a local audio file with configured Whisper ASR")
     parser.add_argument("--camera", type=int, default=0, help="Webcam device index (default: 0)")
     parser.add_argument("--config", type=Path, default=Path("config.json"), help="Optional local model configuration")
     args = parser.parse_args(argv)
@@ -72,6 +73,19 @@ def main(argv=None) -> int:
         parser.error("--camera must be zero or greater")
     if args.camera_preview:
         return camera_preview(args.camera)
+    if args.transcribe:
+        try:
+            from noorix.agents import WhisperASRAgent
+            config = json.loads(args.config.read_text(encoding="utf-8"))
+            agent = WhisperASRAgent(config.get("asr", {}), config_path=args.config)
+            result = agent.run(args.transcribe)
+            print(result.summary)
+            for warning in result.warnings:
+                print("WARNING:", warning)
+            return 0 if result.successful else 1
+        except (OSError, json.JSONDecodeError) as exc:
+            print(f"Could not read local configuration: {exc}")
+            return 1
     if args.gui:
         try:
             from noorix.gui import launch

@@ -10,6 +10,7 @@ from noorix.pkr_currency import PytorchPKRCurrencyEstimator
 from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
+from noorix.whisper_asr import create_whisper_asr
 from noorix.paths import resolve_config_path
 
 class OCRAgent:
@@ -104,6 +105,30 @@ class SpeechAgent:
         self.adapter.speak(payload)
         return AgentResult(self.name, AgentState.COMPLETED, "Speech playback finished.")
 
+class WhisperASRAgent:
+    name = "speech_to_text"
+    description = "Transcribe local Urdu or English audio with a downloaded Whisper model."
+    def __init__(self, config: Mapping[str, Any], adapter: Any | None = None, config_path: str | Path = "config.json"):
+        self.config, self.adapter = dict(config), adapter
+        self.config_path = Path(config_path)
+    def run(self, payload: Any = None) -> AgentResult:
+        if payload is None:
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, "An audio file or waveform is required.")
+        if self.adapter is None:
+            if not self.config.get("model_path"):
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, "Whisper ASR model_path is not configured.")
+            try:
+                self.adapter = create_whisper_asr(self.config, self.config_path)
+            except (OSError, ValueError, TypeError) as exc:
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Whisper ASR setup error: {exc}")
+        if isinstance(payload, Mapping) and "audio" not in payload:
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, "Audio mapping must contain an 'audio' field.")
+        transcript = self.adapter.transcribe(payload)
+        if not transcript:
+            return AgentResult(self.name, AgentState.COMPLETED, "No clear speech was transcribed.", data="")
+        return AgentResult(self.name, AgentState.COMPLETED, transcript, data={"transcript": transcript},
+            warnings=("Speech recognition can make mistakes; verify important names, numbers and instructions.",))
+
 class SafetyAgent:
     name = "safety"
     description = "Attach conservative warnings; never infer that an area is safe."
@@ -141,7 +166,7 @@ class SystemHealthAgent:
         except (OSError, json.JSONDecodeError) as exc:
             return {"config": f"invalid: {exc}"}
         output = {}
-        for key in ("object_detection", "currency"):
+        for key in ("object_detection", "currency", "asr"):
             section = config.get(key, {})
             if not isinstance(section, dict):
                 output[key] = "invalid_configuration"
@@ -151,6 +176,26 @@ class SystemHealthAgent:
                 output[key] = "not_configured"
                 continue
             model = resolve_config_path(model_path, self.config_path)
+            if key == "asr":
+                if not model.is_dir():
+                    output[key] = "model_path_not_directory"
+                    continue
+                processor_value = section.get("processor_path", model_path)
+                processor = resolve_config_path(processor_value, self.config_path)
+                if not processor.is_dir():
+                    output[key] = "processor_path_missing"
+                    continue
+                has_weights = any((model / name).is_file() for name in ("model.safetensors", "pytorch_model.bin"))
+                has_model_config = (model / "config.json").is_file()
+                has_tokenizer = (processor / "tokenizer.json").is_file()
+                has_processor_config = any((processor / name).is_file() for name in ("preprocessor_config.json", "processor_config.json"))
+                if not has_weights or not has_model_config:
+                    output[key] = "model_files_incomplete"
+                elif not has_tokenizer or not has_processor_config:
+                    output[key] = "processor_files_incomplete"
+                else:
+                    output[key] = "available"
+                continue
             if not model.is_file():
                 output[key] = "model_file_missing"
                 continue
