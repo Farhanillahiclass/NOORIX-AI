@@ -9,7 +9,7 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog
 
 
 C = {
@@ -510,7 +510,7 @@ class NoorixApp:
         if self.agent_coordinator is None:
             from noorix.agents import (
                 AgentCoordinator, CurrencyAgent, ObjectDetectionAgent,
-                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent,
+                OCRAgent, SafetyAgent, SpeechAgent, SystemHealthAgent, WhisperASRAgent,
                 FrameQualityAgent, VoiceCommandAgent,
             )
             from noorix.ocr import PrintedEnglishOCR
@@ -521,6 +521,7 @@ class NoorixApp:
                 ObjectDetectionAgent(self.config.get("object_detection", {}), config_path=self.config_path),
                 CurrencyAgent(self.config.get("currency", {}), config_path=self.config_path),
                 SpeechAgent(),
+                WhisperASRAgent(self.config.get('asr', {}), config_path=self.config_path),
                 SafetyAgent(),
                 SystemHealthAgent(self.config_path),
                 FrameQualityAgent(),
@@ -571,6 +572,14 @@ class NoorixApp:
             result = coordinator.run(name, payload)
             show_result(result)
 
+        def choose_audio_file():
+            selected = filedialog.askopenfilename(
+                parent=window,
+                title="Select audio for local Whisper transcription",
+                filetypes=[("Audio files", "*.wav *.flac *.ogg *.mp3 *.m4a"), ("All files", "*.*")],
+            )
+            return selected or None
+
         entries = [
             ("OCR Agent", "ocr", lambda: self.current_frame),
             ("Object Detection", "object_detection", lambda: self.current_frame),
@@ -578,6 +587,7 @@ class NoorixApp:
             ("Frame Quality", "frame_quality", lambda: self.current_frame),
             ("Voice Command Parser", "voice_command", lambda: simpledialog.askstring("NOORIX command", "Enter a supported English / Urdu command (text only):", parent=window)),
             ("Speech Agent", "speech", lambda: self.result.get("1.0", "end").strip()),
+            ("Whisper Speech-to-Text", "speech_to_text", choose_audio_file),
             ("Safety Agent", "safety", lambda: []),
             ("System Health", "system_health", lambda: None),
         ]
