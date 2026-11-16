@@ -46,5 +46,8 @@ jobs:
               print(f"PASS: {notebook}")
           print(f"Validated {len(notebooks)} notebooks.")
           PYNOTEBOOK
+      - name: Validate specialist notebook Python syntax
+        run: python scripts/validate_kaggle_notebooks.py
+
       - name: Run complete test suite
         run: python -m pytest -q
