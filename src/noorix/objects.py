@@ -162,6 +162,11 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
             ),
         )
 
+    if backend == "yolov8_onnx":
+        from noorix.yolov8_onnx import create_yolov8_detector
+
+        return create_yolov8_detector(config, config_path)
+
     if backend == "opencv_dnn":
         labels = config.get("labels")
         if not isinstance(labels, list) or not labels:
