@@ -177,7 +177,24 @@ class SystemHealthAgent:
                 continue
             model = resolve_config_path(model_path, self.config_path)
             if key == "asr":
-                output[key] = "available" if model.is_dir() else "model_path_not_directory"
+                if not model.is_dir():
+                    output[key] = "model_path_not_directory"
+                    continue
+                processor_value = section.get("processor_path", model_path)
+                processor = resolve_config_path(processor_value, self.config_path)
+                if not processor.is_dir():
+                    output[key] = "processor_path_missing"
+                    continue
+                has_weights = any((model / name).is_file() for name in ("model.safetensors", "pytorch_model.bin"))
+                has_model_config = (model / "config.json").is_file()
+                has_tokenizer = (processor / "tokenizer.json").is_file()
+                has_processor_config = any((processor / name).is_file() for name in ("preprocessor_config.json", "processor_config.json"))
+                if not has_weights or not has_model_config:
+                    output[key] = "model_files_incomplete"
+                elif not has_tokenizer or not has_processor_config:
+                    output[key] = "processor_files_incomplete"
+                else:
+                    output[key] = "available"
                 continue
             if not model.is_file():
                 output[key] = "model_file_missing"
