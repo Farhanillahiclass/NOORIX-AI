@@ -6,6 +6,7 @@ real-world accuracy or certify a production deployment.
 from __future__ import annotations
 
 import hashlib
+import gc
 import json
 import os
 import shutil
@@ -72,7 +73,11 @@ def _test_package(config: dict, config_path: Path):
             if not target.is_file():
                 failures.append(f"Missing: {relative}")
                 continue
-            digest = hashlib.sha256(target.read_bytes()).hexdigest()
+            hasher = hashlib.sha256()
+            with target.open("rb") as stream:
+                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                    hasher.update(chunk)
+            digest = hasher.hexdigest()
             checked += 1
             if digest.lower() != expected.lower():
                 failures.append(f"Checksum mismatch: {relative}")
@@ -205,6 +210,7 @@ def run_all_tests(config_path="config.json", report_dir="reports/model-tests", p
     def add(name, operation):
         result = _run_one(name, operation)
         results.append(result)
+        gc.collect()
         if progress:
             progress(result)
 
