@@ -28,6 +28,7 @@
     "backend": "whisper_local",
     "model_path": "models/whisper_urdu_asr/model",
     "language": "urdu",
-    "max_new_tokens": 128
+    "max_new_tokens": 128,
+    "processor_path": "models/whisper_urdu_asr/processor"
   }
 }
