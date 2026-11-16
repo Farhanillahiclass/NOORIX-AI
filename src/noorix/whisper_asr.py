@@ -30,6 +30,8 @@ class WhisperASR:
     def load(self) -> None:
         if not self.model_path.is_dir():
             raise FileNotFoundError(f"Local Whisper model directory not found: {self.model_path}")
+        if not self.processor_path.is_dir():
+            raise FileNotFoundError(f"Local Whisper processor directory not found: {self.processor_path}")
         try:
             import torch
             from transformers import WhisperForConditionalGeneration, WhisperProcessor
@@ -37,8 +39,6 @@ class WhisperASR:
             raise RuntimeError(
                 "Whisper ASR requires the optional extra: pip install -e '.[asr-whisper]'"
             ) from exc
-        if not self.processor_path.is_dir():
-            raise FileNotFoundError(f"Local Whisper processor directory not found: {self.processor_path}")
         self._processor = WhisperProcessor.from_pretrained(
             str(self.processor_path), local_files_only=True
         )
