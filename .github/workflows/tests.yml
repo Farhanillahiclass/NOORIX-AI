@@ -1,27 +1,53 @@
-name: Python tests
+name: NOORIX-AI Complete Tests
 
 on:
   push:
-    branches: [main]
   pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   test:
+    name: Python ${{ matrix.python-version }} tests
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12"]
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: ${{ matrix.python-version }}
+          cache: pip
       - name: Install project and test dependencies
         run: |
           python -m pip install --upgrade pip
           python -m pip install -e ".[dev,camera]"
-      - name: Run tests
+      - name: Compile source and tests
+        run: python -m compileall -q src tests
+      - name: Validate all notebook JSON files
+        run: |
+          python - <<'PYNOTEBOOK'
+          import json
+          from pathlib import Path
+          notebooks = sorted(Path("notebooks").rglob("*.ipynb"))
+          if not notebooks:
+              raise SystemExit("No notebook files found.")
+          for notebook in notebooks:
+              with notebook.open(encoding="utf-8") as file:
+                  data = json.load(file)
+              if not isinstance(data, dict) or "cells" not in data:
+                  raise SystemExit(f"Invalid notebook structure: {notebook}")
+              print(f"PASS: {notebook}")
+          print(f"Validated {len(notebooks)} notebooks.")
+          PYNOTEBOOK
+      - name: Validate specialist notebook Python syntax
+        run: python scripts/validate_kaggle_notebooks.py
+
+      - name: Run complete test suite
         run: python -m pytest -q
