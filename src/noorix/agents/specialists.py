@@ -10,6 +10,7 @@ from noorix.pkr_currency import PytorchPKRCurrencyEstimator
 from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
+from noorix.whisper_asr import create_whisper_asr
 from noorix.paths import resolve_config_path
 
 class OCRAgent:
@@ -104,6 +105,30 @@ class SpeechAgent:
         self.adapter.speak(payload)
         return AgentResult(self.name, AgentState.COMPLETED, "Speech playback finished.")
 
+class WhisperASRAgent:
+    name = "speech_to_text"
+    description = "Transcribe local Urdu or English audio with a downloaded Whisper model."
+    def __init__(self, config: Mapping[str, Any], adapter: Any | None = None, config_path: str | Path = "config.json"):
+        self.config, self.adapter = dict(config), adapter
+        self.config_path = Path(config_path)
+    def run(self, payload: Any = None) -> AgentResult:
+        if payload is None:
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, "An audio file or waveform is required.")
+        if self.adapter is None:
+            if not self.config.get("model_path"):
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, "Whisper ASR model_path is not configured.")
+            try:
+                self.adapter = create_whisper_asr(self.config, self.config_path)
+            except (OSError, ValueError, TypeError) as exc:
+                return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Whisper ASR setup error: {exc}")
+        if isinstance(payload, Mapping) and "audio" not in payload:
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, "Audio mapping must contain an 'audio' field.")
+        transcript = self.adapter.transcribe(payload)
+        if not transcript:
+            return AgentResult(self.name, AgentState.COMPLETED, "No clear speech was transcribed.", data="")
+        return AgentResult(self.name, AgentState.COMPLETED, transcript, data={"transcript": transcript},
+            warnings=("Speech recognition can make mistakes; verify important names, numbers and instructions.",))
+
 class SafetyAgent:
     name = "safety"
     description = "Attach conservative warnings; never infer that an area is safe."
@@ -141,7 +166,7 @@ class SystemHealthAgent:
         except (OSError, json.JSONDecodeError) as exc:
             return {"config": f"invalid: {exc}"}
         output = {}
-        for key in ("object_detection", "currency"):
+        for key in ("object_detection", "currency", "asr"):
             section = config.get(key, {})
             if not isinstance(section, dict):
                 output[key] = "invalid_configuration"
@@ -154,7 +179,9 @@ class SystemHealthAgent:
             if not model.is_file():
                 output[key] = "model_file_missing"
                 continue
-            if key == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
+            if key == "asr":
+                output[key] = "available" if model.is_dir() else "model_path_not_directory"
+            elif key == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
                 labels_path = section.get("labels_path")
                 if not labels_path:
                     output[key] = "labels_path_not_configured"
