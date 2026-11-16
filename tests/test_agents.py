@@ -124,9 +124,18 @@ def test_whisper_asr_agent_requires_model_configuration():
 
 def test_health_agent_recognizes_whisper_model_directory(tmp_path):
     model_dir = tmp_path / "models" / "whisper"
+    processor_dir = tmp_path / "models" / "processor"
     model_dir.mkdir(parents=True)
+    processor_dir.mkdir(parents=True)
+    (model_dir / "config.json").write_text("{}", encoding="utf-8")
+    (model_dir / "model.safetensors").write_bytes(b"weights")
+    (processor_dir / "tokenizer.json").write_text("{}", encoding="utf-8")
+    (processor_dir / "processor_config.json").write_text("{}", encoding="utf-8")
     config = tmp_path / "config.json"
     import json
-    config.write_text(json.dumps({"asr": {"model_path": "models/whisper"}}), encoding="utf-8")
+    config.write_text(json.dumps({"asr": {
+        "model_path": "models/whisper",
+        "processor_path": "models/processor"
+    }}), encoding="utf-8")
     result = SystemHealthAgent(config).run()
     assert result.data["model_files"]["asr"] == "available"
