@@ -45,6 +45,19 @@ Configure `object_detection.backend` as `yolov8_onnx`, with `model_path`, `label
 
 As with all NOORIX detections, image-relative positions are not distance estimates, obstacle avoidance, or safe-navigation instructions.
 
+## Offline Whisper speech-to-text
+
+The `WhisperASR` adapter uses a locally extracted Hugging Face Whisper model and processor directory:
+- Supported language configuration: `urdu` or `english`; task is transcription.
+- Input: local audio file, a waveform with an explicit sample rate, a two-item `(waveform, sample_rate)` tuple, or a mapping with `audio` and `sampling_rate`.
+- Audio is converted to mono and resampled to 16 kHz when needed.
+- Runtime: CPU float32, with model and processor loaded using `local_files_only=True`. The adapter never downloads weights.
+- Optional dependencies: install `.[asr-whisper]` (PyTorch, Transformers, soundfile and SciPy).
+
+Configure `asr.model_path` to the **directory** containing both the model weights/configuration and processor/tokenizer files. The current example points to `models/whisper_urdu_asr/model`; copy the corresponding processor files into the expected model directory or configure a directory that contains both. The separate `processor` folder produced by some training exports must not be omitted.
+
+The adapter does not open a microphone. A recorder or UI must provide audio data. It returns a transcript string; the separate `SpeechOutput` adapter handles text-to-speech. Urdu ASR quality, long-audio chunking, memory use, and CPU latency are not certified by unit tests. Evaluate on held-out recordings with known transcripts before relying on results. Verify important names, numbers, and instructions because speech recognition can be wrong.
+
 ## Printed English OCR
 
 `PrintedEnglishOCR` uses the local Tesseract executable through pytesseract. The Python package alone is insufficient; install Tesseract separately and verify `tesseract --version`. Scope is clear printed English only.
