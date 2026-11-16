@@ -54,7 +54,7 @@ The `WhisperASR` adapter uses a locally extracted Hugging Face Whisper model and
 - Runtime: CPU float32, with model and processor loaded using `local_files_only=True`. The adapter never downloads weights.
 - Optional dependencies: install `.[asr-whisper]` (PyTorch, Transformers, soundfile and SciPy).
 
-Configure `asr.model_path` to the **directory** containing both the model weights/configuration and processor/tokenizer files. The current example points to `models/whisper_urdu_asr/model`; copy the corresponding processor files into the expected model directory or configure a directory that contains both. The separate `processor` folder produced by some training exports must not be omitted.
+Configure `asr.model_path` to the **directory** containing both the model weights/configuration and processor/tokenizer files. The example points `model_path` to `models/whisper_urdu_asr/model` and `processor_path` to the separate `models/whisper_urdu_asr/processor` folder produced by the training export. If your package combines these files into one directory, `processor_path` may be omitted. The health check verifies the model config/weights and processor tokenizer/config files are present.
 
 The adapter does not open a microphone. A recorder or UI must provide audio data. It returns a transcript string; the separate `SpeechOutput` adapter handles text-to-speech. Urdu ASR quality, long-audio chunking, memory use, and CPU latency are not certified by unit tests. Evaluate on held-out recordings with known transcripts before relying on results. Verify important names, numbers, and instructions because speech recognition can be wrong.
 
