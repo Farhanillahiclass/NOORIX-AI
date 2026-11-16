@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from noorix.agents import AgentCoordinator, AgentResult, AgentState, CurrencyAgent, ObjectDetectionAgent, OCRAgent, SafetyAgent, SystemHealthAgent
+from noorix.agents import AgentCoordinator, AgentResult, AgentState, CurrencyAgent, ObjectDetectionAgent, OCRAgent, SafetyAgent, SystemHealthAgent, WhisperASRAgent
 
 class FakeOCR:
     def read(self, frame): return "HELLO NOORIX"
@@ -100,3 +100,33 @@ def test_object_agent_uses_shared_detector_factory(tmp_path, monkeypatch):
     assert result.successful
     assert captured["config"] == config
     assert captured["config_path"] == config_path
+
+
+def test_whisper_asr_agent_transcribes_with_injected_adapter():
+    class FakeASR:
+        def transcribe(self, payload):
+            assert payload == {"audio": [0.1], "sampling_rate": 16000}
+            return "سلام"
+
+    result = WhisperASRAgent({"model_path": "unused"}, adapter=FakeASR()).run(
+        {"audio": [0.1], "sampling_rate": 16000}
+    )
+    assert result.successful
+    assert result.data == {"transcript": "سلام"}
+    assert result.warnings
+
+
+def test_whisper_asr_agent_requires_model_configuration():
+    result = WhisperASRAgent({}).run("sample.wav")
+    assert result.state == AgentState.NEEDS_SETUP
+    assert "model_path" in result.summary
+
+
+def test_health_agent_recognizes_whisper_model_directory(tmp_path):
+    model_dir = tmp_path / "models" / "whisper"
+    model_dir.mkdir(parents=True)
+    config = tmp_path / "config.json"
+    import json
+    config.write_text(json.dumps({"asr": {"model_path": "models/whisper"}}), encoding="utf-8")
+    result = SystemHealthAgent(config).run()
+    assert result.data["model_files"]["asr"] == "available"
