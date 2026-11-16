@@ -1,15 +1,21 @@
 # NOORIX-AI Kaggle Model Lab
 **Owner / prepared by: Muhammad Farhan**
 
-All Kaggle training notebooks live in `notebooks/` on branch `feature/kaggle-ocr-training-notebooks`.
+Specialist training source notebooks live in `notebooks/` on branch `feature/kaggle-ocr-training-notebooks`. The official master training run is maintained on Kaggle.
 
 > **Accuracy promise:** No responsible workflow can promise “99% functional” or 99% model accuracy in advance. Real performance depends on camera quality, lighting, dataset quality, language, handwriting variation, hardware, and independent testing. We will measure each feature separately and expose uncertainty instead of pretending every result is correct.
 
-## Master orchestrator
+## Official Kaggle master training notebook
 
-**Recommended public-release notebook:** [`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb`](NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb).
+**Official Kaggle notebook:** [NOORIX Master AI Training — Muhammad Farhan](https://www.kaggle.com/code/muhammadfarhanmrs/noorix-master-ai-training-muhammad-farhan)
 
-`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb` is the recommended public-release master. It embeds its specialist notebooks, so it does not clone this GitHub repository or require a GitHub token. It automatically searches attached Kaggle inputs for a supported PKR ImageFolder dataset and runs the pretrained YOLOv8n/COCO stage. OCR and ASR remain disabled by default because they require correctly labelled image/audio manifests. It removes stale stage ZIPs before a run, records failures, and checks the combined ZIP integrity. Kaggle datasets must still be attached in the Kaggle Input panel; the notebook cannot attach private datasets or bypass dataset licenses/access controls. Inspect each stage's validation metrics and sample predictions before integrating any model.
+This is the primary Kaggle training notebook reference for NOORIX-AI. Use Kaggle for the official execution environment, attached datasets, training runs, validation results and generated model artifacts.
+
+**GitHub repository:** https://github.com/Farhanillahiclass/NOORIX-AI
+
+The individual specialist notebooks listed below remain in this repository as source material and separate training workflows. The previous local master notebook is retired to avoid maintaining a duplicate of the official Kaggle notebook.
+
+Only report a training stage as successful when its actual Kaggle run, validation results and exported artifacts have been checked. A notebook link alone does not prove that every model was trained or integrated.
 
 ## 1. Notebook inventory
 
