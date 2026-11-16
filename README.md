@@ -37,6 +37,16 @@ Check installed components:
 python -m noorix --check
 ```
 
+Run all configured local model smoke tests in one sequence:
+
+```bash
+python scripts/test_all_models.py --config config.json
+```
+
+On Windows, double-click `RUN_ALL_TESTS.bat`. It automatically checks the common extracted package location `D:\\NOORIX_MODELS\\EXTRACTED`; otherwise set the `NOORIX_MODELS_DIR` environment variable to your extracted model package folder. Config-relative model paths take precedence. Results are saved under `reports/model-tests/` as JSON and Markdown. Tests run one at a time and show PASS, FAIL, SKIPPED or WARN. A skipped test means a file, runtime or language pack is unavailable; it is not counted as a pass.
+
+The test suite performs basic local loading/inference checks for PKR, YOLO, OCR, Whisper and installed TTS voices, plus optional package checksum verification. It uses synthetic inputs for vision/audio smoke tests and does not evaluate model accuracy or play TTS audio. It is a developer diagnostic, not a production-readiness certificate.
+
 Transcribe a local audio file with the configured Whisper model:
 
 ```bash
