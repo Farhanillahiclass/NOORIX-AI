@@ -21,8 +21,9 @@ def main(argv=None):
         print("[{}] {} ({}s): {}".format(
             item["status"], item["name"], item["duration_seconds"], item["message"]
         ))
-        if item.get("details", {}).get("reason"):
-            print("       " + item["details"]["reason"])
+        details = item.get("details") or {}
+        if details.get("reason"):
+            print("       " + str(details["reason"]))
     print("TOTALS: " + json.dumps(report["totals"]))
     print("JSON REPORT: " + report["report_json"])
     print("MARKDOWN REPORT: " + report["report_markdown"])
