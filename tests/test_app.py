@@ -56,3 +56,28 @@ def test_transcribe_mode_uses_local_asr_agent(tmp_path, monkeypatch, capsys):
     output = capsys.readouterr().out
     assert "سلام دنیا" in output
     assert "Verify important words." in output
+
+
+def test_test_all_mode_runs_sequential_suite(tmp_path, monkeypatch, capsys):
+    import noorix.model_testing
+
+    captured = {}
+    def fake_run(config):
+        captured["config"] = config
+        return {
+            "results": [
+                {"status": "PASS", "name": "PKR", "duration_seconds": 0.1, "message": "ok"},
+                {"status": "SKIPPED", "name": "TTS", "duration_seconds": 0.0, "message": "voice missing"},
+            ],
+            "totals": {"pass": 1, "fail": 0, "skipped": 1, "warn": 0},
+            "report_json": "report.json",
+            "report_markdown": "report.md",
+        }
+
+    monkeypatch.setattr(noorix.model_testing, "run_all_tests", fake_run)
+    assert main(["--test-all", "--config", str(tmp_path / "config.json")]) == 0
+    assert captured["config"] == tmp_path / "config.json"
+    output = capsys.readouterr().out
+    assert "[PASS] PKR" in output
+    assert "[SKIPPED] TTS" in output
+    assert "PRODUCTION READINESS: NOT CERTIFIED" in output
