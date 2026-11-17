@@ -9,7 +9,7 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 
 C = {
@@ -120,13 +120,18 @@ class NoorixApp:
 
         self._label(side, "WORKSPACE", 8, C["muted"], True).pack(anchor="w", pady=(0, 9))
         self._nav(side, "⌂", "Overview", True)
-        self._nav(side, "◉", "Live vision", False)
-        self._nav(side, "Aa", "Text reading", False)
-        self._nav(side, "⌗", "Scene analysis", False)
-        self._label(side, "MANAGEMENT", 8, C["muted"], True).pack(anchor="w", pady=(20, 9))
+        self._nav(side, "◉", "Live camera", False)
+        self._nav(side, "⌗", "Object detection", False)
+        self._nav(side, "Aa", "OCR & reading", False)
+        self._nav(side, "₨", "PKR currency", False)
+        self._nav(side, "♫", "Voice interaction", False)
+        self._label(side, "INTELLIGENCE", 8, C["muted"], True).pack(anchor="w", pady=(18, 9))
         self._nav(side, "✦", "Agent console", False)
-        self._nav(side, "▤", "System status", False)
-        self._nav(side, "◷", "Session history", False)
+        self._nav(side, "▣", "Model management", False)
+        self._nav(side, "✓", "Model testing", False)
+        self._label(side, "SYSTEM", 8, C["muted"], True).pack(anchor="w", pady=(18, 9))
+        self._nav(side, "▤", "System diagnostics", False)
+        self._nav(side, "◷", "Activity logs", False)
         self._nav(side, "⚙", "Settings", False)
         self._nav(side, "◎", "About Farhan", False)
 
@@ -240,12 +245,16 @@ class NoorixApp:
             self._nav_buttons = []
         actions = {
             "Overview": self.refresh_overview,
-            "Live vision": self.start_camera,
-            "Text reading": self.read_text,
-            "Scene analysis": self.analyze,
-            "System status": self.show_system_status,
+            "Live camera": self.start_camera,
+            "Object detection": self.analyze,
+            "OCR & reading": self.read_text,
+            "PKR currency": self.show_currency_workspace,
+            "Voice interaction": self.show_voice_workspace,
             "Agent console": self.show_agents_console,
-            "Session history": self.show_session_history,
+            "Model management": self.show_model_management,
+            "Model testing": self.show_model_testing,
+            "System diagnostics": self.show_system_status,
+            "Activity logs": self.show_session_history,
             "Settings": self.show_settings,
             "About Farhan": self.show_about,
         }
@@ -482,17 +491,30 @@ class NoorixApp:
         threshold_var = tk.StringVar(value=str(object_config.get("confidence_threshold", 0.3)))
         threshold_entry = tk.Entry(form, textvariable=threshold_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
         threshold_entry.pack(fill="x", pady=(5, 12), ipady=7)
+        self._label(form, "Printed OCR language (eng / urd / eng+urd)", 9, C["muted"], True).pack(anchor="w")
+        ocr_config = self.config.get("ocr", {})
+        if not isinstance(ocr_config, dict):
+            ocr_config = {}
+        ocr_language_var = tk.StringVar(value=str(ocr_config.get("language", "eng")))
+        ocr_language_entry = tk.Entry(form, textvariable=ocr_language_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        ocr_language_entry.pack(fill="x", pady=(5, 12), ipady=7)
 
         def save_settings():
             try:
                 camera_index = int(camera_var.get())
                 threshold = float(threshold_var.get())
+                ocr_language = ocr_language_var.get().strip().lower()
                 if camera_index < 0 or not 0.05 <= threshold <= 0.95:
                     raise ValueError("Camera index must be non-negative and threshold must be between 0.05 and 0.95.")
+                if ocr_language not in {"eng", "urd", "eng+urd"}:
+                    raise ValueError("OCR language must be eng, urd, or eng+urd.")
                 updated = dict(self.config)
                 updated_object = dict(updated.get("object_detection", {}))
                 updated_object["confidence_threshold"] = threshold
                 updated["object_detection"] = updated_object
+                updated_ocr = dict(updated.get("ocr", {}))
+                updated_ocr["language"] = ocr_language
+                updated["ocr"] = updated_ocr
                 updated["camera_index"] = camera_index
                 self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 self.config = updated
@@ -615,6 +637,315 @@ class NoorixApp:
 
         self._button(list_panel, "Run vision pipeline", run_full_vision, True).pack(fill="x", pady=(8, 0))
         self._label(window, "NO automatic navigation · No image upload · No model accuracy guarantee", 8, C["muted"]).pack(anchor="w", padx=22, pady=(0, 12))
+
+    def show_model_testing(self):
+        """Open the dashboard-driven local model testing centre."""
+        import webbrowser
+
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Model Testing Center")
+        window.geometry("980x740")
+        window.minsize(760, 600)
+        window.configure(bg=C["bg"])
+
+        header = tk.Frame(window, bg=C["bg"], padx=22, pady=18)
+        header.pack(fill="x")
+        self._label(header, "MODEL TESTING CENTER", 9, C["cyan"], True).pack(anchor="w")
+        self._label(header, "Test from your dashboard", 21, C["text"], True).pack(anchor="w", pady=(4, 0))
+        self._label(
+            header,
+            "Run every supported smoke test together or select one model below. Tests execute locally and sequentially.",
+            9, C["muted"], wraplength=900, justify="left"
+        ).pack(anchor="w", pady=(6, 0))
+
+        controls = tk.Frame(window, bg=C["bg"], padx=22, pady=8)
+        controls.pack(fill="x")
+        run_all_button = self._button(controls, "RUN ALL TESTS", None, True)
+        run_all_button.pack(side="left", padx=(0, 9))
+        progress = ttk.Progressbar(controls, mode="indeterminate", length=190)
+        progress.pack(side="left", padx=(4, 10))
+        progress_label = self._label(controls, "Ready", 8, C["muted"], True)
+        progress_label.pack(side="left")
+
+        single_panel = self._panel(window, padx=12, pady=10)
+        single_panel.pack(fill="x", padx=22, pady=(4, 10))
+        self._label(single_panel, "INDIVIDUAL SMOKE TESTS", 8, C["cyan"], True).pack(anchor="w", pady=(0, 8))
+        grid = tk.Frame(single_panel, bg=C["panel"])
+        grid.pack(fill="x")
+        test_options = [
+            ("Package Integrity", "package"),
+            ("PKR Currency", "currency"),
+            ("YOLO Detection", "objects"),
+            ("Printed OCR", "ocr"),
+            ("Whisper ASR", "asr"),
+            ("Text-to-Speech", "tts"),
+        ]
+        test_buttons = []
+        for index, (label, key) in enumerate(test_options):
+            button = self._button(
+                grid, label, lambda selected=key: start(selected), compact=True
+            )
+            button.grid(row=index // 3, column=index % 3, sticky="ew", padx=4, pady=4)
+            test_buttons.append(button)
+        for column in range(3):
+            grid.grid_columnconfigure(column, weight=1)
+
+        self._label(
+            single_panel,
+            "Handwritten OCR, experimental Urdu OCR and live camera validation are not included in these six smoke-test adapters yet. They must not be marked PASS until their dedicated real-input tests exist.",
+            8, C["amber"], wraplength=900, justify="left"
+        ).pack(anchor="w", pady=(8, 0))
+
+        report_panel = self._panel(window, padx=12, pady=10)
+        report_panel.pack(fill="x", padx=22, pady=(0, 10))
+        self._label(report_panel, "LATEST REPORTS", 8, C["cyan"], True).pack(anchor="w")
+        report_actions = tk.Frame(report_panel, bg=C["panel"])
+        report_actions.pack(fill="x", pady=(7, 0))
+        json_button = self._button(report_actions, "Open JSON Report", None, compact=True)
+        json_button.pack(side="left", padx=(0, 7))
+        markdown_button = self._button(report_actions, "Open Markdown Report", None, compact=True)
+        markdown_button.pack(side="left")
+        json_button.configure(state="disabled")
+        markdown_button.configure(state="disabled")
+        latest = {"json": None, "markdown": None}
+
+        output_panel = self._panel(window, padx=12, pady=12)
+        output_panel.pack(fill="both", expand=True, padx=22, pady=(0, 14))
+        output = tk.Text(
+            output_panel, wrap="word", bg=C["panel3"], fg=C["text"],
+            relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12
+        )
+        output.pack(fill="both", expand=True)
+        output.insert("end", "READY — Choose RUN ALL TESTS or an individual test.\n")
+        output.insert("end", "A PASS means basic local loading/execution only, not accuracy certification.\n")
+        output.configure(state="disabled")
+        state = {"running": False}
+
+        def append_line(line):
+            if not window.winfo_exists():
+                return
+            output.configure(state="normal")
+            output.insert("end", line + "\n")
+            output.see("end")
+            output.configure(state="disabled")
+
+        def open_report(kind):
+            path = latest.get(kind)
+            if path and Path(path).is_file():
+                webbrowser.open(Path(path).resolve().as_uri())
+            else:
+                messagebox.showwarning("Report unavailable", "Run a test first to create this report.", parent=window)
+
+        json_button.configure(command=lambda: open_report("json"))
+        markdown_button.configure(command=lambda: open_report("markdown"))
+
+        def finish(report):
+            if not window.winfo_exists():
+                return
+            state["running"] = False
+            run_all_button.configure(state="normal", text="RUN ALL TESTS")
+            for button in test_buttons:
+                button.configure(state="normal")
+            progress.stop()
+            progress_label.configure(text="Finished")
+            totals = report.get("totals", {})
+            append_line("")
+            append_line("TOTALS: " + json.dumps(totals))
+            append_line("JSON REPORT: " + report.get("report_json", "not saved"))
+            append_line("MARKDOWN REPORT: " + report.get("report_markdown", "not saved"))
+            append_line("PRODUCTION READINESS: NOT CERTIFIED")
+            latest["json"] = report.get("report_json")
+            latest["markdown"] = report.get("report_markdown")
+            json_button.configure(state="normal" if latest["json"] else "disabled")
+            markdown_button.configure(state="normal" if latest["markdown"] else "disabled")
+            self._record_activity("Model testing", "PASS={} FAIL={} SKIPPED={} WARN={}".format(
+                totals.get("pass", 0), totals.get("fail", 0),
+                totals.get("skipped", 0), totals.get("warn", 0)
+            ))
+            self.root.after(0, self.refresh_overview)
+
+        def start(test_key=None):
+            if state["running"]:
+                return
+            state["running"] = True
+            run_all_button.configure(state="disabled", text="TESTS RUNNING…")
+            for button in test_buttons:
+                button.configure(state="disabled")
+            progress.start(12)
+            progress_label.configure(text="Running locally…")
+            if test_key:
+                append_line(f"Starting individual test: {test_key}")
+            else:
+                append_line("Starting all configured local smoke tests…")
+
+            def on_progress(item):
+                line = "[{}] {} ({:.3f}s): {}".format(
+                    item.status, item.name, item.duration_seconds, item.message
+                )
+                window.after(0, append_line, line)
+
+            def worker():
+                try:
+                    from noorix.model_testing import run_all_tests, run_single_test
+                    report_dir = self.config_path.parent / "reports" / "model-tests"
+                    if test_key:
+                        report = run_single_test(test_key, self.config_path, report_dir)
+                        item = report["results"][0]
+                        on_progress(type("ProgressItem", (), item)())
+                    else:
+                        report = run_all_tests(self.config_path, report_dir, progress=on_progress)
+                except Exception as exc:
+                    report = {
+                        "totals": {"fail": 1}, "results": [],
+                        "report_json": "", "report_markdown": ""
+                    }
+                    window.after(
+                        0, append_line,
+                        "RUNNER ERROR: {}: {}".format(type(exc).__name__, exc)
+                    )
+                window.after(0, finish, report)
+
+            threading.Thread(target=worker, name="noorix-dashboard-tests", daemon=True).start()
+
+        run_all_button.configure(command=lambda: start())
+        self._label(
+            window,
+            "Note: the smoke suite currently covers package integrity, PKR, YOLO, printed OCR, Whisper ASR and installed TTS voices. Real camera, handwritten OCR, Urdu OCR and labelled accuracy tests remain separate validation work.",
+            8, C["muted"], wraplength=920, justify="left"
+        ).pack(anchor="w", padx=24, pady=(0, 14))
+
+    def show_model_management(self):
+        """Display truthful local model/runtime readiness and configured paths."""
+        from noorix.paths import resolve_config_path
+        import shutil
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Model Management")
+        window.geometry("900x650")
+        window.configure(bg=C["bg"])
+        self._label(window, "LOCAL MODEL MANAGEMENT", 9, C["cyan"], True, bg=C["bg"]).pack(anchor="w", padx=22, pady=(18, 4))
+        self._label(window, "Installed assets · Runtime readiness · Offline paths", 20, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=22)
+        self._label(window, "File availability is not the same as validated accuracy or production readiness.", 9, C["amber"], bg=C["bg"]).pack(anchor="w", padx=22, pady=(6, 14))
+        body = self._panel(window, padx=14, pady=12)
+        body.pack(fill="both", expand=True, padx=22, pady=(0, 14))
+        output = tk.Text(body, wrap="word", bg=C["panel3"], fg=C["text"], relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12)
+        output.pack(fill="both", expand=True)
+        for title, section_name in [("Object detection / YOLO", "object_detection"), ("PKR currency", "currency"), ("Whisper Urdu/English ASR", "asr")]:
+            section = self.config.get(section_name, {})
+            section = section if isinstance(section, dict) else {}
+            raw = section.get("model_path")
+            resolved = resolve_config_path(raw, self.config_path) if raw else None
+            status = "NOT CONFIGURED" if not raw else ("OFFLINE / FILE MISSING" if not resolved.exists() else "ASSET PRESENT — INFERENCE NOT VERIFIED HERE")
+            output.insert("end", f"{title}\nSTATUS: {status}\nBACKEND: {section.get('backend', 'default')}\nPATH: {resolved if resolved else 'Not configured'}\n")
+            if section_name == "currency" and section.get("backend") == "pytorch_mobilenet_v2":
+                labels = section.get("labels_path")
+                labels_path = resolve_config_path(labels, self.config_path) if labels else None
+                output.insert("end", f"LABELS: {labels_path if labels_path else 'Not configured'}\n")
+            if section_name == "asr":
+                processor = section.get("processor_path")
+                processor_path = resolve_config_path(processor, self.config_path) if processor else None
+                output.insert("end", f"PROCESSOR: {processor_path if processor_path else 'Not configured'}\n")
+            output.insert("end", "\n")
+        output.insert("end", "OCR / TESSERACT\n")
+        executable = shutil.which("tesseract")
+        output.insert("end", f"Tesseract: {'INSTALLED' if executable else 'NOT FOUND'}\n")
+        try:
+            import pytesseract
+            langs = sorted(pytesseract.get_languages(config="")) if executable else []
+        except Exception:
+            langs = []
+        output.insert("end", f"Installed language packs: {', '.join(langs) if langs else 'Not detected'}\n")
+        output.insert("end", "\nHANDWRITTEN OCR: EXPERIMENTAL / NOT VERIFIED\nURDU OCR: EXPERIMENTAL; requires urd language data and real-data evaluation\n")
+        output.insert("end", "\nTTS: system voices are checked by the TTS smoke test; Urdu voice quality is not guaranteed.\n")
+        output.configure(state="disabled")
+
+    def show_currency_workspace(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — PKR Currency Recognition")
+        window.geometry("720x480")
+        window.configure(bg=C["bg"])
+        self._label(window, "PAKISTANI RUPEE RECOGNITION", 9, C["cyan"], True, bg=C["bg"]).pack(anchor="w", padx=22, pady=(18, 4))
+        self._label(window, "Denomination & note-side estimate", 20, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=22)
+        self._label(window, "Uses the current camera frame. This does not authenticate a banknote.", 9, C["amber"], bg=C["bg"]).pack(anchor="w", padx=22, pady=(6, 14))
+        panel = self._panel(window, padx=14, pady=14)
+        panel.pack(fill="both", expand=True, padx=22, pady=(0, 14))
+        output = tk.Text(panel, wrap="word", bg=C["panel3"], fg=C["text"], relief="flat", bd=0, font=("Segoe UI", 10), padx=12, pady=12)
+        output.pack(fill="both", expand=True)
+        output.insert("end", "Start the camera, then run currency recognition.\n")
+        output.configure(state="disabled")
+        def run_currency():
+            if self.current_frame is None:
+                messagebox.showwarning("Camera required", "Start the camera and capture a visible banknote first.", parent=window)
+                return
+            frame = self.current_frame.copy()
+            def worker():
+                try:
+                    outcome = self._get_agent_coordinator().run("currency", frame)
+                    message = f"{outcome.state.value.upper()}\n{outcome.summary}\n" + "\n".join(outcome.warnings)
+                except Exception as exc:
+                    message = f"ERROR: {type(exc).__name__}: {exc}"
+                def show():
+                    if window.winfo_exists():
+                        output.configure(state="normal")
+                        output.delete("1.0", "end")
+                        output.insert("end", message)
+                        output.configure(state="disabled")
+                window.after(0, show)
+            threading.Thread(target=worker, name="noorix-currency-ui", daemon=True).start()
+        self._button(window, "Recognize current frame", run_currency, True).pack(anchor="e", padx=22, pady=(0, 14))
+
+    def show_voice_workspace(self):
+        window = tk.Toplevel(self.root)
+        window.title("NOORIX AI — Voice Interaction")
+        window.geometry("820x620")
+        window.configure(bg=C["bg"])
+        self._label(window, "VOICE INTERACTION", 9, C["cyan"], True, bg=C["bg"]).pack(anchor="w", padx=22, pady=(18, 4))
+        self._label(window, "Urdu / English speech input & spoken output", 20, C["text"], True, bg=C["bg"]).pack(anchor="w", padx=22)
+        self._label(window, "ASR reads a selected audio file. TTS speaks text using installed system voices.", 9, C["muted"], bg=C["bg"]).pack(anchor="w", padx=22, pady=(6, 12))
+        asr_panel = self._panel(window, padx=14, pady=12)
+        asr_panel.pack(fill="x", padx=22, pady=(0, 10))
+        self._label(asr_panel, "SPEECH TO TEXT · WHISPER LOCAL", 9, C["text"], True).pack(anchor="w")
+        asr_status = self._label(asr_panel, "No audio selected", 8, C["muted"])
+        asr_status.pack(anchor="w", pady=(5, 8))
+        transcript = tk.Text(asr_panel, height=5, wrap="word", bg=C["panel3"], fg=C["text"], relief="flat", bd=0, padx=9, pady=8)
+        transcript.pack(fill="x")
+        def choose_and_transcribe():
+            path = filedialog.askopenfilename(parent=window, title="Choose audio for local transcription", filetypes=[("Audio files", "*.wav *.flac *.ogg *.mp3 *.m4a"), ("All files", "*.*")])
+            if not path:
+                return
+            asr_status.configure(text="Transcribing locally…", fg=C["cyan"])
+            def worker():
+                try:
+                    outcome = self._get_agent_coordinator().run("speech_to_text", path)
+                    value = outcome.summary + ("\n\n" + "\n".join(outcome.warnings) if outcome.warnings else "")
+                except Exception as exc:
+                    value = f"ERROR: {type(exc).__name__}: {exc}"
+                def show():
+                    if window.winfo_exists():
+                        transcript.delete("1.0", "end")
+                        transcript.insert("end", value)
+                        asr_status.configure(text="Transcription finished", fg=C["green"])
+                window.after(0, show)
+            threading.Thread(target=worker, name="noorix-asr-ui", daemon=True).start()
+        self._button(asr_panel, "Choose audio & transcribe", choose_and_transcribe, True, True).pack(anchor="e", pady=(8, 0))
+        tts_panel = self._panel(window, padx=14, pady=12)
+        tts_panel.pack(fill="both", expand=True, padx=22, pady=(0, 14))
+        self._label(tts_panel, "TEXT TO SPEECH · LOCAL SYSTEM VOICE", 9, C["text"], True).pack(anchor="w")
+        tts_input = tk.Text(tts_panel, height=5, wrap="word", bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat", bd=0, padx=9, pady=8)
+        tts_input.pack(fill="both", expand=True, pady=(8, 8))
+        def speak_text():
+            text_value = tts_input.get("1.0", "end").strip()
+            if not text_value:
+                messagebox.showinfo("Text required", "Enter text before starting speech output.", parent=window)
+                return
+            def worker():
+                try:
+                    outcome = self._get_agent_coordinator().run("speech", text_value)
+                    message = outcome.summary
+                except Exception as exc:
+                    message = f"ERROR: {type(exc).__name__}: {exc}"
+                window.after(0, lambda: asr_status.configure(text=message, fg=C["green"]) if window.winfo_exists() else None)
+            threading.Thread(target=worker, name="noorix-tts-ui", daemon=True).start()
+        self._button(tts_panel, "Speak text", speak_text, True, True).pack(anchor="e")
 
     def show_system_status(self):
         from noorix.agents import SystemHealthAgent

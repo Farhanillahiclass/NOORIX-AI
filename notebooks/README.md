@@ -99,3 +99,21 @@ The importer does **not** connect models to app code automatically. Model-specif
 4. YOLOv8n pretrained COCO export; custom training only if current COCO classes are insufficient.
 5. Whisper Urdu ASR, then English ASR.
 6. Test every model locally on the target CPU before integrating it into the live camera/voice pipeline.
+
+
+## Sync the latest manually maintained Kaggle master notebook
+
+The official Kaggle notebook remains the source of truth for the latest manually edited training cells:
+https://www.kaggle.com/code/muhammadfarhanmrs/noorix-master-ai-training-muhammad-farhan
+
+To preserve those manual edits when publishing to GitHub:
+
+1. Open the official notebook in Kaggle.
+2. In the notebook editor, choose **File → Link to GitHub** and authorize Kaggle's GitHub integration through its own authorization screen.
+3. Save a new notebook version. In the GitHub save panel, select repository `Farhanillahiclass/NOORIX-AI` and the intended branch.
+4. Use the dedicated path `notebooks/kaggle/NOORIX_MASTER_AI_TRAINING_MUHAMMAD_FARHAN.ipynb`. This is a new copy path; do not overwrite the specialist notebooks or remove manually maintained cells.
+5. After the save, verify the new commit and notebook diff on GitHub before merging it.
+
+Kaggle's GitHub integration commits a notebook version when you save a version; it is not a continuous live-sync of every keystroke. The notebook owner must authorize the connection and choose the destination. See Kaggle's staff announcement: https://www.kaggle.com/product-announcements/492079
+
+The repository intentionally keeps the official Kaggle URL in this README. A link alone is not treated as proof that the notebook file or its training outputs have been independently checked.

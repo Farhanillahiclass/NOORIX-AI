@@ -23,6 +23,8 @@ Run the desktop interface:
 python -m noorix --gui
 ```
 
+The desktop dashboard includes an Overview workspace, live camera preview, object detection, configurable printed OCR language (English / Urdu / both when Tesseract language data is installed), PKR currency workspace, local Whisper audio-file transcription, system-voice TTS, Agent Console, Model Management, Model Testing Center, System Diagnostics, Activity Logs, Settings and About the creator. Open **Model Testing** in the sidebar to run all six configured smoke tests or run Package, PKR, YOLO, Printed OCR, Whisper ASR and TTS individually. JSON and Markdown reports are created under `reports/model-tests/` and can be opened from the dashboard. Handwritten OCR and experimental Urdu OCR remain explicitly unverified and are not represented as ready capabilities. The dashboard's Model Management view distinguishes a model file being present from a model being validated by real inputs.
+
 Run the camera preview only:
 
 ```bash
@@ -36,6 +38,16 @@ Check installed components:
 ```bash
 python -m noorix --check
 ```
+
+Run all configured local model smoke tests in one sequence:
+
+```bash
+python scripts/test_all_models.py --config config.json
+```
+
+On Windows, double-click `RUN_ALL_TESTS.bat`. It automatically checks the common extracted package location `D:\\NOORIX_MODELS\\EXTRACTED`; otherwise set the `NOORIX_MODELS_DIR` environment variable to your extracted model package folder. Config-relative model paths take precedence. Results are saved under `reports/model-tests/` as JSON and Markdown. Tests run one at a time and show PASS, FAIL, SKIPPED or WARN. A skipped test means a file, runtime or language pack is unavailable; it is not counted as a pass.
+
+The test suite performs basic local loading/inference checks for PKR, YOLO, OCR, Whisper and installed TTS voices, plus optional package checksum verification. It uses synthetic inputs for vision/audio smoke tests and does not evaluate model accuracy or play TTS audio. It is a developer diagnostic, not a production-readiness certificate.
 
 Transcribe a local audio file with the configured Whisper model:
 

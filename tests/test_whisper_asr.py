@@ -1,3 +1,4 @@
+import json
 import sys
 import types
 
@@ -63,9 +64,13 @@ def test_factory_resolves_model_path_relative_to_config(tmp_path):
     assert adapter.processor_path == model
 
 
-def test_transcribe_uses_cpu_and_local_mocked_transformers(monkeypatch, tmp_path):
+def test_transcribe_uses_cpu_and_handles_transformers_v5_tokenizer_config(monkeypatch, tmp_path):
     model_dir = tmp_path / "whisper"
     model_dir.mkdir()
+    (model_dir / "tokenizer_config.json").write_text(
+        json.dumps({"extra_special_tokens": ["<|ur|>", "<|transcribe|>"]}),
+        encoding="utf-8",
+    )
     calls = {}
 
     class FakeTokenizer:
@@ -118,7 +123,9 @@ def test_transcribe_uses_cpu_and_local_mocked_transformers(monkeypatch, tmp_path
 
     asr = WhisperASR(model_dir, language="urdu")
     assert asr.transcribe(np.ones(1600), 16000) == "سلام دنیا"
-    assert calls["processor_load"][1]["local_files_only"] is True
+    processor_kwargs = calls["processor_load"][1]
+    assert processor_kwargs["local_files_only"] is True
+    assert processor_kwargs["extra_special_tokens"] == {}
     assert calls["model_load"][1]["local_files_only"] is True
     assert calls["model_device"] == "cpu"
     assert calls["prefix"] == {"language": "urdu", "task": "transcribe"}
