@@ -84,13 +84,37 @@ class CurrencyAgent:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Unsupported currency backend: {backend}")
         prediction = self.adapter.predict(payload)
         confidence = float(prediction["confidence"])
+        min_confidence = float(self.config.get("min_confidence", 0.60))
+        if not 0.0 <= min_confidence <= 1.0:
+            return AgentResult(
+                self.name, AgentState.NEEDS_SETUP,
+                "Currency min_confidence must be between 0.0 and 1.0.",
+            )
+        if not 0.0 <= confidence <= 1.0:
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                "Currency model returned an invalid confidence score.",
+            )
+        if confidence < min_confidence:
+            return AgentResult(
+                self.name,
+                AgentState.COMPLETED,
+                f"Low confidence ({confidence:.0%}; minimum {min_confidence:.0%}). "
+                "No reliable denomination detected. Reposition the note and try again.",
+                data={"recognized": False, "confidence": confidence,
+                      "minimum_confidence": min_confidence},
+                warnings=(
+                    "The model's top class is not reliable enough to report as a denomination.",
+                    "This estimate does not authenticate banknotes.",
+                ),
+            )
         denomination = prediction["denomination"]
         side = prediction.get("side")
         side_text = f", {side} side" if side else ""
         return AgentResult(
             self.name, AgentState.COMPLETED,
             f"Possible denomination: {denomination} PKR{side_text} (score {confidence:.0%}).",
-            data=prediction,
+            data={**prediction, "recognized": True, "minimum_confidence": min_confidence},
             warnings=("This is an estimate, not banknote authentication. Check the note independently.",),
         )
 
