@@ -9,7 +9,7 @@ import json
 import threading
 import tkinter as tk
 from pathlib import Path
-from tkinter import filedialog, messagebox, simpledialog
+from tkinter import filedialog, messagebox, simpledialog, ttk
 
 
 C = {
@@ -619,36 +619,85 @@ class NoorixApp:
         self._label(window, "NO automatic navigation · No image upload · No model accuracy guarantee", 8, C["muted"]).pack(anchor="w", padx=22, pady=(0, 12))
 
     def show_model_testing(self):
-        """Open a non-blocking sequential test dashboard for configured local models."""
+        """Open the dashboard-driven local model testing centre."""
+        import webbrowser
+
         window = tk.Toplevel(self.root)
         window.title("NOORIX AI — Model Testing Center")
-        window.geometry("900x680")
-        window.minsize(720, 520)
+        window.geometry("980x740")
+        window.minsize(760, 600)
         window.configure(bg=C["bg"])
 
         header = tk.Frame(window, bg=C["bg"], padx=22, pady=18)
         header.pack(fill="x")
         self._label(header, "MODEL TESTING CENTER", 9, C["cyan"], True).pack(anchor="w")
-        self._label(header, "One run · All local models · One report", 21, C["text"], True).pack(anchor="w", pady=(4, 0))
+        self._label(header, "Test from your dashboard", 21, C["text"], True).pack(anchor="w", pady=(4, 0))
         self._label(
             header,
-            "Runs PKR, YOLO, OCR, Whisper, TTS and package checks sequentially. The UI remains responsive.",
-            9, C["muted"], wraplength=820, justify="left"
+            "Run every supported smoke test together or select one model below. Tests execute locally and sequentially.",
+            9, C["muted"], wraplength=900, justify="left"
         ).pack(anchor="w", pady=(6, 0))
 
-        actions = tk.Frame(window, bg=C["bg"], padx=22, pady=8)
-        actions.pack(fill="x")
-        run_button = self._button(actions, "RUN ALL MODEL TESTS", None, True)
-        run_button.pack(side="left")
-        self._label(actions, "Synthetic smoke tests · No accuracy certification", 8, C["amber"], True).pack(side="left", padx=14)
+        controls = tk.Frame(window, bg=C["bg"], padx=22, pady=8)
+        controls.pack(fill="x")
+        run_all_button = self._button(controls, "RUN ALL TESTS", None, True)
+        run_all_button.pack(side="left", padx=(0, 9))
+        progress = ttk.Progressbar(controls, mode="indeterminate", length=190)
+        progress.pack(side="left", padx=(4, 10))
+        progress_label = self._label(controls, "Ready", 8, C["muted"], True)
+        progress_label.pack(side="left")
 
-        panel = self._panel(window, padx=12, pady=12)
-        panel.pack(fill="both", expand=True, padx=22, pady=(8, 14))
-        output = tk.Text(panel, wrap="word", bg=C["panel"], fg=C["text"],
-                         relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12)
+        single_panel = self._panel(window, padx=12, pady=10)
+        single_panel.pack(fill="x", padx=22, pady=(4, 10))
+        self._label(single_panel, "INDIVIDUAL SMOKE TESTS", 8, C["cyan"], True).pack(anchor="w", pady=(0, 8))
+        grid = tk.Frame(single_panel, bg=C["panel"])
+        grid.pack(fill="x")
+        test_options = [
+            ("Package Integrity", "package"),
+            ("PKR Currency", "currency"),
+            ("YOLO Detection", "objects"),
+            ("Printed OCR", "ocr"),
+            ("Whisper ASR", "asr"),
+            ("Text-to-Speech", "tts"),
+        ]
+        test_buttons = []
+        for index, (label, key) in enumerate(test_options):
+            button = self._button(
+                grid, label, lambda selected=key: start(selected), compact=True
+            )
+            button.grid(row=index // 3, column=index % 3, sticky="ew", padx=4, pady=4)
+            test_buttons.append(button)
+        for column in range(3):
+            grid.grid_columnconfigure(column, weight=1)
+
+        self._label(
+            single_panel,
+            "Handwritten OCR, experimental Urdu OCR and live camera validation are not included in these six smoke-test adapters yet. They must not be marked PASS until their dedicated real-input tests exist.",
+            8, C["amber"], wraplength=900, justify="left"
+        ).pack(anchor="w", pady=(8, 0))
+
+        report_panel = self._panel(window, padx=12, pady=10)
+        report_panel.pack(fill="x", padx=22, pady=(0, 10))
+        self._label(report_panel, "LATEST REPORTS", 8, C["cyan"], True).pack(anchor="w")
+        report_actions = tk.Frame(report_panel, bg=C["panel"])
+        report_actions.pack(fill="x", pady=(7, 0))
+        json_button = self._button(report_actions, "Open JSON Report", None, compact=True)
+        json_button.pack(side="left", padx=(0, 7))
+        markdown_button = self._button(report_actions, "Open Markdown Report", None, compact=True)
+        markdown_button.pack(side="left")
+        json_button.configure(state="disabled")
+        markdown_button.configure(state="disabled")
+        latest = {"json": None, "markdown": None}
+
+        output_panel = self._panel(window, padx=12, pady=12)
+        output_panel.pack(fill="both", expand=True, padx=22, pady=(0, 14))
+        output = tk.Text(
+            output_panel, wrap="word", bg=C["panel3"], fg=C["text"],
+            relief="flat", bd=0, font=("Consolas", 9), padx=12, pady=12
+        )
         output.pack(fill="both", expand=True)
-        output.insert("end", "Ready. Select RUN ALL MODEL TESTS to begin.\n")
-        output.insert("end", "The test runner loads each configured model on this computer. Large models may take several minutes.\n")
+        output.insert("end", "READY — Choose RUN ALL TESTS or an individual test.\n")
+        output.insert("end", "A PASS means basic local loading/execution only, not accuracy certification.\n")
         output.configure(state="disabled")
         state = {"running": False}
 
@@ -660,56 +709,89 @@ class NoorixApp:
             output.see("end")
             output.configure(state="disabled")
 
+        def open_report(kind):
+            path = latest.get(kind)
+            if path and Path(path).is_file():
+                webbrowser.open(Path(path).resolve().as_uri())
+            else:
+                messagebox.showwarning("Report unavailable", "Run a test first to create this report.", parent=window)
+
+        json_button.configure(command=lambda: open_report("json"))
+        markdown_button.configure(command=lambda: open_report("markdown"))
+
         def finish(report):
             if not window.winfo_exists():
                 return
             state["running"] = False
-            run_button.configure(state="normal", text="RUN ALL MODEL TESTS")
+            run_all_button.configure(state="normal", text="RUN ALL TESTS")
+            for button in test_buttons:
+                button.configure(state="normal")
+            progress.stop()
+            progress_label.configure(text="Finished")
             totals = report.get("totals", {})
             append_line("")
             append_line("TOTALS: " + json.dumps(totals))
             append_line("JSON REPORT: " + report.get("report_json", "not saved"))
             append_line("MARKDOWN REPORT: " + report.get("report_markdown", "not saved"))
             append_line("PRODUCTION READINESS: NOT CERTIFIED")
-            self._record_activity("Model testing", "PASS={} FAIL={} SKIPPED={}".format(
-                totals.get("pass", 0), totals.get("fail", 0), totals.get("skipped", 0)
+            latest["json"] = report.get("report_json")
+            latest["markdown"] = report.get("report_markdown")
+            json_button.configure(state="normal" if latest["json"] else "disabled")
+            markdown_button.configure(state="normal" if latest["markdown"] else "disabled")
+            self._record_activity("Model testing", "PASS={} FAIL={} SKIPPED={} WARN={}".format(
+                totals.get("pass", 0), totals.get("fail", 0),
+                totals.get("skipped", 0), totals.get("warn", 0)
             ))
             self.root.after(0, self.refresh_overview)
 
-        def start():
+        def start(test_key=None):
             if state["running"]:
                 return
             state["running"] = True
-            run_button.configure(state="disabled", text="TESTS RUNNING…")
-            append_line("Starting sequential local model tests…")
+            run_all_button.configure(state="disabled", text="TESTS RUNNING…")
+            for button in test_buttons:
+                button.configure(state="disabled")
+            progress.start(12)
+            progress_label.configure(text="Running locally…")
+            if test_key:
+                append_line(f"Starting individual test: {test_key}")
+            else:
+                append_line("Starting all configured local smoke tests…")
 
-            def progress(item):
-                line = "[{}] {} ({}s): {}".format(
+            def on_progress(item):
+                line = "[{}] {} ({:.3f}s): {}".format(
                     item.status, item.name, item.duration_seconds, item.message
                 )
                 window.after(0, append_line, line)
 
             def worker():
                 try:
-                    from noorix.model_testing import run_all_tests
-                    report = run_all_tests(
-                        self.config_path,
-                        self.config_path.parent / "reports" / "model-tests",
-                        progress=progress,
-                    )
+                    from noorix.model_testing import run_all_tests, run_single_test
+                    report_dir = self.config_path.parent / "reports" / "model-tests"
+                    if test_key:
+                        report = run_single_test(test_key, self.config_path, report_dir)
+                        item = report["results"][0]
+                        on_progress(type("ProgressItem", (), item)())
+                    else:
+                        report = run_all_tests(self.config_path, report_dir, progress=on_progress)
                 except Exception as exc:
-                    report = {"totals": {"fail": 1}, "results": [],
-                              "report_json": "", "report_markdown": ""}
-                    window.after(0, append_line, "RUNNER ERROR: {}: {}".format(type(exc).__name__, exc))
+                    report = {
+                        "totals": {"fail": 1}, "results": [],
+                        "report_json": "", "report_markdown": ""
+                    }
+                    window.after(
+                        0, append_line,
+                        "RUNNER ERROR: {}: {}".format(type(exc).__name__, exc)
+                    )
                 window.after(0, finish, report)
 
-            threading.Thread(target=worker, name="noorix-model-tests", daemon=True).start()
+            threading.Thread(target=worker, name="noorix-dashboard-tests", daemon=True).start()
 
-        run_button.configure(command=start)
+        run_all_button.configure(command=lambda: start())
         self._label(
             window,
-            "Note: a PASS confirms loading/basic execution on this device only. Real accuracy, camera conditions, accessibility usability and production safety need separate validation.",
-            8, C["muted"], wraplength=850, justify="left"
+            "Note: the smoke suite currently covers package integrity, PKR, YOLO, printed OCR, Whisper ASR and installed TTS voices. Real camera, handwritten OCR, Urdu OCR and labelled accuracy tests remain separate validation work.",
+            8, C["muted"], wraplength=920, justify="left"
         ).pack(anchor="w", padx=24, pady=(0, 14))
 
     def show_system_status(self):
