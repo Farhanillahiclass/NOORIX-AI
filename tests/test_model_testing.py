@@ -95,7 +95,7 @@ def test_test_package_checksums_from_external_model_root(tmp_path, monkeypatch):
     payload.write_bytes(b"external-model-package")
     digest = hashlib.sha256(payload.read_bytes()).hexdigest()
     (model_root / "checksums.sha256").write_text(
-        f"{digest}  models/weights.bin\\n", encoding="utf-8"
+        f"{digest}  models/weights.bin\n", encoding="utf-8"
     )
     monkeypatch.setenv("NOORIX_MODELS_DIR", str(model_root))
 
@@ -103,3 +103,30 @@ def test_test_package_checksums_from_external_model_root(tmp_path, monkeypatch):
 
     assert status == "PASS"
     assert details["checksum_files_verified"] == 1
+
+
+
+def test_run_single_test_executes_only_selected_check_and_writes_report(tmp_path, monkeypatch):
+    import noorix.model_testing as testing
+
+    config = tmp_path / "config.json"
+    config.write_text("{}", encoding="utf-8")
+    calls = []
+    monkeypatch.setattr(testing, "_test_currency", lambda cfg, path: (calls.append("currency") or "PASS", {"ok": True}))
+    monkeypatch.setattr(testing, "_test_package", lambda cfg, path: (calls.append("package") or "PASS", {"ok": True}))
+
+    report = testing.run_single_test("currency", config, tmp_path / "reports")
+
+    assert calls == ["currency"]
+    assert report["totals"]["pass"] == 1
+    assert report["totals"]["fail"] == 0
+    assert Path(report["report_json"]).is_file()
+    assert Path(report["report_markdown"]).is_file()
+
+
+def test_run_single_test_rejects_unknown_key():
+    import pytest
+    from noorix.model_testing import run_single_test
+
+    with pytest.raises(ValueError, match="Unknown test key"):
+        run_single_test("handwriting")
