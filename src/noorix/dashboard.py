@@ -588,7 +588,7 @@ class NoorixDashboard:
             image = Image.fromarray(rgb)
             image.thumbnail(self.preview_max_size)
             self.preview_image = ImageTk.PhotoImage(image)
-                if hasattr(self, "preview") and self.preview.winfo_exists():
+            if hasattr(self, "preview") and self.preview.winfo_exists():
                 self.preview.configure(image=self.preview_image, text="")
         except Exception:
             pass
