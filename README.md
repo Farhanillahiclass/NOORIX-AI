@@ -4,6 +4,18 @@
 
 NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. Its intended modules are Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR and spoken feedback.
 
+## One-command desktop start (Windows Git Bash)
+
+After cloning the repository and activating the Python environment that contains your local NOORIX model dependencies, run this single command from Git Bash:
+
+```bash
+bash NOORIX.sh
+```
+
+The launcher selects the active `python`, sets `PYTHONPATH`, detects `D:/NOORIX_MODELS/EXTRACTED`, preserves an existing `config.json` (or creates one from the example), checks Python runtime imports, installs the declared extras only when required, checks Tkinter/Tesseract, and opens the desktop dashboard. The first dependency installation may require internet; after installation, inference uses local assets. The app does not download model weights at startup.
+
+Inside the dashboard, open **Testing Center** and choose **RUN ALL SMOKE TESTS**. Then validate each capability with real camera frames, printed pages and representative audio. A green smoke-test result is not a production-readiness certificate. Handwriting OCR remains unavailable until a compatible trained model and adapter are supplied; Urdu OCR requires Tesseract's `urd` language data. The PKR classifier estimates denomination/side and does not authenticate notes.
+
 ## Run locally
 Python 3.11+ is recommended.
 
