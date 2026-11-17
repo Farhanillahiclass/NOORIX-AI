@@ -763,11 +763,25 @@ class NoorixDashboard:
 
     def run_ocr(self, language="eng"):
         frame = self._current_frame()
-        if frame is None: return
+        if frame is None:
+            return
+
         def work():
             from noorix.ocr import PrintedEnglishOCR
-            return PrintedEnglishOCR(language=language).read(frame)
-        self._run_async("OCR", work)
+
+            settings = self.config.get("ocr", {})
+            settings = settings if isinstance(settings, dict) else {}
+            ocr_config = str(settings.get("tesseract_config", ""))
+            text = PrintedEnglishOCR(language=language, config=ocr_config).read(frame)
+            if not text:
+                return (
+                    f"No readable printed {language.upper()} text was found. "
+                    "Try a sharper, brighter image with the page filling more of the frame. "
+                    "Handwriting is not supported by this OCR module."
+                )
+            return f"EXTRACTED TEXT ({language.upper()})\\n\\n{text}"
+
+        self._run_async(f"{language.upper()} OCR", work)
 
     def _run_async(self, label, operation):
         self.set_status(label + " running", "Local inference in progress", "cyan")
