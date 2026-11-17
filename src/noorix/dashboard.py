@@ -534,9 +534,24 @@ class NoorixDashboard:
                 details.append(f"Tesseract language check: {type(exc).__name__}: {exc}")
         for key in ("object_detection", "currency", "asr"):
             settings = self.config.get(key, {})
-            value = settings.get("model_path") if isinstance(settings, dict) else None
-            path = resolve_config_path(value, self.config_path) if value else None
-            details.append(f"{key}: {'not configured' if not value else ('files present — not validated' if path and path.exists() else 'missing')}")
+            if not isinstance(settings, dict):
+                details.append(f"{key}: invalid configuration section")
+                continue
+            backend = str(settings.get("backend", "default"))
+            model_value = settings.get("model_path")
+            if not model_value:
+                details.append(f"{key} ({backend}): model path not configured")
+            else:
+                model_path = resolve_config_path(model_value, self.config_path)
+                model_kind = "directory" if model_path.is_dir() else "file"
+                model_state = "present — not validated" if model_path.exists() else "MISSING"
+                details.append(f"{key} ({backend}): model {model_state} [{model_kind}] — {model_path}")
+            for field in ("labels_path", "processor_path"):
+                value = settings.get(field)
+                if value:
+                    asset_path = resolve_config_path(value, self.config_path)
+                    state = "present" if asset_path.exists() else "MISSING"
+                    details.append(f"{key}.{field}: {state} — {asset_path}")
         if hasattr(self, "diag") and self.diag.winfo_exists():
             self.diag.configure(state="normal")
             self.diag.delete("1.0", "end")
