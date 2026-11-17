@@ -3,8 +3,14 @@ from noorix.capabilities import capability_status
 
 def test_model_capabilities_are_not_claimed_ready_without_weights():
     status = capability_status()
-    assert "model_and_labels_required" in status["pakistani_currency_estimation"]
-    assert "model_and_labels_required" in status["everyday_object_detection"]
+    assert status["pakistani_currency_estimation"] in {
+        "pytorch_mobilenet_v2_adapter_available_model_and_labels_required",
+        "install_pytorch_currency_extra",
+    }
+    assert status["everyday_object_detection"] in {
+        "ssd_and_yolov8_onnx_adapters_available_model_and_labels_required",
+        "install_camera_extra",
+    }
     assert status["handwriting_ocr"] == "not_implemented_no_verified_model_adapter"
 
 
