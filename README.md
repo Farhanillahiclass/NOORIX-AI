@@ -23,6 +23,8 @@ Run the desktop interface:
 python -m noorix --gui
 ```
 
+The desktop dashboard includes an Overview workspace, live camera preview, object detection, configurable printed OCR language (English / Urdu / both when Tesseract language data is installed), PKR currency workspace, local Whisper audio-file transcription, system-voice TTS, Agent Console, Model Management, Model Testing Center, System Diagnostics, Activity Logs, Settings and About the creator. Open **Model Testing** in the sidebar to run all six configured smoke tests or run Package, PKR, YOLO, Printed OCR, Whisper ASR and TTS individually. JSON and Markdown reports are created under `reports/model-tests/` and can be opened from the dashboard. Handwritten OCR and experimental Urdu OCR remain explicitly unverified and are not represented as ready capabilities. The dashboard's Model Management view distinguishes a model file being present from a model being validated by real inputs.
+
 Run the camera preview only:
 
 ```bash
