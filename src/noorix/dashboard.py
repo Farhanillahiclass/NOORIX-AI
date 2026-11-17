@@ -45,6 +45,7 @@ class NoorixDashboard:
         self.camera_after = None
         self.test_running = False
         self.history: list[str] = []
+        self.detections: list[dict] = []
         self.section = "Command Center"
         self._configure_window()
         self._build_shell()
@@ -353,11 +354,24 @@ class NoorixDashboard:
         def worker():
             try:
                 from noorix.model_testing import run_all_tests, run_single_test
-                report = run_all_tests(self.config_path) if key is None else run_single_test(key, self.config_path)
+                def progress(item):
+                    completed = len(getattr(progress, "items", [])) + 1
+                    progress.items = getattr(progress, "items", []) + [item]
+                    self.root.after(0, lambda n=completed, x=item: self._test_progress(n, x))
+                report = run_all_tests(self.config_path, progress=progress) if key is None else run_single_test(key, self.config_path)
                 self.root.after(0, lambda r=report: self._tests_complete(r))
             except Exception as exc:
                 self.root.after(0, lambda e=exc: self._tests_failed(e))
         threading.Thread(target=worker, daemon=True).start()
+
+    def _test_progress(self, completed, item):
+        self.test_progress.configure(value=completed)
+        self.test_summary.configure(text=f"RUNNING · {completed}/6 · {item.name} · {item.status}")
+        mapping = {"Model package integrity":"package","PKR currency model":"currency","YOLO object detection":"objects","Printed OCR":"ocr","Whisper speech-to-text":"asr","Local text-to-speech":"tts"}
+        key = mapping.get(item.name)
+        if key:
+            color = {"PASS":"green","FAIL":"red","SKIPPED":"amber","WARN":"amber"}.get(item.status,"muted")
+            getattr(self, "test_" + key).configure(text=item.status, fg=PALETTE[color])
 
     def _tests_complete(self, report):
         self.test_running = False
@@ -461,7 +475,16 @@ class NoorixDashboard:
     def _show_frame(self, frame):
         try:
             from PIL import Image, ImageTk
-            rgb = self.cv2.cvtColor(frame, self.cv2.COLOR_BGR2RGB)
+            display_frame = frame.copy()
+            for detection in getattr(self, "detections", []):
+                box = detection.get("box")
+                if isinstance(box, (list, tuple)) and len(box) == 4:
+                    x1, y1, x2, y2 = (int(v) for v in box)
+                    self.cv2.rectangle(display_frame, (x1, y1), (x2, y2), (238, 217, 39), 2)
+                    caption = str(detection.get("label", "object")) + " " + str(round(float(detection.get("confidence", 0)) * 100)) + "%"
+                    self.cv2.putText(display_frame, caption, (x1, max(18, y1 - 7)),
+                                     self.cv2.FONT_HERSHEY_SIMPLEX, 0.55, (238, 217, 39), 2)
+            rgb = self.cv2.cvtColor(display_frame, self.cv2.COLOR_BGR2RGB)
             image = Image.fromarray(rgb)
             image.thumbnail((950, 560))
             self.preview_image = ImageTk.PhotoImage(image)
@@ -538,16 +561,24 @@ class NoorixDashboard:
         def worker():
             try:
                 result = operation()
+                detections = []
                 if isinstance(result, list):
                     text = "\n\n".join(f"{x.agent.upper()} · {x.state.value.upper()}\n{x.summary}\n" + "\n".join(x.warnings) for x in result)
+                    for item in result:
+                        if item.agent == "object_detection" and isinstance(item.data, list):
+                            detections = item.data
                 else:
                     text = str(result) if result else "No text detected."
-                self.root.after(0, lambda: self._operation_complete(label, text))
+                self.root.after(0, lambda: self._operation_complete(label, text, detections=detections))
             except Exception as exc:
                 self.root.after(0, lambda: self._operation_complete(label, f"{type(exc).__name__}: {exc}", True))
         threading.Thread(target=worker, daemon=True).start()
 
-    def _operation_complete(self, label, text, failed=False):
+    def _operation_complete(self, label, text, failed=False, detections=None):
+        if detections is not None:
+            self.detections = detections
+            if self.frame is not None:
+                self._show_frame(self.frame)
         self._write_result_box(text)
         self.set_status(label + (" failed" if failed else " complete"), "Verify results independently", "red" if failed else "green")
 
