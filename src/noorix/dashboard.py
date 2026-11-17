@@ -44,6 +44,7 @@ class NoorixDashboard:
         self.preview_image = None
         self.camera_after = None
         self.test_running = False
+        self.preview_max_size = (720, 405)
         self.history: list[str] = []
         self.detections: list[dict] = []
         self.section = "Command Center"
@@ -61,8 +62,8 @@ class NoorixDashboard:
 
     def _configure_window(self):
         self.root.title("NOORIX-AI | Offline Accessibility Workspace")
-        self.root.geometry("1500x920")
-        self.root.minsize(1120, 720)
+        self.root.geometry("1280x820")
+        self.root.minsize(900, 620)
         self.root.configure(bg=PALETTE["bg"])
         self.root.protocol("WM_DELETE_WINDOW", self.close)
 
@@ -88,7 +89,7 @@ class NoorixDashboard:
         shell.pack(fill="both", expand=True)
 
         # Scrollable navigation rail: smaller displays can reach every section.
-        sidebar = tk.Frame(shell, bg=PALETTE["rail"], width=238)
+        sidebar = tk.Frame(shell, bg=PALETTE["rail"], width=210)
         sidebar.pack(side="left", fill="y")
         sidebar.pack_propagate(False)
         self.sidebar_canvas = tk.Canvas(sidebar, bg=PALETTE["rail"], highlightthickness=0, bd=0)
@@ -132,7 +133,7 @@ class NoorixDashboard:
                    wraplength=190, justify="left").pack(anchor="w", padx=4, pady=(0, 10))
         self.label(self.sidebar_inner, "RESEARCH PROTOTYPE  ·  MRS", 7, "muted", True).pack(anchor="w", pady=(2, 10))
 
-        content = tk.Frame(shell, bg=PALETTE["bg"], padx=18, pady=12)
+        content = tk.Frame(shell, bg=PALETTE["bg"], padx=12, pady=10)
         content.pack(side="left", fill="both", expand=True)
         top = tk.Frame(content, bg=PALETTE["surface"], padx=12, pady=9,
                        highlightbackground=PALETTE["line"], highlightthickness=1)
@@ -166,11 +167,30 @@ class NoorixDashboard:
         self.status_detail.pack(side="left", padx=10)
         self.label(footer, "NOORIX-AI  ·  Predictions require independent verification", 7, "muted").pack(side="right")
 
-        def scroll_canvas(event, canvas):
-            if getattr(event, "delta", 0):
-                canvas.yview_scroll(int(-event.delta / 120), "units")
-        self.root.bind_all("<MouseWheel>", lambda event: scroll_canvas(event, self.page_canvas))
-        self.root.bind_all("<Shift-MouseWheel>", lambda event: scroll_canvas(event, self.sidebar_canvas))
+        def is_inside(widget, parent):
+            while widget is not None:
+                if widget == parent:
+                    return True
+                widget = getattr(widget, "master", None)
+            return False
+
+        def scroll_canvas(event):
+            widget = self.root.winfo_containing(event.x_root, event.y_root)
+            target = self.sidebar_canvas if (event.state & 0x0001) else self.page_canvas
+            if not is_inside(widget, target):
+                return
+            delta = getattr(event, "delta", 0)
+            if delta:
+                target.yview_scroll(-1 if delta > 0 else 1, "units")
+            elif getattr(event, "num", None) == 4:
+                target.yview_scroll(-1, "units")
+            elif getattr(event, "num", None) == 5:
+                target.yview_scroll(1, "units")
+            return "break"
+
+        self.root.bind_all("<MouseWheel>", scroll_canvas)
+        self.root.bind_all("<Button-4>", scroll_canvas)
+        self.root.bind_all("<Button-5>", scroll_canvas)
 
     def set_status(self, title, detail="", color="cyan"):
         self.status.configure(text="● " + title.upper(), fg=PALETTE[color])
@@ -220,31 +240,40 @@ class NoorixDashboard:
         self.page_heading("NOORIX / COMMAND", "Your accessibility workspace",
                           "A focused control room for vision, reading, voice and local model validation.")
         metrics = tk.Frame(self.page, bg=PALETTE["bg"])
-        metrics.pack(fill="x", pady=(0, 14))
-        for title, value, detail, color in [
+        metrics.pack(fill="x", pady=(0, 12))
+        metric_items = [
             ("RUNTIME", "LOCAL", "No cloud dependency for local inference", "green"),
             ("CAMERA", "STANDBY", "Start a live visual session", "blue"),
             ("MODEL SUITE", "6 TESTS", "Package · PKR · YOLO · OCR · ASR · TTS", "cyan"),
             ("VALIDATION", "NOT CERTIFIED", "Smoke tests are not accuracy benchmarks", "amber"),
-        ]:
-            self.metric(metrics, title, value, detail, color).pack(side="left", fill="both", expand=True, padx=(0, 9))
-        row = tk.Frame(self.page, bg=PALETTE["bg"])
-        row.pack(fill="both", expand=True)
+        ]
+        for index, (title, value, detail, color) in enumerate(metric_items):
+            card = self.metric(metrics, title, value, detail, color)
+            card.grid(row=index // 2, column=index % 2, sticky="nsew",
+                      padx=(0, 8 if index % 2 == 0 else 0), pady=4)
+        metrics.grid_columnconfigure(0, weight=1, uniform="metric")
+        metrics.grid_columnconfigure(1, weight=1, uniform="metric")
+        row = tk.Frame(self.page, bg=PALETTE["bg"], height=460)
+        row.pack(fill="x")
+        row.pack_propagate(False)
         vision = self.panel(row)
         vision.pack(side="left", fill="both", expand=True, padx=(0, 12))
         head = tk.Frame(vision, bg=PALETTE["surface"], padx=14, pady=12)
         head.pack(fill="x")
         self.label(head, "LIVE VISION CANVAS", 9, "text", True).pack(side="left")
         self.label(head, "CAMERA / OCR / DETECTION", 7, "cyan", True).pack(side="right")
-        self.preview = tk.Label(vision, text="CAMERA PREVIEW\n\nStart the camera to view a live frame.\nObject boxes appear only after a detector returns results.",
-                                bg="#081522", fg=PALETTE["muted"], font=("Segoe UI", 11), justify="center")
-        self.preview.pack(fill="both", expand=True, padx=12, pady=12)
+        preview_area = tk.Frame(vision, bg="#081522", height=320)
+        preview_area.pack(fill="both", expand=True, padx=12, pady=10)
+        preview_area.pack_propagate(False)
+        self.preview = tk.Label(preview_area, text="CAMERA PREVIEW\n\nStart the camera to view a live frame.\nObject boxes appear only after a detector returns results.",
+                                bg="#081522", fg=PALETTE["muted"], font=("Segoe UI", 10), justify="center")
+        self.preview.pack(fill="both", expand=True)
         controls = tk.Frame(vision, bg=PALETTE["surface"], padx=12, pady=10)
         controls.pack(fill="x")
         self.button(controls, "START CAMERA", self.start_camera, True).pack(side="left", padx=(0, 6))
         self.button(controls, "STOP", self.stop_camera).pack(side="left")
         self.button(controls, "IMPORT IMAGE", self.import_image).pack(side="right")
-        tools = self.panel(row, width=285)
+        tools = self.panel(row, width=260)
         tools.pack(side="right", fill="y")
         tools.pack_propagate(False)
         self.label(tools, "QUICK OPERATIONS", 9, "text", True).pack(anchor="w", padx=14, pady=(14, 8))
@@ -257,7 +286,7 @@ class NoorixDashboard:
         ]:
             self.button(tools, text, command).pack(fill="x", padx=12, pady=4)
         self.label(tools, "LATEST OUTPUT", 8, "muted", True).pack(anchor="w", padx=14, pady=(16, 5))
-        self.output = tk.Text(tools, height=10, wrap="word", bg="#081522", fg=PALETTE["text"],
+        self.output = tk.Text(tools, height=7, wrap="word", bg="#081522", fg=PALETTE["text"],
                               insertbackground=PALETTE["text"], relief="flat", padx=10, pady=10,
                               font=("Segoe UI", 9))
         self.output.pack(fill="both", expand=True, padx=12, pady=(0, 12))
@@ -272,12 +301,27 @@ class NoorixDashboard:
             self.output.configure(state="disabled")
 
     def _camera_page(self):
-        self._feature_page("CAMERA CONTROLS", "Live camera workspace. Camera feed is processed locally; start or stop capture explicitly.", self.run_scene)
-        self.preview = tk.Label(self.page, text="CAMERA PREVIEW", bg="#081522", fg=PALETTE["muted"], height=14)
-        self.preview.pack(fill="both", expand=True, pady=8)
-        self.button(self.page, "START CAMERA", self.start_camera, True).pack(anchor="w", pady=5)
-        self.button(self.page, "STOP CAMERA", self.stop_camera).pack(anchor="w", pady=5)
-        self.button(self.page, "IMPORT IMAGE FOR TESTING", self.import_image).pack(anchor="w", pady=5)
+        self.page_heading("NOORIX / LIVE VISION", "Camera & scene", 
+                          "Camera preview stays inside a fixed workspace. Controls remain visible above it.")
+        controls = tk.Frame(self.page, bg=PALETTE["bg"])
+        controls.pack(fill="x", pady=(0, 10))
+        self.button(controls, "START CAMERA", self.start_camera, True).pack(side="left", padx=(0, 6))
+        self.button(controls, "STOP CAMERA", self.stop_camera).pack(side="left", padx=6)
+        self.button(controls, "IMPORT IMAGE", self.import_image).pack(side="left", padx=6)
+        self.button(controls, "ANALYZE CURRENT FRAME", self.run_scene).pack(side="left", padx=6)
+        preview_panel = self.panel(self.page, height=430)
+        preview_panel.pack(fill="x", pady=(0, 10))
+        preview_panel.pack_propagate(False)
+        self.preview = tk.Label(preview_panel,
+            text="CAMERA PREVIEW\n\nStart camera or import a local image.",
+            bg="#081522", fg=PALETTE["muted"], font=("Segoe UI", 10), justify="center")
+        self.preview.pack(fill="both", expand=True, padx=8, pady=8)
+        self.camera_result = tk.Text(self.page, height=7, wrap="word",
+            bg=PALETTE["surface"], fg=PALETTE["text"], relief="flat",
+            padx=12, pady=10, font=("Segoe UI", 9))
+        self.camera_result.pack(fill="x", pady=(0, 12))
+        self.camera_result.insert("1.0", "Live preview ready. Run analysis to request model results.")
+        self.camera_result.configure(state="disabled")
 
     def _feature_page(self, title, description, action):
         self.page_heading("NOORIX / VISION MODULE", title, description)
@@ -542,9 +586,9 @@ class NoorixDashboard:
                                      self.cv2.FONT_HERSHEY_SIMPLEX, 0.55, (238, 217, 39), 2)
             rgb = self.cv2.cvtColor(display_frame, self.cv2.COLOR_BGR2RGB)
             image = Image.fromarray(rgb)
-            image.thumbnail((950, 560))
+            image.thumbnail(self.preview_max_size)
             self.preview_image = ImageTk.PhotoImage(image)
-            if hasattr(self, "preview") and self.preview.winfo_exists():
+                if hasattr(self, "preview") and self.preview.winfo_exists():
                 self.preview.configure(image=self.preview_image, text="")
         except Exception:
             pass
@@ -638,6 +682,11 @@ class NoorixDashboard:
             if self.frame is not None:
                 self._show_frame(self.frame)
         self._write_result_box(text)
+        if hasattr(self, "camera_result") and self.camera_result.winfo_exists():
+            self.camera_result.configure(state="normal")
+            self.camera_result.delete("1.0", "end")
+            self.camera_result.insert("1.0", text)
+            self.camera_result.configure(state="disabled")
         self.set_status(label + (" failed" if failed else " complete"), "Verify results independently", "red" if failed else "green")
 
     def transcribe_audio(self):
