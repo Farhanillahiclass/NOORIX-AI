@@ -84,15 +84,24 @@ class CurrencyAgent:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Unsupported currency backend: {backend}")
         prediction = self.adapter.predict(payload)
         confidence = float(prediction["confidence"])
+        min_confidence = float(self.config.get("min_confidence", 0.60))
+        if not 0.0 <= min_confidence <= 1.0:
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, "Currency min_confidence must be between 0.0 and 1.0.")
+        if not 0.0 <= confidence <= 1.0:
+            return AgentResult(self.name, AgentState.ERROR, "Currency model returned an invalid confidence score.")
+        if confidence < min_confidence:
+            return AgentResult(self.name, AgentState.COMPLETED,
+                f"Low confidence ({confidence:.0%}; minimum {min_confidence:.0%}). No reliable denomination detected. Reposition the note and try again.",
+                data={"recognized": False, "confidence": confidence, "minimum_confidence": min_confidence},
+                warnings=("The model's top class is not reliable enough to report as a denomination.",
+                          "This estimate does not authenticate banknotes."))
         denomination = prediction["denomination"]
         side = prediction.get("side")
         side_text = f", {side} side" if side else ""
-        return AgentResult(
-            self.name, AgentState.COMPLETED,
+        return AgentResult(self.name, AgentState.COMPLETED,
             f"Possible denomination: {denomination} PKR{side_text} (score {confidence:.0%}).",
-            data=prediction,
-            warnings=("This is an estimate, not banknote authentication. Check the note independently.",),
-        )
+            data={**prediction, "recognized": True, "minimum_confidence": min_confidence},
+            warnings=("This is an estimate, not banknote authentication. Check the note independently.",))
 
 class SpeechAgent:
     name = "speech"
@@ -152,10 +161,9 @@ class SystemHealthAgent:
     def __init__(self, config_path: str | Path = "config.json"):
         self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
-        status = capability_status()
+        status = capability_status(self.config_path)
         config_exists = self.config_path.is_file()
         status["model_configuration"] = "present" if config_exists else "config.json_missing"
-        status["tesseract_executable"] = "installed" if shutil.which("tesseract") else "not_found"
         status["model_files"] = self._model_file_status() if config_exists else "not_checked_without_config"
         return AgentResult(self.name, AgentState.COMPLETED,
                            "Local system readiness collected.", data=status)
@@ -206,6 +214,13 @@ class SystemHealthAgent:
                     continue
                 labels = resolve_config_path(labels_path, self.config_path)
                 output[key] = "model_available; labels_available" if labels.is_file() else "model_available; labels_file_missing"
+            elif key == "object_detection":
+                labels_path = section.get("labels_path")
+                if labels_path:
+                    labels = resolve_config_path(labels_path, self.config_path)
+                    output[key] = "model_available; labels_available" if labels.is_file() else "model_available; labels_file_missing"
+                else:
+                    output[key] = "model_available; labels_not_configured"
             else:
                 output[key] = "available"
         return output

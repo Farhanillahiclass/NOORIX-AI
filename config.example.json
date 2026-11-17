@@ -9,7 +9,8 @@
     "backend": "pytorch_mobilenet_v2",
     "model_path": "models/pkr_currency/mobilenetv2_pkr_best.pth",
     "labels_path": "models/pkr_currency/labels.json",
-    "input_size": 224
+    "input_size": 224,
+    "min_confidence": 0.6
   },
   "notes": [
     "Copy this file to config.json.",

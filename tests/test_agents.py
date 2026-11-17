@@ -32,6 +32,47 @@ def test_currency_agent_marks_prediction_as_estimate():
     assert result.successful and "500" in result.summary
     assert any("estimate" in warning.lower() for warning in result.warnings)
 
+def test_currency_agent_rejects_low_confidence_prediction():
+    class LowConfidenceCurrency:
+        def predict(self, frame):
+            return {"denomination": "10", "side": "front", "confidence": 0.13}
+
+    result = CurrencyAgent(
+        {"model_path": "unused", "labels": ["10"], "min_confidence": 0.60},
+        adapter=LowConfidenceCurrency(),
+    ).run(object())
+
+    assert result.successful
+    assert "Low confidence (13%" in result.summary
+    assert "No reliable denomination detected" in result.summary
+    assert "10 PKR" not in result.summary
+    assert result.data == {
+        "recognized": False,
+        "confidence": 0.13,
+        "minimum_confidence": 0.60,
+    }
+
+
+def test_currency_agent_accepts_prediction_at_configured_threshold():
+    result = CurrencyAgent(
+        {"model_path": "unused", "labels": ["500"], "min_confidence": 0.60},
+        adapter=FakeCurrency(),
+    ).run(object())
+
+    assert result.successful
+    assert "500 PKR" in result.summary
+    assert result.data["recognized"] is True
+
+
+def test_currency_agent_rejects_invalid_confidence_threshold():
+    result = CurrencyAgent(
+        {"model_path": "unused", "labels": ["500"], "min_confidence": 1.5},
+        adapter=FakeCurrency(),
+    ).run(object())
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert "between 0.0 and 1.0" in result.summary
+
 def test_safety_agent_includes_accessibility_warning():
     result = SafetyAgent().run([])
     assert result.successful and any("white cane" in w for w in result.warnings)
