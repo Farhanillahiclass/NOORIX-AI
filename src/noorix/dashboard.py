@@ -242,6 +242,8 @@ class NoorixDashboard:
     def _camera_page(self):
         self._feature_page("CAMERA CONTROLS", "Live camera workspace",
                            "Camera feed is processed locally. Start or stop capture explicitly.", self.run_scene)
+        self.preview = tk.Label(self.page, text="CAMERA PREVIEW", bg="#081522", fg=PALETTE["muted"], height=14)
+        self.preview.pack(fill="both", expand=True, pady=8)
         self.button(self.page, "START CAMERA", self.start_camera, True).pack(anchor="w", pady=5)
         self.button(self.page, "STOP CAMERA", self.stop_camera).pack(anchor="w", pady=5)
         self.button(self.page, "IMPORT IMAGE FOR TESTING", self.import_image).pack(anchor="w", pady=5)
@@ -266,6 +268,9 @@ class NoorixDashboard:
             self.result_box.delete("1.0", "end")
             self.result_box.insert("1.0", text)
             self.result_box.configure(state="disabled")
+        if hasattr(self, "_placeholder_voice") and self._placeholder_voice.winfo_exists():
+            self._placeholder_voice.delete("1.0", "end")
+            self._placeholder_voice.insert("1.0", text)
         self._set_output(text)
         self.history.append(text[:500])
 
@@ -388,6 +393,8 @@ class NoorixDashboard:
         self.test_progress.configure(value=len(results))
         self.test_summary.configure(text=f"COMPLETE · PASS {totals.get('pass',0)}  FAIL {totals.get('fail',0)}  SKIPPED {totals.get('skipped',0)}  WARN {totals.get('warn',0)}")
         self.last_report = report
+        if len(results) == 1:
+            self.test_progress.configure(value=1)
         self.set_status("TESTS COMPLETE", "Production readiness remains NOT CERTIFIED", "green" if totals.get("fail",0)==0 else "amber")
         messagebox.showinfo("NOORIX-AI Testing Center", f"Tests complete.\nPASS: {totals.get('pass',0)}\nFAIL: {totals.get('fail',0)}\nSKIPPED: {totals.get('skipped',0)}\n\nProduction readiness: NOT CERTIFIED")
 
@@ -462,6 +469,7 @@ class NoorixDashboard:
             return
         try:
             import cv2
+            self.cv2 = cv2
             image = cv2.imread(path)
             if image is None:
                 raise ValueError("Could not decode image")
