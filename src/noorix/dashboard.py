@@ -172,7 +172,7 @@ class NoorixDashboard:
         self.root.bind_all("<MouseWheel>", lambda event: scroll_canvas(event, self.page_canvas))
         self.root.bind_all("<Shift-MouseWheel>", lambda event: scroll_canvas(event, self.sidebar_canvas))
 
-        def set_status(self, title, detail="", color="cyan"):
+    def set_status(self, title, detail="", color="cyan"):
         self.status.configure(text="● " + title.upper(), fg=PALETTE[color])
         self.status_detail.configure(text=detail)
 
