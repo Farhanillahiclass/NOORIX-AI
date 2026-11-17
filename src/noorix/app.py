@@ -51,10 +51,12 @@ def camera_preview(device_index: int = 0) -> int:
             pass
 
 
-def check_environment() -> int:
+def check_environment(config_path: str | Path = "config.json") -> int:
     print("NOORIX AI — See Beyond. Understand More.")
-    for name, status in capability_status().items():
+    print(f"Config: {Path(config_path)}")
+    for name, status in capability_status(config_path).items():
         print(f"- {name}: {status}")
+    print("- NOTE: model files present does not mean inference has been validated.")
     return 0
 
 
@@ -108,7 +110,7 @@ def main(argv=None) -> int:
         except (ImportError, RuntimeError) as exc:
             print(f"Could not start desktop interface: {exc}")
             return 1
-    return check_environment()
+    return check_environment(args.config)
 
 
 if __name__ == "__main__":
