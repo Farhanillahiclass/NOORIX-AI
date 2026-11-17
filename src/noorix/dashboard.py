@@ -240,8 +240,7 @@ class NoorixDashboard:
             self.output.configure(state="disabled")
 
     def _camera_page(self):
-        self._feature_page("CAMERA CONTROLS", "Live camera workspace",
-                           "Camera feed is processed locally. Start or stop capture explicitly.", self.run_scene)
+        self._feature_page("CAMERA CONTROLS", "Live camera workspace. Camera feed is processed locally; start or stop capture explicitly.", self.run_scene)
         self.preview = tk.Label(self.page, text="CAMERA PREVIEW", bg="#081522", fg=PALETTE["muted"], height=14)
         self.preview.pack(fill="both", expand=True, pady=8)
         self.button(self.page, "START CAMERA", self.start_camera, True).pack(anchor="w", pady=5)
