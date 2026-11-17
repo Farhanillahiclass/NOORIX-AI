@@ -29,9 +29,17 @@ PY
 
 # Use the user's extracted local model package when it exists.
 if [[ -d "/d/NOORIX_MODELS/EXTRACTED/models" ]]; then
-  export NOORIX_MODELS_DIR="/d/NOORIX_MODELS/EXTRACTED"
+  if command -v cygpath >/dev/null 2>&1; then
+    export NOORIX_MODELS_DIR="$(cygpath -w "/d/NOORIX_MODELS/EXTRACTED")"
+  else
+    export NOORIX_MODELS_DIR="D:/NOORIX_MODELS/EXTRACTED"
+  fi
 elif [[ -d "$ROOT/models" ]]; then
-  export NOORIX_MODELS_DIR="$ROOT"
+  if command -v cygpath >/dev/null 2>&1; then
+    export NOORIX_MODELS_DIR="$(cygpath -w "$ROOT")"
+  else
+    export NOORIX_MODELS_DIR="$ROOT"
+  fi
 fi
 if [[ -n "${NOORIX_MODELS_DIR:-}" ]]; then
   echo "[OK] Model package: $NOORIX_MODELS_DIR"
