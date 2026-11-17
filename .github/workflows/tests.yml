@@ -30,6 +30,8 @@ jobs:
           python -m pip install -e ".[dev,camera]"
       - name: Compile source and tests
         run: python -m compileall -q src tests
+      - name: Validate Git Bash launcher syntax
+        run: bash -n NOORIX.sh
       - name: Validate all notebook JSON files
         run: |
           python - <<'PYNOTEBOOK'
