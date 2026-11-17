@@ -5,6 +5,7 @@ permitted by this adapter.
 """
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -39,8 +40,21 @@ class WhisperASR:
             raise RuntimeError(
                 "Whisper ASR requires the optional extra: pip install -e '.[asr-whisper]'"
             ) from exc
+
+        # Transformers 4.57.x expects extra_special_tokens to be a mapping
+        # when loading model-specific token attributes. Some Transformers 5
+        # exports (including this Whisper package) store it as a list instead.
+        # Passing an explicit empty mapping overrides that incompatible field;
+        # Whisper's token strings remain in tokenizer.json/added_tokens.
+        processor_kwargs = {"local_files_only": True}
+        tokenizer_config_path = self.processor_path / "tokenizer_config.json"
+        if tokenizer_config_path.is_file():
+            tokenizer_config = json.loads(tokenizer_config_path.read_text(encoding="utf-8"))
+            if isinstance(tokenizer_config.get("extra_special_tokens"), list):
+                processor_kwargs["extra_special_tokens"] = {}
+
         self._processor = WhisperProcessor.from_pretrained(
-            str(self.processor_path), local_files_only=True
+            str(self.processor_path), **processor_kwargs
         )
         self._model = WhisperForConditionalGeneration.from_pretrained(
             str(self.model_path), local_files_only=True, torch_dtype=torch.float32
