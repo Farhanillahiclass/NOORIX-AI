@@ -313,8 +313,14 @@ class NoorixDashboard:
             settings = self.config.get(key, {})
             value = settings.get("model_path") if isinstance(settings, dict) else None
             path = resolve_config_path(value, self.config_path) if value else None
-            state = "NOT CONFIGURED" if not value else ("READY" if path and path.exists() else "MISSING")
+            state = "NOT CONFIGURED" if not value else ("FILES PRESENT · NOT VALIDATED" if path and path.exists() else "MISSING")
             lines += [f"{key.upper():18} {state}", f"  {path or 'No model path configured'}"]
+            if key == "currency" and isinstance(settings, dict) and settings.get("labels_path"):
+                labels = resolve_config_path(settings["labels_path"], self.config_path)
+                lines.append(f"  labels: {'PRESENT' if labels.is_file() else 'MISSING'}")
+            if key == "asr" and isinstance(settings, dict) and settings.get("processor_path"):
+                processor = resolve_config_path(settings["processor_path"], self.config_path)
+                lines.append(f"  processor: {'PRESENT' if processor.is_dir() else 'MISSING'}")
         lines += ["", "PKR labels: " + str(self.config.get("currency", {}).get("labels_path", "not configured")),
                   "ASR processor: " + str(self.config.get("asr", {}).get("processor_path", "same as model directory"))]
         self.models_text.configure(state="normal")
@@ -395,7 +401,9 @@ class NoorixDashboard:
         self.last_report = report
         if len(results) == 1:
             self.test_progress.configure(value=1)
-        self.set_status("TESTS COMPLETE", "Production readiness remains NOT CERTIFIED", "green" if totals.get("fail",0)==0 else "amber")
+        has_issues = bool(totals.get("fail", 0) or totals.get("skipped", 0) or totals.get("warn", 0))
+        self.set_status("TESTS COMPLETE", "Production readiness remains NOT CERTIFIED",
+                        "amber" if has_issues else "green")
         messagebox.showinfo("NOORIX-AI Testing Center", f"Tests complete.\nPASS: {totals.get('pass',0)}\nFAIL: {totals.get('fail',0)}\nSKIPPED: {totals.get('skipped',0)}\n\nProduction readiness: NOT CERTIFIED")
 
     def _tests_failed(self, exc):
@@ -439,12 +447,21 @@ class NoorixDashboard:
         import shutil
         details = [f"Python: {os.sys.version.split()[0]}", f"Config: {self.config_path}",
                    f"Tesseract: {'installed' if shutil.which('tesseract') else 'not found'}",
-                   f"Camera: {'running' if self.camera else 'stopped'}"]
+                   f"Camera: {'running' if self.camera else 'stopped'}",
+                   "Handwriting OCR: NOT IMPLEMENTED — no verified handwriting model is configured"]
+        if shutil.which("tesseract"):
+            try:
+                import pytesseract
+                languages = sorted(pytesseract.get_languages(config=""))
+                details.append("Tesseract languages: " + ", ".join(languages))
+                details.append("Urdu OCR language data: " + ("available" if "urd" in languages else "missing"))
+            except Exception as exc:
+                details.append(f"Tesseract language check: {type(exc).__name__}: {exc}")
         for key in ("object_detection", "currency", "asr"):
             settings = self.config.get(key, {})
             value = settings.get("model_path") if isinstance(settings, dict) else None
             path = resolve_config_path(value, self.config_path) if value else None
-            details.append(f"{key}: {'not configured' if not value else ('file available' if path and path.exists() else 'missing')}")
+            details.append(f"{key}: {'not configured' if not value else ('files present — not validated' if path and path.exists() else 'missing')}")
         if hasattr(self, "diag") and self.diag.winfo_exists():
             self.diag.configure(state="normal")
             self.diag.delete("1.0", "end")
@@ -570,14 +587,16 @@ class NoorixDashboard:
             try:
                 result = operation()
                 detections = []
+                failed = False
                 if isinstance(result, list):
                     text = "\n\n".join(f"{x.agent.upper()} · {x.state.value.upper()}\n{x.summary}\n" + "\n".join(x.warnings) for x in result)
+                    failed = any(not getattr(x, "successful", False) for x in result)
                     for item in result:
                         if item.agent == "object_detection" and isinstance(item.data, list):
                             detections = item.data
                 else:
                     text = str(result) if result else "No text detected."
-                self.root.after(0, lambda: self._operation_complete(label, text, detections=detections))
+                self.root.after(0, lambda: self._operation_complete(label, text, failed=failed, detections=detections))
             except Exception as exc:
                 self.root.after(0, lambda: self._operation_complete(label, f"{type(exc).__name__}: {exc}", True))
         threading.Thread(target=worker, daemon=True).start()
