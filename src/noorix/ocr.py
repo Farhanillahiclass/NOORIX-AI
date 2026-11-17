@@ -150,6 +150,22 @@ class PrintedEnglishOCR:
             raise RuntimeError("OCR requires: pip install -e '.[ocr]'") from exc
 
         try:
+            available = set(pytesseract.get_languages(config=""))
+        except pytesseract.TesseractNotFoundError as exc:
+            raise RuntimeError(
+                "Tesseract executable was not found. Install Tesseract OCR and add it to PATH."
+            ) from exc
+
+        requested = self.language.split("+")
+        missing = [code for code in requested if code not in available]
+        if missing:
+            raise RuntimeError(
+                "Missing Tesseract language data: " + ", ".join(missing) +
+                ". Install the matching traineddata files (eng.traineddata for English, "
+                "urd.traineddata for Urdu) into Tesseract's tessdata directory, then restart NOORIX."
+            )
+
+        try:
             pil_image = self._to_pil(image)
             pil_image = self._correct_orientation(pil_image, pytesseract)
             variants = self._prepare_variants(pil_image)
@@ -164,7 +180,8 @@ class PrintedEnglishOCR:
             if not candidates:
                 return ""
             return max(candidates, key=self._text_score)
-        except pytesseract.TesseractNotFoundError as exc:
+        except pytesseract.TesseractError as exc:
             raise RuntimeError(
-                "Tesseract executable was not found. Install Tesseract OCR and add it to PATH."
+                f"Tesseract failed while reading language '{self.language}': {exc}. "
+                "Check that the requested traineddata files are valid and readable."
             ) from exc
