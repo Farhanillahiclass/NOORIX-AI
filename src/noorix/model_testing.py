@@ -253,3 +253,58 @@ def run_all_tests(config_path="config.json", report_dir="reports/model-tests", p
     summary["report_json"] = str(json_path)
     summary["report_markdown"] = str(md_path)
     return summary
+
+
+SINGLE_TESTS = {
+    "package": ("Model package integrity", lambda config, path: _test_package(config, path)),
+    "currency": ("PKR currency model", lambda config, path: _test_currency(config, path)),
+    "objects": ("YOLO object detection", lambda config, path: _test_objects(config, path)),
+    "ocr": ("Printed OCR", lambda config, path: _test_ocr(config)),
+    "asr": ("Whisper speech-to-text", lambda config, path: _test_asr(config, path)),
+    "tts": ("Local text-to-speech", lambda config, path: _test_tts()),
+}
+
+
+def run_single_test(test_key, config_path="config.json", report_dir="reports/model-tests"):
+    """Run one named local smoke test and save a standard JSON/Markdown report."""
+    if test_key not in SINGLE_TESTS:
+        raise ValueError(f"Unknown test key: {test_key}. Choose from: {', '.join(SINGLE_TESTS)}")
+    config_path = Path(config_path).expanduser().resolve()
+    report_dir = Path(report_dir).expanduser().resolve()
+    started_at = datetime.now(timezone.utc).isoformat()
+    try:
+        config = _load_config(config_path)
+        name, operation = SINGLE_TESTS[test_key]
+        result = _run_one(name, lambda: operation(config, config_path))
+    except Exception as exc:
+        result = TestResult("Configuration", "FAIL", 0.0, f"{type(exc).__name__}: {exc}")
+    results = [result]
+    totals = {status.lower(): sum(item.status == status for item in results)
+              for status in ("PASS", "FAIL", "SKIPPED", "WARN")}
+    summary = {
+        "project": "NOORIX-AI",
+        "started_at_utc": started_at,
+        "finished_at_utc": datetime.now(timezone.utc).isoformat(),
+        "config_path": str(config_path),
+        "results": [asdict(item) for item in results],
+        "totals": totals,
+        "production_readiness": "NOT_CERTIFIED",
+        "disclaimer": "Single smoke test validates local loading/basic execution only; it does not certify accuracy or production readiness.",
+    }
+    report_dir.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    json_path = report_dir / f"noorix_model_test_{test_key}_{stamp}.json"
+    md_path = report_dir / f"noorix_model_test_{test_key}_{stamp}.md"
+    json_path.write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
+    lines = ["# NOORIX-AI Single Model Test Report", "", f"- Started (UTC): {started_at}", "",
+             "| Test | Status | Seconds | Result |", "|---|---:|---:|---|"]
+    for item in results:
+        lines.append(f"| {item.name} | {item.status} | {item.duration_seconds:.3f} | {item.message.replace('|', '/')} |")
+        if item.details:
+            lines.extend(["", f"**Details:** {json.dumps(item.details, ensure_ascii=False)}"])
+    lines.extend(["", f"**Totals:** {json.dumps(totals)}", "",
+                  "**Production status:** NOT CERTIFIED — real labelled data and device validation remain required."])
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    summary["report_json"] = str(json_path)
+    summary["report_markdown"] = str(md_path)
+    return summary
