@@ -491,17 +491,30 @@ class NoorixApp:
         threshold_var = tk.StringVar(value=str(object_config.get("confidence_threshold", 0.3)))
         threshold_entry = tk.Entry(form, textvariable=threshold_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
         threshold_entry.pack(fill="x", pady=(5, 12), ipady=7)
+        self._label(form, "Printed OCR language (eng / urd / eng+urd)", 9, C["muted"], True).pack(anchor="w")
+        ocr_config = self.config.get("ocr", {})
+        if not isinstance(ocr_config, dict):
+            ocr_config = {}
+        ocr_language_var = tk.StringVar(value=str(ocr_config.get("language", "eng")))
+        ocr_language_entry = tk.Entry(form, textvariable=ocr_language_var, bg=C["panel3"], fg=C["text"], insertbackground=C["text"], relief="flat")
+        ocr_language_entry.pack(fill="x", pady=(5, 12), ipady=7)
 
         def save_settings():
             try:
                 camera_index = int(camera_var.get())
                 threshold = float(threshold_var.get())
+                ocr_language = ocr_language_var.get().strip().lower()
                 if camera_index < 0 or not 0.05 <= threshold <= 0.95:
                     raise ValueError("Camera index must be non-negative and threshold must be between 0.05 and 0.95.")
+                if ocr_language not in {"eng", "urd", "eng+urd"}:
+                    raise ValueError("OCR language must be eng, urd, or eng+urd.")
                 updated = dict(self.config)
                 updated_object = dict(updated.get("object_detection", {}))
                 updated_object["confidence_threshold"] = threshold
                 updated["object_detection"] = updated_object
+                updated_ocr = dict(updated.get("ocr", {}))
+                updated_ocr["language"] = ocr_language
+                updated["ocr"] = updated_ocr
                 updated["camera_index"] = camera_index
                 self.config_path.write_text(json.dumps(updated, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
                 self.config = updated
