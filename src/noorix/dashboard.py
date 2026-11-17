@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import os
 import threading
+import time
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
@@ -45,6 +46,11 @@ class NoorixDashboard:
         self.camera_after = None
         self.test_running = False
         self.preview_max_size = (720, 405)
+        self.live_detection_enabled = False
+        self.live_inference_running = False
+        self.last_live_inference = 0.0
+        self.live_inference_interval = 1.5
+        self.live_detector_agent = None
         self.history: list[str] = []
         self.detections: list[dict] = []
         self.section = "Command Center"
@@ -304,11 +310,17 @@ class NoorixDashboard:
         self.page_heading("NOORIX / LIVE VISION", "Camera & scene", 
                           "Camera preview stays inside a fixed workspace. Controls remain visible above it.")
         controls = tk.Frame(self.page, bg=PALETTE["bg"])
-        controls.pack(fill="x", pady=(0, 10))
-        self.button(controls, "START CAMERA", self.start_camera, True).pack(side="left", padx=(0, 6))
-        self.button(controls, "STOP CAMERA", self.stop_camera).pack(side="left", padx=6)
-        self.button(controls, "IMPORT IMAGE", self.import_image).pack(side="left", padx=6)
-        self.button(controls, "ANALYZE CURRENT FRAME", self.run_scene).pack(side="left", padx=6)
+        controls.pack(fill="x", pady=(0, 6))
+        first_row = tk.Frame(controls, bg=PALETTE["bg"])
+        first_row.pack(fill="x", pady=3)
+        second_row = tk.Frame(controls, bg=PALETTE["bg"])
+        second_row.pack(fill="x", pady=3)
+        self.button(first_row, "START CAMERA", self.start_camera, True).pack(side="left", padx=(0, 6))
+        self.button(first_row, "STOP CAMERA", self.stop_camera).pack(side="left", padx=6)
+        self.button(first_row, "IMPORT IMAGE", self.import_image).pack(side="left", padx=6)
+        self.live_toggle_button = self.button(second_row, "START LIVE DETECTION", self.toggle_live_detection, True)
+        self.live_toggle_button.pack(side="left", padx=(0, 6))
+        self.button(second_row, "ANALYZE CURRENT FRAME", self.run_scene).pack(side="left", padx=6)
         preview_panel = self.panel(self.page, height=430)
         preview_panel.pack(fill="x", pady=(0, 10))
         preview_panel.pack_propagate(False)
@@ -629,12 +641,98 @@ class NoorixDashboard:
         try:
             self.frame = self.camera.read()
             self._show_frame(self.frame)
+            if self.live_detection_enabled and not self.live_inference_running:
+                now = time.monotonic()
+                if now - self.last_live_inference >= self.live_inference_interval:
+                    self._schedule_live_detection()
             self.camera_after = self.root.after(40, self._camera_tick)
         except Exception as exc:
             self.stop_camera()
             self.set_status("CAMERA ERROR", str(exc), "red")
 
+    def toggle_live_detection(self):
+        if self.live_detection_enabled:
+            self.live_detection_enabled = False
+            self._set_live_toggle_text("START LIVE DETECTION")
+            self.set_status("LIVE DETECTION STOPPED", "Camera preview can continue", "cyan")
+            return
+        if self.camera is None:
+            messagebox.showwarning("NOORIX-AI", "Start the camera before enabling live detection.")
+            return
+        self.live_detection_enabled = True
+        self.live_detector_agent = None
+        self.last_live_inference = 0.0
+        self._set_live_toggle_text("STOP LIVE DETECTION")
+        self.set_status("LIVE DETECTION STARTING", "Model inference runs in a background worker", "cyan")
+        self._schedule_live_detection()
+
+    def _set_live_toggle_text(self, text):
+        button = getattr(self, "live_toggle_button", None)
+        if button is not None:
+            try:
+                if button.winfo_exists():
+                    button.configure(text=text)
+            except tk.TclError:
+                pass
+
+    def _schedule_live_detection(self):
+        if (not self.live_detection_enabled or self.camera is None
+                or self.frame is None or self.live_inference_running):
+            return
+        frame = self.frame.copy()
+        self.live_inference_running = True
+        self.last_live_inference = time.monotonic()
+
+        def worker():
+            try:
+                if self.live_detector_agent is None:
+                    from noorix.agents import ObjectDetectionAgent
+                    self.live_detector_agent = ObjectDetectionAgent(
+                        self.config.get("object_detection", {}),
+                        config_path=self.config_path,
+                    )
+                result = self.live_detector_agent.run(frame)
+                self.root.after(0, lambda r=result: self._live_detection_complete(r))
+            except Exception as exc:
+                self.root.after(0, lambda e=exc: self._live_detection_complete(None, e))
+
+        threading.Thread(target=worker, daemon=True).start()
+
+    def _live_detection_complete(self, result, error=None):
+        self.live_inference_running = False
+        if not self.live_detection_enabled:
+            return
+        if error is not None:
+            self.live_detection_enabled = False
+            self._set_live_toggle_text("START LIVE DETECTION")
+            text = f"Live detector error: {type(error).__name__}: {error}"
+            self._write_result_box(text)
+            self.set_status("LIVE DETECTION FAILED", "Check model configuration and diagnostics", "red")
+            return
+        if not getattr(result, "successful", False):
+            self.live_detection_enabled = False
+            self._set_live_toggle_text("START LIVE DETECTION")
+            text = f"{result.state.value.upper()} · {result.summary}"
+            self._write_result_box(text)
+            self.set_status("LIVE DETECTION UNAVAILABLE", "Check model and labels paths", "amber")
+            return
+        self.detections = result.data if isinstance(result.data, list) else []
+        if self.frame is not None:
+            self._show_frame(self.frame)
+        text = "LIVE OBJECT DETECTION\n" + result.summary
+        if result.warnings:
+            text += "\n\n" + "\n".join(result.warnings)
+        self._write_result_box(text)
+        if hasattr(self, "camera_result") and self.camera_result.winfo_exists():
+            self.camera_result.configure(state="normal")
+            self.camera_result.delete("1.0", "end")
+            self.camera_result.insert("1.0", text)
+            self.camera_result.configure(state="disabled")
+        self.set_status("LIVE DETECTION UPDATED", f"{len(self.detections)} detections · throttled local inference", "green")
+
     def stop_camera(self):
+        self.live_detection_enabled = False
+        self._set_live_toggle_text("START LIVE DETECTION")
         if self.camera_after:
             try:
                 self.root.after_cancel(self.camera_after)
