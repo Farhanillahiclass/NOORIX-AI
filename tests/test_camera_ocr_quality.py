@@ -70,6 +70,7 @@ def test_ocr_tries_enhanced_variants_and_returns_best_text(monkeypatch):
     pytesseract = pytest.importorskip("pytesseract")
 
     calls = []
+    monkeypatch.setattr(pytesseract, "get_languages", lambda config: ["eng", "urd"])
 
     def fake_image_to_string(image, lang, config):
         calls.append((image, lang, config))
@@ -97,6 +98,7 @@ def test_ocr_corrects_sideways_page_using_tesseract_osd(monkeypatch):
     pil = pytest.importorskip("PIL.Image")
     pytesseract = pytest.importorskip("pytesseract")
     calls = []
+    monkeypatch.setattr(pytesseract, "get_languages", lambda config: ["eng", "urd"])
 
     monkeypatch.setattr(
         pytesseract,
@@ -132,3 +134,12 @@ def test_ocr_orientation_detection_failure_falls_back(monkeypatch):
 
     assert corrected.size == (120, 80)
 
+
+
+def test_ocr_reports_missing_requested_language_data(monkeypatch):
+    pytesseract = pytest.importorskip("pytesseract")
+    monkeypatch.setattr(pytesseract, "get_languages", lambda config: ["eng"])
+    frame = np.full((40, 80, 3), 255, dtype=np.uint8)
+
+    with pytest.raises(RuntimeError, match="Missing Tesseract language data: urd"):
+        PrintedEnglishOCR(language="urd").read(frame)
