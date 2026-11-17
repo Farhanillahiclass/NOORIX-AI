@@ -86,12 +86,25 @@ class NoorixDashboard:
     def _build_shell(self):
         shell = tk.Frame(self.root, bg=PALETTE["bg"])
         shell.pack(fill="both", expand=True)
-        self.sidebar = tk.Frame(shell, bg=PALETTE["rail"], width=238, padx=15, pady=18)
-        self.sidebar.pack(side="left", fill="y")
-        self.sidebar.pack_propagate(False)
 
-        brand = tk.Frame(self.sidebar, bg=PALETTE["rail"])
-        brand.pack(fill="x", pady=(3, 26))
+        # Scrollable navigation rail: smaller displays can reach every section.
+        sidebar = tk.Frame(shell, bg=PALETTE["rail"], width=238)
+        sidebar.pack(side="left", fill="y")
+        sidebar.pack_propagate(False)
+        self.sidebar_canvas = tk.Canvas(sidebar, bg=PALETTE["rail"], highlightthickness=0, bd=0)
+        sidebar_scroll = ttk.Scrollbar(sidebar, orient="vertical", command=self.sidebar_canvas.yview)
+        self.sidebar_canvas.configure(yscrollcommand=sidebar_scroll.set)
+        sidebar_scroll.pack(side="right", fill="y")
+        self.sidebar_canvas.pack(side="left", fill="both", expand=True)
+        self.sidebar_inner = tk.Frame(self.sidebar_canvas, bg=PALETTE["rail"], padx=15, pady=18)
+        self.sidebar_window = self.sidebar_canvas.create_window((0, 0), window=self.sidebar_inner, anchor="nw")
+        self.sidebar_inner.bind("<Configure>", lambda _e: self.sidebar_canvas.configure(
+            scrollregion=self.sidebar_canvas.bbox("all")))
+        self.sidebar_canvas.bind("<Configure>", lambda e: self.sidebar_canvas.itemconfigure(
+            self.sidebar_window, width=e.width))
+
+        brand = tk.Frame(self.sidebar_inner, bg=PALETTE["rail"])
+        brand.pack(fill="x", pady=(3, 22))
         mark = tk.Frame(brand, bg=PALETTE["cyan"], width=42, height=42)
         mark.pack(side="left")
         mark.pack_propagate(False)
@@ -103,44 +116,63 @@ class NoorixDashboard:
 
         self.nav_buttons = {}
         for group, items in self.NAV:
-            self.label(self.sidebar, group, 8, "muted", True).pack(anchor="w", pady=(12, 5))
+            self.label(self.sidebar_inner, group, 8, "muted", True).pack(anchor="w", pady=(11, 5))
             for item in items:
-                btn = tk.Button(self.sidebar, text="   " + item, anchor="w",
+                btn = tk.Button(self.sidebar_inner, text="   " + item, anchor="w",
                     command=lambda name=item: self.show_section(name),
                     bg=PALETTE["rail"], fg=PALETTE["muted"], activebackground=PALETTE["surface2"],
-                    activeforeground=PALETTE["cyan"], relief="flat", bd=0, padx=9, pady=8,
+                    activeforeground=PALETTE["cyan"], relief="flat", bd=0, padx=9, pady=7,
                     font=("Segoe UI", 9), cursor="hand2")
                 btn.pack(fill="x", pady=1)
                 self.nav_buttons[item] = btn
-        tk.Frame(self.sidebar, bg=PALETTE["rail"]).pack(fill="both", expand=True)
-        privacy = self.panel(self.sidebar)
-        privacy.pack(fill="x", pady=(12, 8))
+        privacy = self.panel(self.sidebar_inner)
+        privacy.pack(fill="x", pady=(18, 8))
         self.label(privacy, "  LOCAL BY DEFAULT", 8, "cyan", True).pack(anchor="w", pady=(10, 3))
         self.label(privacy, "  Camera and model processing stays on this device.", 8, "muted",
                    wraplength=190, justify="left").pack(anchor="w", padx=4, pady=(0, 10))
-        self.label(self.sidebar, "RESEARCH PROTOTYPE  ·  MRS", 7, "muted", True).pack(anchor="w")
+        self.label(self.sidebar_inner, "RESEARCH PROTOTYPE  ·  MRS", 7, "muted", True).pack(anchor="w", pady=(2, 10))
 
-        content = tk.Frame(shell, bg=PALETTE["bg"], padx=22, pady=16)
+        content = tk.Frame(shell, bg=PALETTE["bg"], padx=18, pady=12)
         content.pack(side="left", fill="both", expand=True)
-        top = tk.Frame(content, bg=PALETTE["surface"], padx=14, pady=10,
+        top = tk.Frame(content, bg=PALETTE["surface"], padx=12, pady=9,
                        highlightbackground=PALETTE["line"], highlightthickness=1)
         top.pack(fill="x")
         self.label(top, "MRS   /   NOORIX-AI", 9, "text", True).pack(side="left")
-        self.label(top, "LOCAL WORKSPACE", 8, "muted", True).pack(side="left", padx=18)
+        self.label(top, "LOCAL WORKSPACE", 8, "muted", True).pack(side="left", padx=14)
         self.system_badge = self.label(top, "● OFFLINE MODE", 8, "green", True)
-        self.system_badge.pack(side="right", padx=10)
+        self.system_badge.pack(side="right", padx=8)
         self.button(top, "Refresh status", self.refresh_system).pack(side="right")
-        self.page = tk.Frame(content, bg=PALETTE["bg"])
-        self.page.pack(fill="both", expand=True, pady=(18, 0))
+
+        # Keep the header and status footer fixed; scroll only the active page.
+        page_area = tk.Frame(content, bg=PALETTE["bg"])
+        page_area.pack(fill="both", expand=True, pady=(12, 0))
+        self.page_canvas = tk.Canvas(page_area, bg=PALETTE["bg"], highlightthickness=0, bd=0)
+        page_scroll = ttk.Scrollbar(page_area, orient="vertical", command=self.page_canvas.yview)
+        self.page_canvas.configure(yscrollcommand=page_scroll.set)
+        page_scroll.pack(side="right", fill="y")
+        self.page_canvas.pack(side="left", fill="both", expand=True)
+        self.page = tk.Frame(self.page_canvas, bg=PALETTE["bg"])
+        self.page_window = self.page_canvas.create_window((0, 0), window=self.page, anchor="nw")
+        self.page.bind("<Configure>", lambda _e: self.page_canvas.configure(
+            scrollregion=self.page_canvas.bbox("all")))
+        self.page_canvas.bind("<Configure>", lambda e: self.page_canvas.itemconfigure(
+            self.page_window, width=e.width))
+
         footer = tk.Frame(content, bg=PALETTE["bg"])
-        footer.pack(fill="x", pady=(8, 0))
+        footer.pack(fill="x", pady=(7, 0))
         self.status = self.label(footer, "● READY", 8, "cyan", True)
         self.status.pack(side="left")
         self.status_detail = self.label(footer, "Waiting for an action", 8, "muted")
         self.status_detail.pack(side="left", padx=10)
         self.label(footer, "NOORIX-AI  ·  Predictions require independent verification", 7, "muted").pack(side="right")
 
-    def set_status(self, title, detail="", color="cyan"):
+        def scroll_canvas(event, canvas):
+            if getattr(event, "delta", 0):
+                canvas.yview_scroll(int(-event.delta / 120), "units")
+        self.root.bind_all("<MouseWheel>", lambda event: scroll_canvas(event, self.page_canvas))
+        self.root.bind_all("<Shift-MouseWheel>", lambda event: scroll_canvas(event, self.sidebar_canvas))
+
+        def set_status(self, title, detail="", color="cyan"):
         self.status.configure(text="● " + title.upper(), fg=PALETTE[color])
         self.status_detail.configure(text=detail)
 
