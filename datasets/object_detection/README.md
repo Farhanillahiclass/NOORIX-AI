@@ -114,3 +114,32 @@ At least two split files are required. If any input fails structural validation,
 the command exits non-zero and does not write the report. An overlap warning is
 informational: review the matching filenames before deciding whether the split
 assignment is actually invalid.
+
+
+## Image integrity and exact-duplicate analysis
+
+Use `analyze_coco_integrity(splits)` from `noorix.datasets` or run the
+read-only CLI:
+
+```bash
+python scripts/analyze_detection_integrity.py --train-annotations data/train.json --train-images-dir data/train --validation-annotations data/val.json --validation-images-dir data/validation --test-annotations data/test.json --test-images-dir data/test --output reports/integrity.json
+```
+
+At least one complete split is required. For each split, provide both its COCO
+annotation JSON and image-root directory. The analyzer validates annotation
+structure, checks safe relative image paths, reports missing/unreadable files,
+and computes streaming SHA-256 hashes to find byte-identical files within or
+across splits. It never changes, moves or deletes images.
+
+Optional decode verification uses Pillow:
+
+```bash
+python scripts/analyze_detection_integrity.py --train-annotations data/train.json --train-images-dir data/train --verify-image-decode
+```
+
+Install the project's camera extra if Pillow is not already available. Decode
+verification is optional so the base dataset tooling remains dependency-free.
+SHA-256 does not detect resized, recompressed or otherwise changed copies.
+Successful decoding does not certify annotation correctness, licensing or
+training suitability. Keep external datasets outside Git unless their exact
+terms permit redistribution and repository maintainers approve it.
