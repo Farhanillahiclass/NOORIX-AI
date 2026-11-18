@@ -139,3 +139,62 @@ def test_split_duplicate_within_same_partition_is_reported():
 
     errors = validate_split_disjointness({"train": ["a", "a"]})
     assert any("duplicated within split" in error for error in errors)
+
+
+def test_lvis_adapter_preserves_federated_fields():
+    from noorix.datasets import adapt_lvis
+    payload = {
+        "images": [{"id": 1, "file_name": "a.jpg", "width": 10, "height": 10,
+                    "neg_category_ids": [4], "not_exhaustive_category_ids": [5]}],
+        "categories": [{"id": 4, "name": "rare", "frequency": "r"}],
+        "annotations": [{"id": 2, "image_id": 1, "category_id": 4,
+                         "bbox": [1, 1, 2, 2], "segmentation": []}],
+    }
+    converted = adapt_lvis(payload)
+    assert converted["images"][0]["neg_category_ids"] == [4]
+    assert converted["images"][0]["not_exhaustive_category_ids"] == [5]
+    assert converted["categories"][0]["frequency"] == "r"
+    assert converted["annotations"][0]["segmentation"] == []
+
+
+def test_coco_adapter_category_remap_is_explicit_and_records_it():
+    from noorix.datasets import adapt_coco
+    payload = {
+        "images": [], "categories": [{"id": 7, "name": "person"}],
+        "annotations": [{"id": 1, "image_id": 1, "category_id": 7, "bbox": [0, 0, 1, 1]}],
+    }
+    converted = adapt_coco(payload, category_id_map={7: 2})
+    assert converted["categories"][0]["id"] == 2
+    assert converted["annotations"][0]["category_id"] == 2
+    assert converted["noorix_source"]["source_category_ids_preserved"] is False
+
+
+def test_objects365_adapter_requires_coco_collections():
+    import pytest
+    from noorix.datasets import adapt_objects365
+    with pytest.raises(ValueError, match="images"):
+        adapt_objects365({"records": []})
+
+
+def test_bdd100k_adapter_converts_box_and_preserves_source_label():
+    from noorix.datasets import adapt_bdd100k
+    frames = [{
+        "name": "frame-001.jpg", "videoName": "video-01", "frameIndex": 1,
+        "labels": [
+            {"category": "car", "attributes": {"occluded": False},
+             "box2d": {"x1": 1, "y1": 2, "x2": 6, "y2": 9}},
+            {"category": "lane", "poly2d": []},
+        ],
+    }]
+    converted = adapt_bdd100k(frames, image_dimensions={"frame-001.jpg": (20, 20)})
+    assert converted["images"][0]["source_frame"]["videoName"] == "video-01"
+    assert converted["annotations"][0]["bbox"] == [1, 2, 5, 7]
+    assert converted["annotations"][0]["source_label"]["attributes"]["occluded"] is False
+    assert [item["name"] for item in converted["categories"]] == ["car"]
+
+
+def test_bdd100k_adapter_requires_image_dimensions():
+    import pytest
+    from noorix.datasets import adapt_bdd100k
+    with pytest.raises(ValueError, match="Missing valid"):
+        adapt_bdd100k([{"name": "missing.jpg", "labels": []}], image_dimensions={})
