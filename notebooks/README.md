@@ -7,9 +7,9 @@ All Kaggle training notebooks live in `notebooks/` on branch `feature/kaggle-ocr
 
 ## Master orchestrator
 
-**Recommended public-release notebook:** [`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb`](NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb).
+**Current master notebook (v2):** [`NOORIX_MASTER_TRAINING_V2.ipynb`](NOORIX_MASTER_TRAINING_V2.ipynb).
 
-`NOORIX_PUBLIC_RELEASE_MASTER_TRAINING.ipynb` is the recommended public-release master. It embeds its specialist notebooks, so it does not clone this GitHub repository or require a GitHub token. It automatically searches attached Kaggle inputs for a supported PKR ImageFolder dataset and runs the pretrained YOLOv8n/COCO stage. OCR and ASR remain disabled by default because they require correctly labelled image/audio manifests. It removes stale stage ZIPs before a run, records failures, and checks the combined ZIP integrity. Kaggle datasets must still be attached in the Kaggle Input panel; the notebook cannot attach private datasets or bypass dataset licenses/access controls. Inspect each stage's validation metrics and sample predictions before integrating any model.
+`NOORIX_MASTER_TRAINING_V2.ipynb` is the executed recovery master notebook supplied by the project owner. Its recorded run completed PKR currency training, pretrained YOLOv8n/COCO export, and Urdu Whisper ASR training, then created and integrity-checked `NOORIX_AI_ALL_MODELS.zip`. The notebook records 3,611 PKR images discovered across 14 denomination/side classes and 15,492 valid Urdu audio/transcript pairs before filtering. The recorded model-stage statuses are `success`, `success_pretrained_export`, and `success`; these statuses establish successful execution/export, not independently verified accuracy. YOLOv8n remains a pretrained COCO model, not custom-trained on a NOORIX object dataset. OCR, English ASR, and TTS are not trained by this notebook. Kaggle datasets must be attached in the Kaggle Input panel, and model artifacts still require local compatibility and held-out evaluation before app integration.
 
 ## 1. Notebook inventory
 
