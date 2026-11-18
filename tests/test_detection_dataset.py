@@ -312,3 +312,63 @@ def test_split_analysis_rejects_empty_splits_and_missing_filenames():
                 "annotations": [],
             }
         })
+
+
+
+def _write_split_json(path, *, file_name="sample.jpg", valid=True):
+    payload = {
+        "images": [{"id": 1, "file_name": file_name, "width": 20, "height": 20}],
+        "categories": [{"id": 1, "name": "person"}],
+        "annotations": [
+            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [1, 1, 5, 5],
+             "area": 25, "iscrowd": 0}
+        ] if valid else [
+            {"id": 1, "image_id": 1, "category_id": 99, "bbox": [1, 1, 5, 5],
+             "area": 25, "iscrowd": 0}
+        ],
+    }
+    path.write_text(json.dumps(payload), encoding="utf-8")
+    return path
+
+
+def test_split_analysis_cli_writes_report_and_flags_filename_overlap(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    train = _write_split_json(tmp_path / "train.json", file_name="images/Person.JPG")
+    validation = _write_split_json(tmp_path / "validation.json", file_name="images/person.jpg")
+    output = tmp_path / "reports" / "split_report.json"
+    script = Path(__file__).resolve().parents[1] / "scripts" / "analyze_detection_splits.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--train", str(train),
+         "--validation", str(validation), "--output", str(output)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode == 0, result.stdout + result.stderr
+    report = json.loads(output.read_text(encoding="utf-8"))
+    assert report["cross_split_filename_overlap_count"] == 1
+    assert "overlaps found: 1" in result.stdout
+
+
+def test_split_analysis_cli_stops_when_a_split_is_invalid(tmp_path):
+    import subprocess
+    import sys
+    from pathlib import Path
+
+    train = _write_split_json(tmp_path / "train.json")
+    validation = _write_split_json(tmp_path / "validation.json", valid=False)
+    output = tmp_path / "must_not_exist" / "report.json"
+    script = Path(__file__).resolve().parents[1] / "scripts" / "analyze_detection_splits.py"
+
+    result = subprocess.run(
+        [sys.executable, str(script), "--train", str(train),
+         "--validation", str(validation), "--output", str(output)],
+        capture_output=True, text=True, check=False,
+    )
+
+    assert result.returncode == 1
+    assert "analysis not generated" in result.stdout
+    assert not output.exists()

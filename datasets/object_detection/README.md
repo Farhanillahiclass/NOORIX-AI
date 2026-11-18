@@ -96,3 +96,16 @@ and case. It intentionally does not compare numeric image IDs across split files
 because IDs may be independently assigned by dataset exporters. Renamed copies
 and content-identical images are not detected; use verified hashes or a dedicated
 deduplication review before training.
+
+
+The command-line interface accepts two or three independent COCO JSON files and
+validates every input before writing a report:
+
+```bash
+python scripts/analyze_detection_splits.py --train data/train.json --validation data/val.json --test data/test.json --output reports/split_analysis.json
+```
+
+At least two split files are required. If any input fails structural validation,
+the command exits non-zero and does not write the report. An overlap warning is
+informational: review the matching filenames before deciding whether the split
+assignment is actually invalid.
