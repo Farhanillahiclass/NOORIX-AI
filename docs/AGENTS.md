@@ -8,8 +8,8 @@ imply an autonomous LLM or unrestricted tool access.
 
 | Agent | Input | Responsibility |
 |---|---|---|
-| OCR | Camera frame | Read clear printed English through Tesseract |
-| Object Detection | Camera frame | Run configured SSD-style ONNX model; report image-relative positions |
+| OCR | Camera frame | Read visible printed English and/or Urdu using configured Tesseract language data |
+| Object Detection | Camera frame | Run a configured compatible ONNX detector; report image-relative positions |
 | Currency | Camera frame | Run configured ONNX classifier; estimate denomination only |
 | Speech | Text | Speak through an installed local system voice |
 | Safety | Specialist results | Attach conservative warnings and disclose failed tasks |
@@ -19,12 +19,15 @@ imply an autonomous LLM or unrestricted tool access.
 
 ## Coordinator
 
-AgentCoordinator registers agents by unique name and executes only the requested
-agent. It converts runtime exceptions into structured error results. The vision
-pipeline checks frame quality, runs object and currency agents, then passes their
-results to the Safety Agent. The voice-command parser accepts already-transcribed
-text; microphone capture and speech-to-text are not implemented by this parser.
-No agent downloads files, sends frames to a server, or saves images.
+AgentCoordinator registers agents by unique name and executes only explicitly
+requested agents. Its vision pipeline runs the registered frame-quality, OCR,
+object-detection and currency agents in that order, then passes all produced
+results to the Safety Agent. Each specialist is optional: unregistered agents
+are skipped, while setup and runtime failures are returned as structured
+results rather than silently omitted. The voice-command parser accepts
+already-transcribed text; microphone capture and speech-to-text are separate
+capabilities. No agent downloads files, sends frames to a server, or saves
+images.
 
 ## Honest readiness states
 
@@ -40,6 +43,7 @@ label order and held-out evaluation are verified.
 ## Safety boundary
 
 Image-relative left/centre/right is not distance estimation, obstacle avoidance
-or navigation. Currency output is not banknote authentication. NOORIX must never
-be presented as a replacement for a white cane, guide dog or trained mobility
-support.
+or navigation. Currency output is not banknote authentication. OCR can misread
+or omit text, especially on blurred, small, stylized or low-contrast content.
+NOORIX must never be presented as a replacement for a white cane, guide dog or
+trained mobility support.
