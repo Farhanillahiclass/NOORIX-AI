@@ -162,6 +162,27 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
             ),
         )
 
+    if backend == "yolov8_onnx":
+        from noorix.yolov8_onnx import YOLOv8ONNXDetector
+
+        labels = config.get("labels")
+        labels_path = config.get("labels_path")
+        if labels_path:
+            resolved_labels = resolve_config_path(labels_path, config_path)
+            labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
+        if not isinstance(labels, list) or len(labels) != 80:
+            raise ValueError(
+                "YOLOv8 ONNX requires labels_path or exactly 80 COCO class labels"
+            )
+        return YOLOv8ONNXDetector(
+            model_path,
+            labels,
+            confidence_threshold=threshold,
+            iou_threshold=float(config.get("iou_threshold", 0.45)),
+            input_size=int(config.get("input_size", 640)),
+            max_detections=int(config.get("max_detections", 100)),
+        )
+
     if backend == "opencv_dnn":
         labels = config.get("labels")
         if not isinstance(labels, list) or not labels:
