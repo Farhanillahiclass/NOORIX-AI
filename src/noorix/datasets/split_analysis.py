@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collections import Counter
 from typing import Any
 
 from .quality import analyze_coco_quality
@@ -17,14 +16,14 @@ def analyze_coco_splits(splits: dict[str, dict[str, Any]]) -> dict[str, Any]:
     """
     if not isinstance(splits, dict) or not splits:
         raise ValueError("splits must be a non-empty mapping of split names to COCO objects.")
+    if any(not isinstance(name, str) or not name.strip() for name in splits):
+        raise ValueError("split names must be non-empty strings.")
 
     split_reports: dict[str, Any] = {}
     filename_owners: dict[str, set[str]] = {}
     class_names: set[str] = set()
 
     for split_name in sorted(splits):
-        if not isinstance(split_name, str) or not split_name.strip():
-            raise ValueError("split names must be non-empty strings.")
         payload = splits[split_name]
         report = analyze_coco_quality(payload)
         split_reports[split_name] = report
