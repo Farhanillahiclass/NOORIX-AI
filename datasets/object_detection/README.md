@@ -17,7 +17,7 @@ Every external dataset must be reviewed before use. Record its canonical source 
 2. Download it outside Git unless its license explicitly permits repository redistribution and the repository owners approve the size.
 3. Convert or map annotations to the documented COCO fields without inventing labels.
 4. Add a manifest entry with status pending_validation; include the annotation path, image root, split, source and license metadata.
-5. Run the validator, first without and then with --check-files.
+5. Run the validator, first without an image directory and then with --images-dir PATH_TO_IMAGES.
 6. Review class counts, missing files, split leakage, duplicate images and annotation quality before training.
 7. Change the manifest status only after those checks have actually passed.
 
