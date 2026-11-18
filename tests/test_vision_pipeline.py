@@ -38,6 +38,7 @@ def test_vision_pipeline_skips_optional_agents_that_are_not_registered():
     results = AgentCoordinator(agents).run_vision(object())
 
     assert [result.agent for result in results] == ["object_detection", "safety"]
+    assert agents[1].payloads[0] == results[:-1]
 
 
 def test_vision_pipeline_keeps_ocr_setup_failure_visible():
@@ -51,7 +52,7 @@ def test_vision_pipeline_keeps_ocr_setup_failure_visible():
     assert results[0].agent == "ocr"
     assert results[0].state == AgentState.NEEDS_SETUP
     assert results[-1].agent == "safety"
-    assert results[-1].data == {"reviewed": 2} if isinstance(results[-1].data, dict) else True
+    assert agents[-1].payloads[0] == results[:-1]
 
 
 def test_vision_pipeline_returns_empty_list_without_registered_agents():
