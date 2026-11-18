@@ -49,11 +49,11 @@ def main(argv: list[str] | None = None) -> int:
             continue
         splits[name] = {"payload": payload, "images_dir": images_dir}
 
-    if not splits:
-        parser.error("provide at least one complete split using annotation and image-root arguments")
     if failed:
         print("Integrity report not generated because annotation validation failed.")
         return 1
+    if not splits:
+        parser.error("provide at least one complete split using annotation and image-root arguments")
     try:
         report = analyze_coco_integrity(splits, verify_image_decode=args.verify_image_decode)
     except (OSError, RuntimeError, ValueError) as exc:
