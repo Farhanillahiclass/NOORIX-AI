@@ -336,7 +336,7 @@ def test_split_analysis_cli_writes_report_and_flags_filename_overlap(tmp_path):
     import sys
     from pathlib import Path
 
-    train = _write_split_json(tmp_path / "train.json", file_name="images\\Person.JPG")
+    train = _write_split_json(tmp_path / "train.json", file_name="images/Person.JPG")
     validation = _write_split_json(tmp_path / "validation.json", file_name="images/person.jpg")
     output = tmp_path / "reports" / "split_report.json"
     script = Path(__file__).resolve().parents[1] / "scripts" / "analyze_detection_splits.py"
