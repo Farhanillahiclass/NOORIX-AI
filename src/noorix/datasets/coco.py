@@ -147,8 +147,6 @@ def validate_coco_dataset(
         area = annotation.get("area")
         if not _is_finite_number(area) or area <= 0:
             errors.append(f"{prefix}.area must be a positive finite number.")
-        elif not math.isclose(area, box_width * box_height, rel_tol=1e-3, abs_tol=1e-3):
-            errors.append(f"{prefix}.area does not match bbox width × height.")
 
         iscrowd = annotation.get("iscrowd", 0)
         if not _is_int(iscrowd) or iscrowd not in (0, 1):
