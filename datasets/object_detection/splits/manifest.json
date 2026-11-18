@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "format": "coco_detection",
+  "description": "Registry of object-detection dataset sources and split artifacts. No third-party dataset is bundled by this manifest.",
+  "datasets": [
+    {
+      "id": "coco-2017",
+      "name": "Microsoft COCO 2017",
+      "release": "2017",
+      "task": "general_object_detection",
+      "source_url": "https://cocodataset.org/#home",
+      "terms_url": "https://cocodataset.org/dataset/termsofuse.htm",
+      "status": "candidate",
+      "license_summary": "COCO annotations are CC BY 4.0. The COCO Consortium does not own the images; image use is subject to Flickr terms and image-specific rights.",
+      "use_restrictions": [
+        "Review image-level rights and terms before use",
+        "Do not assume annotation licensing also licenses image files",
+        "Do not redistribute images unless their individual rights permit it"
+      ],
+      "planned_splits": ["train2017", "val2017"],
+      "annotation_format": "COCO instances JSON",
+      "notes": "Candidate only. No images or annotations have been downloaded, reviewed, or validated for this project."
+    },
+    {
+      "id": "lvis",
+      "name": "LVIS",
+      "release": "1.0",
+      "task": "long_tail_object_detection_and_instance_segmentation",
+      "source_url": "https://www.lvisdataset.org/",
+      "terms_url": "https://github.com/lvis-dataset/lvis-api",
+      "status": "candidate",
+      "license_summary": "LVIS annotations and underlying COCO images have separate provenance and rights considerations; verify the exact release terms and source-image permissions before use.",
+      "use_restrictions": [
+        "Review the official terms for the exact release",
+        "Check image provenance and rights independently",
+        "Preserve category and federated-annotation semantics during conversion"
+      ],
+      "planned_splits": ["train", "validation"],
+      "annotation_format": "LVIS JSON; conversion to COCO-style records requires a reviewed mapping",
+      "notes": "Candidate only. Long-tail categories and federated annotations need special handling; no conversion or validation has been performed."
+    },
+    {
+      "id": "objects365",
+      "name": "Objects365",
+      "release": "official release; exact version to be selected",
+      "task": "general_object_detection",
+      "source_url": "https://www.objects365.org/",
+      "terms_url": "https://www.objects365.org/download.html",
+      "status": "candidate",
+      "license_summary": "The dataset page states academic-purpose availability. Annotations and website are CC BY 4.0; image copyright remains with original owners and image use follows Flickr terms.",
+      "use_restrictions": [
+        "Academic-purpose restriction must be checked against the intended project use",
+        "Do not redistribute source images",
+        "Review original image terms and preserve annotation attribution"
+      ],
+      "planned_splits": ["train", "validation"],
+      "annotation_format": "Objects365 JSON; conversion to COCO-style records requires a reviewed mapping",
+      "notes": "Candidate only. Not approved for commercial use; no assets have been downloaded or validated."
+    },
+    {
+      "id": "bdd100k",
+      "name": "BDD100K",
+      "release": "official release; exact subset and version to be selected",
+      "task": "driving_scene_object_detection",
+      "source_url": "https://bdd-data.berkeley.edu/",
+      "terms_url": "https://github.com/bdd100k/bdd100k/blob/master/doc/source/license.rst",
+      "status": "candidate",
+      "license_summary": "Dataset terms permit educational, research, and not-for-profit use. Commercial use is restricted to BDD/BAIR Commons members and affiliates, with commercial licensing handled by UC Berkeley.",
+      "use_restrictions": [
+        "Do not use commercially without the required authorization",
+        "Preserve the full Regents license notice in permitted copies",
+        "Use only the object-detection subset after confirming its terms"
+      ],
+      "planned_splits": ["train", "val"],
+      "annotation_format": "BDD100K labels; conversion to COCO-style records requires a reviewed mapping",
+      "notes": "Candidate only. Driving-scene domain differs from general indoor/outdoor accessibility scenes; no assets have been downloaded or validated."
+    }
+  ]
+}
