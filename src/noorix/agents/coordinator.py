@@ -1,10 +1,14 @@
 """Small deterministic coordinator for local specialist agents."""
 from __future__ import annotations
+
 from typing import Any, Iterable
+
 from noorix.agents.base import Agent, AgentResult, AgentState
+
 
 class AgentCoordinator:
     """Runs only explicitly requested agents; no hidden autonomous actions."""
+
     def __init__(self, agents: Iterable[Agent] = ()):
         self._agents: dict[str, Agent] = {}
         for agent in agents:
@@ -39,12 +43,24 @@ class AgentCoordinator:
                 raise ValueError(f"{name} returned a result for {result.agent}")
             return result
         except Exception as exc:
-            return AgentResult(name, AgentState.ERROR, f"{type(exc).__name__}: {exc}",
-                               warnings=("The task did not complete; do not rely on a prediction.",))
+            return AgentResult(
+                name,
+                AgentState.ERROR,
+                f"{type(exc).__name__}: {exc}",
+                warnings=("The task did not complete; do not rely on a prediction.",),
+            )
 
     def run_vision(self, frame: Any) -> list[AgentResult]:
-        quality = self.run("frame_quality", frame) if "frame_quality" in self._agents else None
-        results = [self.run("object_detection", frame), self.run("currency", frame)]
-        if quality is not None:
-            results.insert(0, quality)
-        return [*results, self.run("safety", results)]
+        """Run the available frame-quality, OCR, object and currency agents.
+
+        Optional agents are included only when registered. OCR is run before
+        visual object/currency inference so a caller receives one consolidated
+        set of observations. The safety agent reviews every result produced.
+        """
+        results: list[AgentResult] = []
+        for name in ("frame_quality", "ocr", "object_detection", "currency"):
+            if name in self._agents:
+                results.append(self.run(name, frame))
+        if "safety" in self._agents:
+            results.append(self.run("safety", results))
+        return results
