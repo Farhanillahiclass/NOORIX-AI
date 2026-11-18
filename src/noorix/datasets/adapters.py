@@ -6,6 +6,7 @@ These functions never download, open, copy, or redistribute image assets.
 from __future__ import annotations
 
 from copy import deepcopy
+import math
 from typing import Any, Mapping
 
 
@@ -22,9 +23,9 @@ def _normalise_coco_like(
     source_format: str,
     category_id_map: Mapping[int, int] | None = None,
 ) -> dict[str, Any]:
-    images = _require_list(payload, "images")
-    categories = _require_list(payload, "categories")
-    annotations = _require_list(payload, "annotations")
+    _require_list(payload, "images")
+    _require_list(payload, "categories")
+    _require_list(payload, "annotations")
     mapping = dict(category_id_map or {})
     result = deepcopy(payload)
 
@@ -173,7 +174,12 @@ def adapt_bdd100k(
             if not isinstance(box, dict):
                 raise ValueError(f"Invalid box2d in frame '{file_name}', label {label_index}.")
             coords = [box.get(key) for key in ("x1", "y1", "x2", "y2")]
-            if any(not isinstance(value, (int, float)) or isinstance(value, bool) for value in coords):
+            if any(
+                not isinstance(value, (int, float))
+                or isinstance(value, bool)
+                or not math.isfinite(value)
+                for value in coords
+            ):
                 raise ValueError(f"Invalid box coordinates in frame '{file_name}', label {label_index}.")
             x1, y1, x2, y2 = coords
             box_width, box_height = x2 - x1, y2 - y1
