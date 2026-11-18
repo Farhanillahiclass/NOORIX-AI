@@ -69,7 +69,12 @@ def test_path_traversal_is_rejected(tmp_path):
     assert any("safe, non-empty relative" in error for error in errors)
 
 
-def test_area_must_match_bbox_area(tmp_path):
-    annotation_file = _write_dataset(tmp_path, area=999)
+def test_segmentation_area_can_differ_from_bbox_area(tmp_path):
+    annotation_file = _write_dataset(tmp_path, area=199)
+    assert validate_coco_dataset(annotation_file) == []
+
+
+def test_area_must_be_positive_and_finite(tmp_path):
+    annotation_file = _write_dataset(tmp_path, area=0)
     errors = validate_coco_dataset(annotation_file)
-    assert any("does not match bbox" in error for error in errors)
+    assert any(".area must be a positive finite number" in error for error in errors)
