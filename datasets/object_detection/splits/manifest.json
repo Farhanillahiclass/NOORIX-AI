@@ -1,0 +1,6 @@
+{
+  "schema_version": 1,
+  "format": "coco_detection",
+  "description": "Registry of object-detection dataset sources and split artifacts. No third-party dataset is bundled by this manifest.",
+  "datasets": []
+}
