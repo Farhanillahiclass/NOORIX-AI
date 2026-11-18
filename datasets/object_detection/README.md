@@ -90,12 +90,17 @@ and split-level distribution analysis are not included in this initial report.
 
 Use `analyze_coco_splits({"train": train_payload, "validation": val_payload, "test": test_payload})`
 from `noorix.datasets` to compare image and annotation totals, per-class instance
-counts, and classes absent from individual splits (reported as zero). The report
-also flags exact cross-split filename overlaps after normalizing slash direction
-and case. It intentionally does not compare numeric image IDs across split files,
-because IDs may be independently assigned by dataset exporters. Renamed copies
-and content-identical images are not detected; use verified hashes or a dedicated
-deduplication review before training.
+counts, and classes absent from individual splits (reported as zero). It also
+reports each class's percentage of annotations within each split and a
+percentage-point spread across non-empty splits, making distribution shifts
+visible without claiming statistical representativeness. Empty splits report
+`null` percentages. These are annotation-level proportions, not the percentage
+of images containing a class. The report also flags exact cross-split filename
+overlaps after normalizing slash direction and case. It intentionally does not
+compare numeric image IDs across split files, because IDs may be independently
+assigned by dataset exporters. Renamed copies and content-identical images are
+not detected; use verified hashes or a dedicated deduplication review before
+training.
 
 
 The command-line interface accepts two or three independent COCO JSON files and
