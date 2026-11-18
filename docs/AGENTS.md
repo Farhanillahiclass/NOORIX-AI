@@ -40,6 +40,15 @@ images.
 A model adapter is not production-ready until exact preprocessing, output shape,
 label order and held-out evaluation are verified.
 
+The optional real-runtime OCR smoke test is `tests/test_ocr_runtime_smoke.py`.
+It creates a synthetic high-contrast English text image and sends it through the
+real Tesseract adapter, OCR Agent and Safety Agent. It skips when Tesseract or
+its English (`eng`) language data is unavailable. Run it with:
+
+`python -m pytest tests/test_ocr_runtime_smoke.py -q`
+
+This is a runtime integration check, not a general OCR accuracy benchmark.
+
 ## Safety boundary
 
 Image-relative left/centre/right is not distance estimation, obstacle avoidance
