@@ -84,3 +84,15 @@ report containing:
 This is descriptive analysis, not a correctness audit or model-accuracy estimate.
 Run the COCO structural validator first. Near-duplicate detection, visual review,
 and split-level distribution analysis are not included in this initial report.
+
+
+## Split-level analysis
+
+Use `analyze_coco_splits({"train": train_payload, "validation": val_payload, "test": test_payload})`
+from `noorix.datasets` to compare image and annotation totals, per-class instance
+counts, and classes absent from individual splits (reported as zero). The report
+also flags exact cross-split filename overlaps after normalizing slash direction
+and case. It intentionally does not compare numeric image IDs across split files,
+because IDs may be independently assigned by dataset exporters. Renamed copies
+and content-identical images are not detected; use verified hashes or a dedicated
+deduplication review before training.
