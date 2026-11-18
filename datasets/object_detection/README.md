@@ -45,3 +45,25 @@ The manifest records four research candidates, all with status `candidate`:
 - **BDD100K** — driving-scene domain. Its dataset terms allow educational, research and not-for-profit use; commercial use is restricted to BDD/BAIR Commons members and affiliates ([dataset license](https://github.com/bdd100k/bdd100k/blob/master/doc/source/license.rst)).
 
 These are source candidates, not approved training datasets. The manifest deliberately records restrictions rather than marking any source as license-reviewed, downloaded, validated or ready for training. Confirm intended use, exact release, image-level rights, attribution and redistribution rules before acquisition. COCO and Objects365 terms distinguish annotations from image copyrights; BDD100K has a separate commercial-use restriction. 
+
+
+## Annotation adapters (metadata only)
+
+The package exposes explicit adapters from `noorix.datasets`:
+
+- `adapt_coco(payload)`: loss-minimising copy of COCO-style collections.
+- `adapt_lvis(payload)`: retains LVIS federated fields (including
+  `neg_category_ids` and `not_exhaustive_category_ids`), category frequency,
+  segmentation and other source metadata.
+- `adapt_objects365(payload)`: accepts only an Objects365 export already
+  shaped as `images/categories/annotations`; release-specific schemas must be
+  inspected and mapped explicitly rather than guessed.
+- `adapt_bdd100k(frames, image_dimensions=...)`: converts BDD100K frame labels
+  and `box2d` coordinates. Supply verified image dimensions by frame filename;
+  non-box labels are skipped rather than fabricated as detections.
+
+Adapters preserve source labels/metadata and add a `noorix_source` provenance
+record. Category ID remapping is opt-in. These are annotation-metadata
+converters only: they do not fetch, inspect, resize, or redistribute images,
+approve dataset licenses, or establish model quality. Run the COCO validator
+on converted output before considering any dataset for training.
