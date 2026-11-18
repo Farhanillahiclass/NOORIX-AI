@@ -198,3 +198,57 @@ def test_bdd100k_adapter_requires_image_dimensions():
     from noorix.datasets import adapt_bdd100k
     with pytest.raises(ValueError, match="Missing valid"):
         adapt_bdd100k([{"name": "missing.jpg", "labels": []}], image_dimensions={})
+
+
+def test_quality_report_counts_classes_coverage_and_bbox_statistics():
+    from noorix.datasets import analyze_coco_quality
+
+    payload = {
+        "images": [
+            {"id": 1, "file_name": "a.jpg", "width": 100, "height": 80},
+            {"id": 2, "file_name": "b.jpg", "width": 100, "height": 80},
+            {"id": 3, "file_name": "c.jpg", "width": 100, "height": 80},
+        ],
+        "categories": [
+            {"id": 1, "name": "person"},
+            {"id": 2, "name": "car"},
+            {"id": 3, "name": "empty-class"},
+        ],
+        "annotations": [
+            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [1, 2, 10, 20]},
+            {"id": 2, "image_id": 1, "category_id": 1, "bbox": [1, 2, 10, 20]},
+            {"id": 3, "image_id": 2, "category_id": 2, "bbox": [0, 0, 5, 5]},
+        ],
+    }
+    report = analyze_coco_quality(payload)
+    assert report["summary"]["images"] == 3
+    assert report["summary"]["images_with_annotations"] == 2
+    assert report["summary"]["images_without_annotations"] == 1
+    assert report["summary"]["annotation_coverage_percent"] == 66.6667
+    assert report["summary"]["classes_without_instances"] == 1
+    assert report["summary"]["class_imbalance_ratio_max_to_min"] == 2.0
+    assert report["summary"]["duplicate_box_annotations"] == 1
+    assert report["bbox_statistics"]["width"]["median"] == 10.0
+    assert report["bbox_statistics"]["area"]["count"] == 3
+
+
+def test_quality_report_handles_empty_dataset_without_division_error():
+    from noorix.datasets import analyze_coco_quality
+
+    report = analyze_coco_quality({"images": [], "categories": [], "annotations": []})
+    assert report["summary"]["annotation_coverage_percent"] is None
+    assert report["summary"]["class_imbalance_ratio_max_to_min"] is None
+    assert report["bbox_statistics"]["area"]["count"] == 0
+
+
+def test_quality_report_rejects_unknown_category_reference():
+    import pytest
+    from noorix.datasets import analyze_coco_quality
+
+    payload = {
+        "images": [{"id": 1}],
+        "categories": [{"id": 1, "name": "person"}],
+        "annotations": [{"image_id": 1, "category_id": 999, "bbox": [0, 0, 1, 1]}],
+    }
+    with pytest.raises(ValueError, match="unknown category_id"):
+        analyze_coco_quality(payload)
