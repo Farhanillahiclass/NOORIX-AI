@@ -1,10 +1,12 @@
 {
   "object_detection": {
-    "backend": "ssd_mobilenet_v2",
-    "model_path": "models/object_detection/ssd-mobilenet-v2.onnx",
-    "labels_path": "models/object_detection/coco_labels.json",
-    "anchors_path": "models/object_detection/ssd-mobilenet-v2-anchors.npz",
-    "confidence_threshold": 0.3
+    "backend": "yolov8_onnx",
+    "model_path": "models/object_detection/yolov8n.onnx",
+    "labels_path": "models/object_detection/yolov8_coco80_labels.json",
+    "confidence_threshold": 0.25,
+    "iou_threshold": 0.45,
+    "input_size": 640,
+    "max_detections": 100
   },
   "currency": {
     "model_path": "",
@@ -16,7 +18,8 @@
     "Set ocr.language to eng, urd, or eng+urd only when the matching Tesseract language data is installed.",
     "Provide only compatible, licensed ONNX models.",
     "Labels must be in the exact order used during model training.",
-    "Do not treat model scores as guaranteed accuracy or banknote authentication."
+    "Do not treat model scores as guaranteed accuracy or banknote authentication.",
+    "YOLOv8 ONNX backend expects a standard raw COCO-80 detection export; model weights are not stored in Git."
   ],
   "ocr": {
     "language": "eng"
