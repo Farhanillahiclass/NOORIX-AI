@@ -49,10 +49,12 @@ The desktop camera workspace includes an optional Auto Scan mode. When enabled, 
 
 Set `ocr.language` in `config.json` to `eng`, `urd`, or `eng+urd`. Urdu OCR requires the matching Tesseract Urdu trained-data file to be installed; the default remains English. This extracts visible printed text from a book or page but does not identify a book's title, author or edition.
 
+For the optional standard YOLOv8 COCO-80 ONNX backend, see [YOLOv8 ONNX setup and COCO validation](docs/OBJECT_DETECTION_MODEL.md). It uses CPU ONNX Runtime and requires a compatible local model file; the weights are not committed to Git. The existing SSD MobileNet V2 backend remains available.
+
 ## External requirements
 - OCR: install the Tesseract application separately and ensure `tesseract --version` works in the terminal.
 - Speech: pyttsx3 uses voices installed on the computer. Auto Scan looks for an installed Urdu-compatible voice before speaking Urdu summaries; if none is found, it reports that limitation.
-- Recognition: no trained currency or object model weights are bundled. The adapters require compatible model files.
+- Recognition: trained model weights are not bundled. The optional YOLOv8 ONNX adapter is implemented for a specific standard COCO-80 output contract; it still requires the matching local model file. Currency weights remain separately configured.
 - GUI: Tkinter is included with most standard Python Windows installations.
 
 ## Privacy and safety
@@ -66,7 +68,7 @@ Before changing repository visibility to Public, review the [Public Release Secu
 
 ## Project status
 
-Camera lifecycle, preview, desktop shell, local specialist-agent framework, backend adapters, configuration template and automated tests are implemented. Trained model assets, real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
+Camera lifecycle, preview, desktop shell, local specialist-agent framework, backend adapters, configuration template and automated tests are implemented. A standard YOLOv8 COCO-80 ONNX inference adapter is available, but real-weight integration and real-dataset evaluation must be verified on the target machine. Real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
 
 ## License
 
