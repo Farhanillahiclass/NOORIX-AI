@@ -67,3 +67,20 @@ record. Category ID remapping is opt-in. These are annotation-metadata
 converters only: they do not fetch, inspect, resize, or redistribute images,
 approve dataset licenses, or establish model quality. Run the COCO validator
 on converted output before considering any dataset for training.
+
+
+## Dataset quality analysis
+
+Use `analyze_coco_quality(payload)` or the
+`scripts/analyze_detection_dataset.py` command to produce a deterministic JSON
+report containing:
+
+- image/category/annotation totals and image annotation coverage;
+- per-category instance and distinct-image counts, including zero-instance classes;
+- max-to-min class imbalance ratio (zero-instance classes are separately reported);
+- bounding-box width, height and area min/max/mean/median;
+- exact duplicate box counts (same image, category and XYWH).
+
+This is descriptive analysis, not a correctness audit or model-accuracy estimate.
+Run the COCO structural validator first. Near-duplicate detection, visual review,
+and split-level distribution analysis are not included in this initial report.
