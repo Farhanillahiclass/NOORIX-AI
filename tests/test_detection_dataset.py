@@ -252,3 +252,63 @@ def test_quality_report_rejects_unknown_category_reference():
     }
     with pytest.raises(ValueError, match="unknown category_id"):
         analyze_coco_quality(payload)
+
+
+
+def test_split_analysis_reports_counts_and_class_distribution():
+    from noorix.datasets import analyze_coco_splits
+
+    train = {
+        "images": [
+            {"id": 1, "file_name": "train/a.jpg"},
+            {"id": 2, "file_name": "train/b.jpg"},
+        ],
+        "categories": [{"id": 1, "name": "person"}, {"id": 2, "name": "car"}],
+        "annotations": [
+            {"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 2, 2]},
+            {"id": 2, "image_id": 2, "category_id": 1, "bbox": [0, 0, 2, 2]},
+        ],
+    }
+    validation = {
+        "images": [{"id": 1, "file_name": "validation/c.jpg"}],
+        "categories": [{"id": 1, "name": "person"}, {"id": 2, "name": "car"}],
+        "annotations": [
+            {"id": 1, "image_id": 1, "category_id": 2, "bbox": [0, 0, 2, 2]},
+        ],
+    }
+    report = analyze_coco_splits({"train": train, "validation": validation})
+    assert report["splits"]["train"]["images"] == 2
+    assert report["splits"]["train"]["class_distribution"] == {"car": 0, "person": 2}
+    assert report["splits"]["validation"]["class_distribution"] == {"car": 1, "person": 0}
+    assert report["cross_split_filename_overlap_count"] == 0
+
+
+def test_split_analysis_detects_case_and_separator_normalized_filename_leakage():
+    from noorix.datasets import analyze_coco_splits
+
+    base = {
+        "categories": [{"id": 1, "name": "person"}],
+        "annotations": [],
+    }
+    train = {**base, "images": [{"id": 1, "file_name": "images\\Person.JPG"}]}
+    test = {**base, "images": [{"id": 1, "file_name": "images/person.jpg"}]}
+    report = analyze_coco_splits({"train": train, "test": test})
+    assert report["cross_split_filename_overlaps"] == [
+        {"file_name": "images/person.jpg", "splits": ["test", "train"]}
+    ]
+
+
+def test_split_analysis_rejects_empty_splits_and_missing_filenames():
+    import pytest
+    from noorix.datasets import analyze_coco_splits
+
+    with pytest.raises(ValueError, match="non-empty mapping"):
+        analyze_coco_splits({})
+    with pytest.raises(ValueError, match="file_name"):
+        analyze_coco_splits({
+            "train": {
+                "images": [{"id": 1}],
+                "categories": [],
+                "annotations": [],
+            }
+        })
