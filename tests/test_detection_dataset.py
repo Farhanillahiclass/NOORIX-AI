@@ -372,3 +372,66 @@ def test_split_analysis_cli_stops_when_a_split_is_invalid(tmp_path):
     assert result.returncode == 1
     assert "analysis not generated" in result.stdout
     assert not output.exists()
+
+
+def test_split_analysis_compares_class_percentages_and_spread():
+    from noorix.datasets import analyze_coco_splits
+
+    def make_split(prefix, person_count, car_count):
+        categories = [{"id": 1, "name": "person"}, {"id": 2, "name": "car"}]
+        annotations = []
+        images = []
+        for index in range(person_count + car_count):
+            image_id = index + 1
+            category_id = 1 if index < person_count else 2
+            images.append({
+                "id": image_id, "file_name": f"{prefix}/{image_id}.jpg",
+                "width": 10, "height": 10,
+            })
+            annotations.append({
+                "id": image_id, "image_id": image_id, "category_id": category_id,
+                "bbox": [0, 0, 1, 1],
+            })
+        return {"images": images, "categories": categories, "annotations": annotations}
+
+    report = analyze_coco_splits({
+        "train": make_split("train", 3, 1),
+        "validation": make_split("validation", 1, 3),
+        "test": make_split("test", 0, 2),
+    })
+
+    assert report["splits"]["train"]["class_distribution_percentages"] == {
+        "car": 25.0, "person": 75.0
+    }
+    assert report["splits"]["validation"]["class_distribution_percentages"] == {
+        "car": 75.0, "person": 25.0
+    }
+    assert report["splits"]["test"]["class_distribution_percentages"] == {
+        "car": 100.0, "person": 0.0
+    }
+    assert report["class_distribution_comparison"]["person"]["spread_percentage_points"] == 75.0
+    assert report["class_distribution_comparison"]["car"]["spread_percentage_points"] == 75.0
+    assert report["class_distribution_comparison"]["person"]["instances_by_split"] == {
+        "test": 0, "train": 3, "validation": 1
+    }
+
+
+def test_split_analysis_reports_none_percentages_for_empty_split():
+    from noorix.datasets import analyze_coco_splits
+
+    categories = [{"id": 1, "name": "person"}]
+    populated = {
+        "images": [{"id": 1, "file_name": "train/person.jpg", "width": 10, "height": 10}],
+        "categories": categories,
+        "annotations": [{"id": 1, "image_id": 1, "category_id": 1, "bbox": [0, 0, 1, 1]}],
+    }
+    empty = {"images": [], "categories": categories, "annotations": []}
+
+    report = analyze_coco_splits({"train": populated, "validation": empty})
+    assert report["splits"]["validation"]["class_distribution_percentages"] == {
+        "person": None
+    }
+    assert report["class_distribution_comparison"]["person"]["percentage_by_split"] == {
+        "train": 100.0, "validation": None
+    }
+    assert report["class_distribution_comparison"]["person"]["spread_percentage_points"] is None
