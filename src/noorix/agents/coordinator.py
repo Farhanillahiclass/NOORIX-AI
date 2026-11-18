@@ -62,5 +62,5 @@ class AgentCoordinator:
             if name in self._agents:
                 results.append(self.run(name, frame))
         if "safety" in self._agents:
-            results.append(self.run("safety", results))
+            results.append(self.run("safety", list(results)))
         return results
