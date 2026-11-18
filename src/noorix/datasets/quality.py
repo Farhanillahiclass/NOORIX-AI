@@ -67,9 +67,9 @@ def analyze_coco_quality(payload: dict[str, Any]) -> dict[str, Any]:
         category_id = annotation.get("category_id")
         image_id = annotation.get("image_id")
         bbox = annotation.get("bbox")
-        if category_id not in category_names:
+        if not isinstance(category_id, int) or isinstance(category_id, bool) or category_id not in category_names:
             raise ValueError(f"annotations[{index}] references unknown category_id.")
-        if image_id not in image_ids:
+        if not isinstance(image_id, int) or isinstance(image_id, bool) or image_id not in image_ids:
             raise ValueError(f"annotations[{index}] references unknown image_id.")
         if (
             not isinstance(bbox, list)
