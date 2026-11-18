@@ -7,7 +7,8 @@ This directory is a registry and annotation workspace. It intentionally does not
 - Dataset registry: datasets/object_detection/splits/manifest.json
 - Annotation contract: COCO-style detection JSON
 - Annotation workspace: datasets/object_detection/annotations/
-- Validation command: python scripts/validate_detection_dataset.py PATH_TO_ANNOTATIONS.json
+- Registry validation: `python scripts/validate_dataset_manifest.py` (defaults to the project manifest)
+- Annotation validation: `python scripts/validate_detection_dataset.py PATH_TO_ANNOTATIONS.json`
 
 Every external dataset must be reviewed before use. Record its canonical source URL, exact version/release, license and attribution requirements, permitted use (including redistribution and commercial use), download date, split policy, class mapping, and checksums. Do not treat Kaggle availability as permission to redistribute.
 
@@ -18,7 +19,7 @@ Every external dataset must be reviewed before use. Record its canonical source 
 3. Convert or map annotations to the documented COCO fields without inventing labels.
 4. Add a manifest entry with status pending_validation; include the annotation path, image root, split, source and license metadata.
 5. Run the validator, first without an image directory and then with --images-dir PATH_TO_IMAGES.
-6. Review class counts, missing files, split leakage, duplicate images and annotation quality before training.
+6. Review class counts, missing files, split leakage, duplicate images and annotation quality before training. Use `validate_split_disjointness` in `noorix.datasets` to check sample IDs across train/validation/test partitions.
 7. Change the manifest status only after those checks have actually passed.
 
 ## Dataset status vocabulary
