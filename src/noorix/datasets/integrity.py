@@ -54,13 +54,10 @@ def analyze_coco_integrity(splits: dict[str, dict[str, Any]], *, verify_image_de
             total += 1
             filename = image.get("file_name") if isinstance(image, dict) else None
             item = {"split": split_name, "file_name": str(filename or "")}
-            if not isinstance(filename, str) or not filename.strip():
-                unsafe_paths.append({**item, "reason": "missing or empty file_name"})
-                continue
-            relative = PurePosixPath(filename)
-            if relative.is_absolute() or ".." in relative.parts or "\\" in filename:
+            if not _safe_image_path(filename):
                 unsafe_paths.append({**item, "reason": "not a safe relative POSIX path"})
                 continue
+            relative = PurePosixPath(filename)
             candidate = (root / Path(*relative.parts)).resolve()
             if not candidate.is_relative_to(root):
                 unsafe_paths.append({**item, "reason": "resolved outside images_dir"})
@@ -69,11 +66,7 @@ def analyze_coco_integrity(splits: dict[str, dict[str, Any]], *, verify_image_de
                 missing.append(item)
                 continue
             try:
-                digest = hashlib.sha256()
-                with candidate.open("rb") as stream:
-                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                        digest.update(chunk)
-                hexdigest = digest.hexdigest()
+                hexdigest = _sha256(candidate)
             except OSError as exc:
                 unreadable.append({**item, "reason": str(exc)})
                 continue
