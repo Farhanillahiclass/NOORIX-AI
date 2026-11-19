@@ -137,6 +137,19 @@ def validate_example_config(document: Any) -> str | None:
     return None
 
 
+def validate_label_map(document: Any) -> str | None:
+    """Validate the structural contract for a COCO-80 label map."""
+    if not isinstance(document, list):
+        return "label map root must be a JSON list"
+    if len(document) != 80:
+        return f"YOLOv8 COCO label map must contain exactly 80 labels, got {len(document)}"
+    if any(not isinstance(label, str) or not label.strip() for label in document):
+        return "label map entries must be non-empty strings"
+    if len(set(document)) != 80:
+        return "label map entries must be unique"
+    return None
+
+
 def _config_check(root: Path) -> dict[str, str]:
     files = sorted(root.glob("config.example*.json"))
     if not files:
@@ -148,11 +161,26 @@ def _config_check(root: Path) -> dict[str, str]:
             error = validate_example_config(document)
             if error:
                 errors.append(f"{path.name}: {error}")
+                continue
+            detection = document.get("object_detection", {})
+            labels_path = detection.get("labels_path") if isinstance(detection, dict) else None
+            if labels_path:
+                label_file = (root / labels_path).resolve()
+                if not label_file.is_relative_to(root.resolve()):
+                    errors.append(f"{path.name}: object_detection.labels_path escapes the project root")
+                    continue
+                try:
+                    label_document = json.loads(label_file.read_text(encoding="utf-8"))
+                    label_error = validate_label_map(label_document) if detection.get("backend") == "yolov8_onnx" else None
+                    if label_error:
+                        errors.append(f"{path.name}: {label_error}")
+                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                    errors.append(f"{path.name}: object_detection.labels_path could not be read: {exc}")
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             errors.append(f"{path.name}: {exc}")
     if errors:
         return _result("Example config JSON", "FAIL", f"{len(errors)} invalid file(s)", "\n".join(errors))
-    return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) parsed")
+    return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) and configured YOLO label maps validated")
 
 
 def _model_integrity_check(root: Path) -> list[dict[str, str]]:
