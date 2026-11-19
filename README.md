@@ -66,6 +66,10 @@ Before changing repository visibility to Public, review the [Public Release Secu
 - OCR is for visible printed text; handwriting and book metadata recognition are not claimed. Urdu OCR requires installed Tesseract Urdu language data.
 - Do not rely on this prototype for safety-critical decisions. Test results in supervised, controlled conditions.
 
+## Production readiness
+
+Track release blockers and mandatory evidence in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). NOORIX remains a research prototype until every mandatory release gate is verified.
+
 ## Project status
 
 Camera lifecycle, preview, desktop shell, local specialist-agent framework, backend adapters, configuration template and automated tests are implemented. A standard YOLOv8 COCO-80 ONNX inference adapter is available, but real-weight integration and real-dataset evaluation must be verified on the target machine. Real-world accuracy evaluation, Urdu voice verification and fully offline packaging remain pending. This is not yet a production-ready accessibility device.
