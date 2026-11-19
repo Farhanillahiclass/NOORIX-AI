@@ -19,7 +19,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 ## Checks performed
 
 1. Python version requirement (3.11+).
-2. Bytecode compilation for src/ and tests/.
+2. Bytecode compilation for src/, tests/ and scripts/.
 3. The complete pytest suite (python -m pytest -q).
 4. Installed Python dependency consistency (python -m pip check).
 5. JSON syntax and supported semantic constraints in root config.example*.json files.
