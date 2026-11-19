@@ -90,6 +90,53 @@ def _notebook_check(root: Path) -> dict[str, str]:
     return _result("Notebook JSON", "PASS", f"{len(paths)} valid nbformat-4 notebook(s)")
 
 
+def validate_example_config(document: Any) -> str | None:
+    """Validate supported config sections and safety-critical numeric bounds."""
+    if not isinstance(document, dict):
+        return "configuration root must be an object"
+
+    detection = document.get("object_detection")
+    if detection is not None:
+        if not isinstance(detection, dict):
+            return "object_detection must be an object"
+        backend = detection.get("backend")
+        if backend is not None and (not isinstance(backend, str) or not backend.strip()):
+            return "object_detection.backend must be a non-empty string"
+        for key in ("model_path", "labels_path"):
+            value = detection.get(key)
+            if value is not None and not isinstance(value, str):
+                return f"object_detection.{key} must be a string"
+        for key in ("confidence_threshold", "iou_threshold"):
+            value = detection.get(key)
+            if value is not None:
+                if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 <= value <= 1:
+                    return f"object_detection.{key} must be a number between 0 and 1"
+        for key in ("input_size", "max_detections"):
+            value = detection.get(key)
+            if value is not None and (isinstance(value, bool) or not isinstance(value, int) or value <= 0):
+                return f"object_detection.{key} must be a positive integer"
+
+    ocr = document.get("ocr")
+    if ocr is not None:
+        if not isinstance(ocr, dict):
+            return "ocr must be an object"
+        language = ocr.get("language")
+        if language is not None and language not in {"eng", "urd", "eng+urd"}:
+            return "ocr.language must be eng, urd, or eng+urd"
+
+    currency = document.get("currency")
+    if currency is not None:
+        if not isinstance(currency, dict):
+            return "currency must be an object"
+        labels = currency.get("labels")
+        if labels is not None and (not isinstance(labels, list) or not all(isinstance(label, str) for label in labels)):
+            return "currency.labels must be a list of strings"
+        input_size = currency.get("input_size")
+        if input_size is not None and (isinstance(input_size, bool) or not isinstance(input_size, int) or input_size <= 0):
+            return "currency.input_size must be a positive integer"
+    return None
+
+
 def _config_check(root: Path) -> dict[str, str]:
     files = sorted(root.glob("config.example*.json"))
     if not files:
@@ -97,7 +144,10 @@ def _config_check(root: Path) -> dict[str, str]:
     errors = []
     for path in files:
         try:
-            json.loads(path.read_text(encoding="utf-8"))
+            document = json.loads(path.read_text(encoding="utf-8"))
+            error = validate_example_config(document)
+            if error:
+                errors.append(f"{path.name}: {error}")
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             errors.append(f"{path.name}: {exc}")
     if errors:
