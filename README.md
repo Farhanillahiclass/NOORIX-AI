@@ -65,6 +65,10 @@ For the optional standard YOLOv8 COCO-80 ONNX backend, see [YOLOv8 ONNX setup an
 - Recognition: trained model weights are not bundled. The optional YOLOv8 ONNX adapter is implemented for a specific standard COCO-80 output contract; it still requires the matching local model file. Currency weights remain separately configured.
 - GUI: Tkinter is included with most standard Python Windows installations.
 
+## Model archive imports
+
+Downloaded model ZIP files are treated as untrusted input. The importer applies path, file-type, size, compression-ratio and overwrite checks before extracting approved artifacts. Importing a file does not validate or activate the model. Review [Model Import Security](docs/MODEL_IMPORT_SECURITY.md) before importing third-party artifacts.
+
 ## Privacy and safety
 
 Before changing repository visibility to Public, review the [Public Release Security Checklist](docs/PUBLIC_RELEASE_CHECKLIST.md).
