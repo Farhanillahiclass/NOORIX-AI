@@ -17,6 +17,14 @@ python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
 python -m pytest -q
 ```
 
+For the final combined local validation, run:
+
+```bash
+python scripts/run_full_validation.py
+```
+
+This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/. See [One-command local validation](docs/LOCAL_VALIDATION.md). Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
+
 Run the desktop interface:
 
 ```bash
