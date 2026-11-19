@@ -50,3 +50,36 @@ def test_reports_missing_files(tmp_path):
 def test_rejects_invalid_digest(tmp_path):
     manifest = _write_manifest(tmp_path, [{"path": "model.onnx", "sha256": "not-a-digest"}])
     assert verify_manifest(tmp_path, manifest)[0]["status"] == "ERROR"
+
+
+def test_accepts_importer_nested_integrity_object(tmp_path):
+    model = tmp_path / "subdir" / "model.onnx"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+    manifest = tmp_path / "import_manifest.json"
+    manifest.write_text(json.dumps({
+        "project": "NOORIX-AI",
+        "integrity": {
+            "algorithm": "sha256",
+            "files": [{
+                "path": "subdir/model.onnx",
+                "sha256": hashlib.sha256(b"model").hexdigest(),
+            }],
+        },
+    }), encoding="utf-8")
+    assert verify_manifest(tmp_path, manifest)[0]["status"] == "PASS"
+
+
+def test_rejects_symlinked_model_when_supported(tmp_path):
+    outside = tmp_path.parent / "outside-model.bin"
+    outside.write_bytes(b"outside")
+    link = tmp_path / "linked-model.bin"
+    try:
+        link.symlink_to(outside)
+    except (OSError, NotImplementedError):
+        return
+    manifest = _write_manifest(tmp_path, [{
+        "path": "linked-model.bin",
+        "sha256": hashlib.sha256(b"outside").hexdigest(),
+    }])
+    assert verify_manifest(tmp_path, manifest)[0]["status"] == "ERROR"
