@@ -46,7 +46,7 @@ def test_postprocess_returns_coco_label_and_original_image_box():
 
     results = detector._postprocess(output, (640, 640), 1.0, 0, 0)
     assert len(results) == 1
-    assert results[0]["label"] == "class_7"
+    assert results[0]["label"] == "truck"
     assert results[0]["class_id"] == 7
     assert results[0]["confidence"] == pytest.approx(0.91)
     assert results[0]["box"] == [220, 270, 420, 370]
