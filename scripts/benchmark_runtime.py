@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import argparse
 from datetime import datetime
+import importlib.metadata
 import json
 from pathlib import Path
 import platform
@@ -117,13 +118,26 @@ def main(argv: list[str] | None = None) -> int:
             suffix += 1
         report_dir.mkdir(parents=True)
 
+        def package_version(distribution: str) -> str | None:
+            try:
+                return importlib.metadata.version(distribution)
+            except importlib.metadata.PackageNotFoundError:
+                return None
+
         payload = {
             "project": "NOORIX-AI",
             "generated_at": generated,
             "python": sys.version.split()[0],
             "platform": platform.platform(),
             "processor": platform.processor() or platform.uname().processor or "unknown",
+            "runtime_versions": {
+                "opencv": getattr(cv2, "__version__", None),
+                "numpy": package_version("numpy"),
+                "onnxruntime": package_version("onnxruntime"),
+            },
             "backend": str(detector_config.get("backend", "opencv_dnn")),
+            "confidence_threshold": detector_config.get("confidence_threshold"),
+            "input_size": detector_config.get("input_size"),
             "model_filename": Path(str(detector_config.get("model_path", ""))).name,
             "image_filename": image_path.name,
             "image_dimensions": {"width": int(frame.shape[1]), "height": int(frame.shape[0])},
@@ -148,6 +162,9 @@ def main(argv: list[str] | None = None) -> int:
             f"- Processor: {payload['processor']}",
             f"- Python: {payload['python']}",
             f"- Backend: {payload['backend']}",
+            f"- Runtime versions: {payload['runtime_versions']}",
+            f"- Confidence threshold: {payload['confidence_threshold']}",
+            f"- Input size: {payload['input_size']}",
             f"- Model file: {payload['model_filename']}",
             f"- Image file: {payload['image_filename']} ({frame.shape[1]}×{frame.shape[0]})",
             f"- Cold first inference: {cold_start_ms:.2f} ms",
