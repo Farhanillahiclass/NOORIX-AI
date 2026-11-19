@@ -121,7 +121,7 @@ def validate_example_config(document: Any) -> str | None:
         if not isinstance(ocr, dict):
             return "ocr must be an object"
         language = ocr.get("language")
-        if language is not None and language not in {"eng", "urd", "eng+urd"}:
+        if language is not None and (not isinstance(language, str) or language not in {"eng", "urd", "eng+urd"}):
             return "ocr.language must be eng, urd, or eng+urd"
 
     currency = document.get("currency")
