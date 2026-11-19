@@ -4,7 +4,7 @@ import pytest
 from noorix.yolov8_onnx import YOLOv8ONNXDetector
 
 
-LABELS = [f"class_{index}" for index in range(80)]
+LABELS = list(YOLOv8ONNXDetector.COCO_LABELS)
 
 
 def make_detector(**kwargs):
