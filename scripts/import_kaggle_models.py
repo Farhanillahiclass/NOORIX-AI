@@ -12,25 +12,83 @@ TEMP = ROOT / "models" / ".staging"
 ALLOWED_SUFFIXES = {".onnx",".pth",".pt",".safetensors",".bin",".json",".txt",".model",".vocab",".merges",".tiktoken",".yaml",".yml",".cfg",".pb",".xml",".data"}
 SKIP_PARTS = {"__pycache__",".ipynb_checkpoints","runs","wandb","logs","samples","sample","images","datasets","dataset","cache","caches","test_images"}
 MAX_MEMBER_BYTES = 4 * 1024 * 1024 * 1024
+MAX_ARCHIVE_BYTES = 8 * 1024 * 1024 * 1024
+MAX_ARCHIVE_MEMBERS = 20_000
+MAX_COMPRESSION_RATIO = 1_000
+WINDOWS_RESERVED_NAMES = {
+    "CON", "PRN", "AUX", "NUL",
+    *(f"COM{number}" for number in range(1, 10)),
+    *(f"LPT{number}" for number in range(1, 10)),
+}
 
 def safe_extract_member(zf, info, target):
-    # ZIP entry names may use Windows separators even when processed on POSIX.
-    normalized=info.filename.replace("\\","/")
-    raw=PurePosixPath(normalized)
-    mode=(info.external_attr >> 16) & 0o170000
-    if (not normalized or "\\x00" in normalized or raw.is_absolute()
-        or ".." in raw.parts or any(":" in part for part in raw.parts)
-        or mode == stat.S_IFLNK or info.is_dir()):
+    """Extract one approved regular file without escaping or overwriting target."""
+    normalized = info.filename.replace("\\\\", "/")
+    raw = PurePosixPath(normalized)
+    mode = (info.external_attr >> 16) & 0o170000
+    windows_parts = normalized.split("/")
+    reserved = any(
+        part.rstrip(" .").split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES
+        or part.endswith((" ", "."))
+        for part in windows_parts
+    )
+    if (
+        not normalized
+        or "\\x00" in normalized
+        or raw.is_absolute()
+        or ".." in raw.parts
+        or any(":" in part for part in raw.parts)
+        or reserved
+        or mode not in (0, stat.S_IFREG)
+        or info.is_dir()
+        or info.flag_bits & 0x1
+    ):
         return None
-    if info.file_size > MAX_MEMBER_BYTES:
-        print(f"  SKIP (over 4 GiB): {info.filename}"); return None
-    if any(part.lower() in SKIP_PARTS for part in raw.parts): return None
-    if Path(raw.name).suffix.lower() not in ALLOWED_SUFFIXES: return None
-    out=target.joinpath(*raw.parts)
-    # Avoid duplicate ZIP entries silently replacing an earlier extracted file.
-    if out.exists(): return None
-    out.parent.mkdir(parents=True,exist_ok=True)
-    with zf.open(info) as src, out.open("wb") as dst: shutil.copyfileobj(src,dst)
+    if info.file_size < 0 or info.file_size > MAX_MEMBER_BYTES:
+        print(f"  SKIP (member size limit): {info.filename}")
+        return None
+    if info.file_size and (
+        info.compress_size == 0
+        or info.file_size / info.compress_size > MAX_COMPRESSION_RATIO
+    ):
+        print(f"  SKIP (suspicious compression ratio): {info.filename}")
+        return None
+    if any(part.lower() in SKIP_PARTS for part in raw.parts):
+        return None
+    if Path(raw.name).suffix.lower() not in ALLOWED_SUFFIXES:
+        return None
+
+    target_root = Path(target).resolve()
+    out = target_root.joinpath(*raw.parts)
+    try:
+        if not out.resolve().is_relative_to(target_root):
+            return None
+    except (OSError, RuntimeError):
+        return None
+
+    # Windows filesystems are commonly case-insensitive. Reject collisions on
+    # every platform so an import validated on Linux remains portable.
+    relative_key = "/".join(raw.parts).casefold()
+    for existing in target_root.rglob("*"):
+        if existing.is_file():
+            if existing.relative_to(target_root).as_posix().casefold() == relative_key:
+                return None
+    if out.exists():
+        return None
+
+    out.parent.mkdir(parents=True, exist_ok=True)
+    with zf.open(info) as src, out.open("xb") as dst:
+        copied = 0
+        while True:
+            chunk = src.read(1024 * 1024)
+            if not chunk:
+                break
+            copied += len(chunk)
+            if copied > MAX_MEMBER_BYTES or copied > info.file_size:
+                raise zipfile.BadZipFile(f"Member exceeded declared size: {info.filename}")
+            dst.write(chunk)
+        if copied != info.file_size:
+            raise zipfile.BadZipFile(f"Member size mismatch: {info.filename}")
     return out
 
 def main():
@@ -78,9 +136,19 @@ def main():
         staging.mkdir(parents=True,exist_ok=True); kept=[]
         try:
             with zipfile.ZipFile(archive) as zf:
+                members = zf.infolist()
+                if len(members) > MAX_ARCHIVE_MEMBERS:
+                    raise zipfile.BadZipFile(
+                        f"Archive has {len(members)} entries; limit is {MAX_ARCHIVE_MEMBERS}"
+                    )
+                total_size = sum(info.file_size for info in members)
+                if total_size > MAX_ARCHIVE_BYTES:
+                    raise zipfile.BadZipFile(
+                        f"Archive expands to {total_size} bytes; limit is {MAX_ARCHIVE_BYTES}"
+                    )
                 bad=zf.testzip()
                 if bad: raise zipfile.BadZipFile(f"Corrupt member: {bad}")
-                for info in zf.infolist():
+                for info in members:
                     p=safe_extract_member(zf,info,staging)
                     if p: kept.append(p)
             if not kept:
