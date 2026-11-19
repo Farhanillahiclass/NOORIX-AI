@@ -1,0 +1,181 @@
+"""Repeatable, local CPU object-detection latency benchmark.
+
+This benchmark uses one caller-supplied image, writes aggregate timing metadata,
+and never saves or uploads the image or detection contents.
+"""
+from __future__ import annotations
+
+import argparse
+from datetime import datetime
+import json
+from pathlib import Path
+import platform
+import statistics
+import sys
+import time
+from typing import Sequence
+
+
+def percentile(values: Sequence[float], quantile: float) -> float:
+    """Return a linearly interpolated percentile for a non-empty sequence."""
+    if not values:
+        raise ValueError("values must not be empty")
+    if not 0.0 <= quantile <= 1.0:
+        raise ValueError("quantile must be between 0 and 1")
+    ordered = sorted(float(value) for value in values)
+    position = (len(ordered) - 1) * quantile
+    lower = int(position)
+    upper = min(lower + 1, len(ordered) - 1)
+    fraction = position - lower
+    return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
+
+
+def summarize_latencies(samples_ms: Sequence[float]) -> dict[str, float]:
+    if not samples_ms:
+        raise ValueError("at least one latency sample is required")
+    values = [float(value) for value in samples_ms]
+    return {
+        "iterations": len(values),
+        "mean_ms": statistics.fmean(values),
+        "median_ms": statistics.median(values),
+        "p95_ms": percentile(values, 0.95),
+        "min_ms": min(values),
+        "max_ms": max(values),
+        "throughput_fps": 1000.0 / statistics.fmean(values),
+    }
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Measure local object-detection latency on a supplied image."
+    )
+    parser.add_argument("--config", default="config.json", help="Configuration JSON path (default: config.json)")
+    parser.add_argument("--image", required=True, help="Local image path used for every inference")
+    parser.add_argument("--iterations", type=int, default=30, help="Measured runs (1-1000; default: 30)")
+    parser.add_argument("--warmup", type=int, default=5, help="Additional unmeasured warm-up runs (0-100; default: 5)")
+    parser.add_argument("--output-dir", default="reports/benchmarks", help="Report directory")
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    if not 1 <= args.iterations <= 1000:
+        print("--iterations must be between 1 and 1000", file=sys.stderr)
+        return 2
+    if not 0 <= args.warmup <= 100:
+        print("--warmup must be between 0 and 100", file=sys.stderr)
+        return 2
+
+    root = Path(__file__).resolve().parents[1]
+    config_path = Path(args.config).expanduser()
+    if not config_path.is_absolute():
+        config_path = root / config_path
+    image_path = Path(args.image).expanduser()
+    if not image_path.is_absolute():
+        image_path = root / image_path
+
+    try:
+        config = json.loads(config_path.read_text(encoding="utf-8"))
+        if not isinstance(config, dict):
+            raise ValueError("configuration root must be a JSON object")
+        detector_config = config.get("object_detection")
+        if not isinstance(detector_config, dict):
+            raise ValueError("config must contain an object_detection object")
+
+        import cv2
+        from noorix.objects import create_object_detector
+
+        frame = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
+        if frame is None:
+            raise ValueError("image could not be decoded by OpenCV")
+
+        detector = create_object_detector(detector_config, config_path=config_path)
+        started = time.perf_counter()
+        first_results = detector.detect(frame)
+        cold_start_ms = (time.perf_counter() - started) * 1000.0
+
+        for _ in range(args.warmup):
+            detector.detect(frame)
+
+        samples = []
+        final_results = first_results
+        for _ in range(args.iterations):
+            started = time.perf_counter()
+            final_results = detector.detect(frame)
+            samples.append((time.perf_counter() - started) * 1000.0)
+
+        stats = summarize_latencies(samples)
+        generated = datetime.now().astimezone().isoformat(timespec="seconds")
+        output_dir = Path(args.output_dir).expanduser()
+        if not output_dir.is_absolute():
+            output_dir = root / output_dir
+        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+        report_dir = output_dir / stamp
+        suffix = 1
+        while report_dir.exists():
+            report_dir = output_dir / f"{stamp}-{suffix}"
+            suffix += 1
+        report_dir.mkdir(parents=True)
+
+        payload = {
+            "project": "NOORIX-AI",
+            "generated_at": generated,
+            "python": sys.version.split()[0],
+            "platform": platform.platform(),
+            "processor": platform.processor() or platform.uname().processor or "unknown",
+            "backend": str(detector_config.get("backend", "opencv_dnn")),
+            "model_filename": Path(str(detector_config.get("model_path", ""))).name,
+            "image_filename": image_path.name,
+            "image_dimensions": {"width": int(frame.shape[1]), "height": int(frame.shape[0])},
+            "cold_start_ms": cold_start_ms,
+            "warmup_runs": args.warmup,
+            "latency": stats,
+            "detections_last_run": len(final_results),
+            "limitations": [
+                "This is a repeatability aid, not a representative accuracy or safety evaluation.",
+                "Repeated runs use one image and do not measure camera capture, speech, OCR, or end-to-end agent latency.",
+                "Memory use and thermal throttling are not measured.",
+                "Compare results only when hardware, model, image, config, power mode, and software versions are recorded consistently.",
+            ],
+        }
+        json_path = report_dir / "benchmark-report.json"
+        md_path = report_dir / "benchmark-report.md"
+        json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        lines = [
+            "# NOORIX-AI CPU Object Detection Benchmark", "",
+            f"- Generated: {generated}",
+            f"- Platform: {payload['platform']}",
+            f"- Processor: {payload['processor']}",
+            f"- Python: {payload['python']}",
+            f"- Backend: {payload['backend']}",
+            f"- Model file: {payload['model_filename']}",
+            f"- Image file: {payload['image_filename']} ({frame.shape[1]}×{frame.shape[0]})",
+            f"- Cold first inference: {cold_start_ms:.2f} ms",
+            f"- Warm-up runs: {args.warmup}", "",
+            "| Metric | Result |", "|---|---:|",
+            f"| Measured iterations | {stats['iterations']} |",
+            f"| Mean latency | {stats['mean_ms']:.2f} ms |",
+            f"| Median latency | {stats['median_ms']:.2f} ms |",
+            f"| P95 latency | {stats['p95_ms']:.2f} ms |",
+            f"| Minimum latency | {stats['min_ms']:.2f} ms |",
+            f"| Maximum latency | {stats['max_ms']:.2f} ms |",
+            f"| Approx. throughput | {stats['throughput_fps']:.2f} FPS |",
+            f"| Detections (last run) | {len(final_results)} |", "",
+            "## Limitations", "",
+        ]
+        lines.extend(f"- {item}" for item in payload["limitations"])
+        lines.append("")
+        md_path.write_text("\n".join(lines), encoding="utf-8")
+        print(f"Cold first inference: {cold_start_ms:.2f} ms")
+        print(f"Mean: {stats['mean_ms']:.2f} ms | P95: {stats['p95_ms']:.2f} ms | FPS: {stats['throughput_fps']:.2f}")
+        print(f"JSON report: {json_path.relative_to(root) if json_path.is_relative_to(root) else json_path}")
+        print(f"Markdown report: {md_path.relative_to(root) if md_path.is_relative_to(root) else md_path}")
+        print("This single-image benchmark is not a production performance or safety certification.")
+        return 0
+    except (OSError, UnicodeError, json.JSONDecodeError, ValueError, RuntimeError, ImportError) as exc:
+        print(f"Benchmark failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
