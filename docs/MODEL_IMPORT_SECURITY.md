@@ -18,6 +18,7 @@ it does not activate, execute, or trust a model.
   size and member limit, and relies on ZIP CRC verification while reading.
 - Existing paths and case-insensitive path collisions are rejected, making
   imports more portable between Linux and Windows.
+- Archive-derived staging names are sanitized and bounded; manifests record the ZIP filename, not the developer's absolute local source path.
 - Failed imports remove the staging directory and preserve the original ZIP.
 
 ## Important limitations
