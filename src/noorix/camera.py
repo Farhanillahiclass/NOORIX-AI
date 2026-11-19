@@ -31,7 +31,7 @@ class WebcamCapture:
         return self._capture is not None
 
     @property
-    def capture_info(self) -> dict[str, int | bool]:
+    def capture_info(self) -> dict[str, int | bool | str]:
         """Return requested and actual capture properties where available."""
         info: dict[str, int | bool] = {
             "device_index": self.device_index,
