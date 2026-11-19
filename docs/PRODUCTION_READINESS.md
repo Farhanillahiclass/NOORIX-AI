@@ -30,7 +30,7 @@ Evidence recorded from the project branch and local test reports as of
 | Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist; strict canonical label order and ONNX input/output metadata checks have been added, but new regression tests await the combined local run | Partial |
 | Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
 | Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
-| Target-device performance | CPU-only hardware is known, but no repeatable latency/RAM benchmark report is recorded | Blocked |
+| Target-device performance | A local single-image detector latency benchmark tool now records cold start, warm-run percentiles, throughput, platform and runtime versions; no representative target-device latency/RAM acceptance report exists yet | Blocked |
 | Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
 | Diagnostic privacy | Agent exception summaries now omit raw exception messages to reduce accidental exposure of OCR text and local paths; review of all UI/console logs remains outstanding | Partial |
 | Model compatibility | YOLOv8 runtime now checks the one-input/one-output tensor contract and canonical COCO-80 label order before inference; regression coverage is pending the combined local run | Partial |
