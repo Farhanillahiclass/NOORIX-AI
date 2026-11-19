@@ -31,7 +31,7 @@ Evidence recorded from the project branch and local test reports as of
 | Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
 | Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
 | Target-device performance | CPU-only hardware is known, but no repeatable latency/RAM benchmark report is recorded | Blocked |
-| Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
+| Safety validation | Conservative warnings and explicit product limitations are documented | Partial |\n| Diagnostic privacy | Agent exception summaries now omit raw exception messages to reduce accidental exposure of OCR text and local paths; review of all UI/console logs remains outstanding | Partial |
 | Installation / packaging | Developer setup instructions exist; clean-machine install and offline package acceptance are not evidenced | Blocked |
 | Licensing | Project license not selected; model and dataset redistribution rights need review | Blocked |
 | Continuous integration | Historical PR #25 run passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs); hosted runs are now paused to conserve the exhausted Actions allowance | Partial |
