@@ -33,3 +33,26 @@ order, license and runtime behavior have been reviewed.
 The importer has not yet been validated against a comprehensive adversarial ZIP
 corpus. Its new regression tests must be run in the planned final local validation
 batch before the controls are treated as verified.
+
+
+## Integrity verification
+
+New imports store an `integrity` object in `import_manifest.json` with
+`algorithm: sha256` and a relative `files` inventory. Each extracted file is
+hashed after extraction. This detects later modification; it does not establish
+the model's publisher, provenance, safety or license.
+
+Verify an imported package from the repository root:
+
+~~~bash
+python scripts/verify_model_integrity.py --root models/imported/ARCHIVE_FOLDER --manifest models/imported/ARCHIVE_FOLDER/import_manifest.json
+~~~
+
+Replace `ARCHIVE_FOLDER` with the generated folder name. The offline verifier
+rejects unsafe paths, duplicate case-insensitive entries, missing files and
+checksum mismatches. The combined local validation command automatically checks
+imported packages containing this inventory. Older imports without checksums are
+reported as warnings; re-import them if integrity evidence is required.
+
+The importer and verifier regression tests must be run in the planned final local
+validation batch. A comprehensive adversarial ZIP corpus is still outstanding.
