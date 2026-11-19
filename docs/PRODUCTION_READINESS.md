@@ -28,7 +28,7 @@ Evidence recorded from the project branch and local test reports as of
 | English OCR runtime | Synthetic high-contrast sample passed through Tesseract, OCR Agent, coordinator and Safety Agent | Partial |
 | Urdu OCR runtime | Synthetic Urdu sample passed on one Windows machine with Tesseract `urd`, Pillow RAQM and Tahoma | Partial |
 | Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist | Partial |
-| Model import security | ZIP extraction limits, traversal/collision checks, safe staging names and privacy-minimized manifests added; regression tests await the combined local run | Partial |
+| Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
 | Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
 | Target-device performance | CPU-only hardware is known, but no repeatable latency/RAM benchmark report is recorded | Blocked |
 | Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
