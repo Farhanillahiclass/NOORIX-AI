@@ -105,6 +105,33 @@ def _config_check(root: Path) -> dict[str, str]:
     return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) parsed")
 
 
+def _model_integrity_check(root: Path) -> list[dict[str, str]]:
+    imported = root / "models" / "imported"
+    manifests = sorted(imported.rglob("import_manifest.json")) if imported.is_dir() else []
+    if not manifests:
+        return [_result("Imported model integrity", "WARN", "no imported model manifests found")]
+    results = []
+    verifier = root / "scripts" / "verify_model_integrity.py"
+    for manifest in manifests:
+        try:
+            document = json.loads(manifest.read_text(encoding="utf-8"))
+            integrity = document.get("integrity", {}) if isinstance(document, dict) else {}
+            if not isinstance(integrity, dict) or not integrity.get("files"):
+                results.append(_result("Imported model integrity", "WARN",
+                                       f"{manifest.parent.relative_to(root)} has no SHA-256 inventory"))
+                continue
+        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+            results.append(_result("Imported model integrity", "FAIL",
+                                   f"{manifest.parent.relative_to(root)} manifest unreadable: {exc}"))
+            continue
+        results.append(_run(
+            f"Model SHA-256: {manifest.parent.relative_to(root)}",
+            [sys.executable, str(verifier), "--root", str(manifest.parent), "--manifest", str(manifest)],
+            root,
+        ))
+    return results
+
+
 def _tesseract_check() -> dict[str, str]:
     exe = shutil.which("tesseract")
     if not exe:
@@ -165,7 +192,7 @@ def main() -> int:
     else:
         results.append(_run("Full pytest suite", [sys.executable, "-m", "pytest", "-q"], root))
     results.append(_run("Dependency consistency", [sys.executable, "-m", "pip", "check"], root))
-    results.extend([_config_check(root), _notebook_check(root), _tesseract_check()])
+    results.extend([_config_check(root), _notebook_check(root), *_model_integrity_check(root), _tesseract_check()])
     try:
         json_path, md_path = _write_reports(root, results)
     except OSError as exc:
