@@ -83,3 +83,13 @@ This benchmark does not measure memory, camera capture, OCR, speech, thermal
 throttling, recognition accuracy, or end-to-end user experience. A single image
 cannot establish real-world performance or accessibility safety. Do not use
 its FPS figure as a product claim.
+
+
+## Privacy-safe GUI diagnostics
+
+GUI error messages now show a short operation context and exception type only.
+Raw exception text is not copied into user-facing status, dialogs or error
+summaries, because library and driver messages can contain local paths or
+content. Detailed diagnostics are intentionally limited; use the local
+validation report and reproduce configuration problems without adding private
+images or OCR text to logs.
