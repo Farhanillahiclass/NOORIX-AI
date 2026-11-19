@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, json, shutil, zipfile
+import argparse, hashlib, json, re, shutil, zipfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 import stat
@@ -20,6 +20,15 @@ WINDOWS_RESERVED_NAMES = {
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 }
+
+def archive_slug(filename: str) -> str:
+    """Create a bounded, filesystem-safe destination name from an archive filename."""
+    stem = Path(filename).stem
+    safe_stem = re.sub(r"[^A-Za-z0-9._-]+", "_", stem).strip("._-")[:80]
+    safe_stem = safe_stem or "archive"
+    digest = hashlib.sha256(filename.encode("utf-8", errors="replace")).hexdigest()[:10]
+    return f"{safe_stem}-{digest}"
+
 
 def safe_extract_member(zf, info, target):
     """Extract one approved regular file without escaping or overwriting target."""
@@ -128,7 +137,7 @@ def main():
         print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
         return 0
     for archive in sorted(archives.values(),key=lambda p:p.stat().st_mtime):
-        slug=archive.stem.replace(" ","_")
+        slug=archive_slug(archive.name)
         staging=TEMP/slug; destination=DEST/slug
         if destination.exists():
             print(f"\nAlready imported (skipping): {archive.name}"); continue
