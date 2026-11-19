@@ -22,7 +22,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 2. Bytecode compilation for src/ and tests/.
 3. The complete pytest suite (python -m pytest -q).
 4. Installed Python dependency consistency (python -m pip check).
-5. JSON syntax of root config.example*.json files.
+5. JSON syntax and supported semantic constraints in root config.example*.json files.
 6. Basic nbformat-4 JSON structure for project Jupyter notebooks.
 7. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.\n8. Optional Tesseract executable and installed language inventory.
 
