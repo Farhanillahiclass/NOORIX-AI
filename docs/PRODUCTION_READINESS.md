@@ -33,7 +33,7 @@ Evidence recorded from the project branch and local test reports as of
 | Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
 | Installation / packaging | Developer setup instructions exist; clean-machine install and offline package acceptance are not evidenced | Blocked |
 | Licensing | Project license not selected; model and dataset redistribution rights need review | Blocked |
-| Continuous integration | Automated GitHub Actions matrix is introduced by this branch; successful hosted runs still need verification | In progress |
+| Continuous integration | GitHub Actions passed on Ubuntu with Python 3.11, 3.12 and 3.13; Windows Python 3.12 coverage has been added on a follow-up branch and is awaiting its run | Partial |
 
 This table must be updated only when evidence is available. A skipped test is
 not a passing runtime validation.
@@ -44,6 +44,8 @@ not a passing runtime validation.
 
 - [ ] CI passes on every supported Python version and operating system.
 - [ ] Supported OS/Python combinations are explicitly documented and tested.
+
+Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with Python 3.12. The Windows job is newly added and must pass before Windows compatibility is considered evidenced.
 - [ ] Clean installation succeeds from a fresh environment without relying on
   developer-machine state.
 - [ ] Full test suite passes; every skip is understood and intentional.
