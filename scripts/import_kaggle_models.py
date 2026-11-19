@@ -23,7 +23,7 @@ WINDOWS_RESERVED_NAMES = {
 
 def safe_extract_member(zf, info, target):
     """Extract one approved regular file without escaping or overwriting target."""
-    normalized = info.filename.replace("\\\\", "/")
+    normalized = info.filename.replace("\\", "/")
     raw = PurePosixPath(normalized)
     mode = (info.external_attr >> 16) & 0o170000
     windows_parts = normalized.split("/")
