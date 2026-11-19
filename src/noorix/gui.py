@@ -64,7 +64,7 @@ class NoorixApp:
             value = json.loads(path.read_text(encoding="utf-8"))
             return value if isinstance(value, dict) else {}
         except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(safe_error_summary(exc, "Could not read local configuration")) from exc
+            raise RuntimeError(safe_error_summary(exc, "Could not read local configuration")) from None
 
     def _setup_window(self):
         self.root.title("NOORIX AI — See Beyond. Understand More.")
