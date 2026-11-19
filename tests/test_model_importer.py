@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from import_kaggle_models import safe_extract_member
+from import_kaggle_models import archive_slug, safe_extract_member
 
 
 def make_archive(entries):
@@ -101,3 +101,12 @@ def test_safe_extract_rejects_encrypted_entries(tmp_path):
         info.flag_bits |= 0x1
         assert safe_extract_member(archive, info, target) is None
 
+
+
+def test_archive_slug_cannot_escape_staging_directory():
+    for filename in ("...zip", "..\\\\escape.zip", "folder/name.zip", "   .zip"):
+        slug = archive_slug(filename)
+        assert slug not in {".", "..", ""}
+        assert "/" not in slug
+        assert "\\\\" not in slug
+        assert len(slug) <= 91
