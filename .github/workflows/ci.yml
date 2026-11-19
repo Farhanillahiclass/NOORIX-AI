@@ -13,13 +13,21 @@ concurrency:
 
 jobs:
   test:
-    name: Python ${{ matrix.python-version }} / Ubuntu
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    name: Python ${{ matrix.python-version }} / ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
     strategy:
       fail-fast: false
       matrix:
-        python-version: ["3.11", "3.12", "3.13"]
+        include:
+          - python-version: "3.11"
+            os: ubuntu-latest
+          - python-version: "3.12"
+            os: ubuntu-latest
+          - python-version: "3.13"
+            os: ubuntu-latest
+          - python-version: "3.12"
+            os: windows-latest
 
     steps:
       - name: Check out source
