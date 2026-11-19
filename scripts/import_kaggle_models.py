@@ -165,7 +165,7 @@ def main():
                 shutil.rmtree(staging,ignore_errors=True); continue
             shutil.move(str(staging),str(destination))
             files=[str(p.relative_to(destination)).replace("\\","/") for p in destination.rglob("*") if p.is_file()]
-            manifest={"source_zip":archive.name,"source_path":str(archive),"project":"NOORIX-AI","imported_files":files,"note":"Artifacts imported only. Validate and implement a model-specific adapter before activation."}
+            manifest={"source_zip":archive.name,"project":"NOORIX-AI","imported_files":files,"note":"Artifacts imported only. Validate and implement a model-specific adapter before activation."}
             (destination/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
             print(f"\nIMPORTED: {archive.name}")
             for name in files: print("  +",name)
