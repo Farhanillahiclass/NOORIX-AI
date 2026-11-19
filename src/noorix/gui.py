@@ -31,6 +31,7 @@ class NoorixApp:
         self.cv2 = cv2
         self.WebcamCapture = WebcamCapture
         self.root = root
+        self._closing = False
         self.camera_index = camera_index
         self.camera = None
         self.current_frame = None
@@ -642,6 +643,16 @@ class NoorixApp:
         self._label(card, title, 9, C["text"], True).pack(anchor="w", pady=(4, 2))
         self._label(card, detail, 8, C["muted"]).pack(anchor="w")
 
+    def _post_to_ui(self, callback):
+        """Schedule a worker result only while the Tk window is alive."""
+        if self._closing:
+            return
+        try:
+            self.root.after(0, callback)
+        except tk.TclError:
+            # The window may have been destroyed while a worker was finishing.
+            pass
+
     def _set_status(self, title, detail, color):
         self.status_title.configure(text=title)
         self.status_detail.configure(text=detail)
@@ -654,7 +665,7 @@ class NoorixApp:
         self.result.configure(state="disabled")
 
     def start_camera(self):
-        if self.camera is not None:
+        if self._closing or self.camera is not None:
             return
         try:
             self.camera = self.WebcamCapture(self.camera_index)
@@ -677,7 +688,7 @@ class NoorixApp:
             messagebox.showerror("NOORIX AI — Camera error", safe_error_summary(exc, "Check camera connection and permissions"))
 
     def _update_frame(self):
-        if self.camera is None:
+        if self._closing or self.camera is None:
             return
         try:
             from PIL import Image, ImageTk
@@ -851,10 +862,7 @@ class NoorixApp:
                 SpeechOutput().speak(text)
             except Exception as exc:
                 error = safe_error_summary(exc, "Speech output unavailable")
-                try:
-                    self.root.after(0, lambda: self._set_status("SPEECH UNAVAILABLE", error, C["amber"]))
-                except tk.TclError:
-                    pass
+                self._post_to_ui(lambda: self._set_status("SPEECH UNAVAILABLE", error, C["amber"]))
         threading.Thread(target=worker, daemon=True).start()
         self._set_status("SPEECH REQUESTED", "Uses an installed local system voice.", C["cyan"])
 
@@ -884,7 +892,7 @@ class NoorixApp:
             self.auto_button.configure(text="Enable Auto Scan", bg=C["panel2"], fg=C["text"])
 
     def _auto_scan_tick(self):
-        if not self.auto_mode or self.camera is None:
+        if self._closing or not self.auto_mode or self.camera is None:
             return
         if self.auto_busy:
             self.auto_after_id = self.root.after(1000, self._auto_scan_tick)
@@ -904,15 +912,17 @@ class NoorixApp:
                     coordinator.run("object_detection", frame),
                     coordinator.run("currency", frame),
                 ]
-                self.root.after(0, lambda r=results: self._auto_scan_complete(r))
+                self._post_to_ui(lambda r=results: self._auto_scan_complete(r))
             except Exception as exc:
                 error = safe_error_summary(exc, "Automatic analysis failed")
-                self.root.after(0, lambda e=error: self._auto_scan_failed(e))
+                self._post_to_ui(lambda e=error: self._auto_scan_failed(e))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _auto_scan_complete(self, results):
         self.auto_busy = False
+        if self._closing:
+            return
         lines = ["AUTO SCAN RESULTS"]
         spoken_parts = ["NOORIX کیمرہ تجزیہ"]
         for result in results:
@@ -950,6 +960,8 @@ class NoorixApp:
 
     def _auto_scan_failed(self, error):
         self.auto_busy = False
+        if self._closing:
+            return
         self._set_result("Automatic analysis failed: " + error)
         self._set_status("AUTO SCAN ERROR", error, C["amber"])
         if self.auto_mode and self.camera is not None:
@@ -983,13 +995,11 @@ class NoorixApp:
                 SpeechOutput(voice_id=urdu_voice).speak(text)
             except Exception as exc:
                 error = safe_error_summary(exc, "Urdu voice unavailable")
-                try:
-                    self.root.after(0, lambda e=error: self._set_status("URDU VOICE UNAVAILABLE", e, C["amber"]))
-                except tk.TclError:
-                    pass
+                self._post_to_ui(lambda e=error: self._set_status("URDU VOICE UNAVAILABLE", e, C["amber"]))
         threading.Thread(target=worker, daemon=True).start()
 
     def close(self):
+        self._closing = True
         self.disable_auto_mode()
         self.stop_camera()
         self.root.destroy()
