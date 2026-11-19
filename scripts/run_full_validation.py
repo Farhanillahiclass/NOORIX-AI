@@ -260,7 +260,7 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     results = [_result("Python version", "PASS" if sys.version_info >= (3, 11) else "FAIL",
                        f"{sys.version.split()[0]} (Python 3.11+ required)")]
-    targets = [name for name in ("src", "tests") if (root / name).exists()]
+    targets = [name for name in ("src", "tests", "scripts") if (root / name).exists()]
     if targets:
         results.append(_run("Compile source and tests", [sys.executable, "-m", "compileall", "-q", *targets], root))
     else:
