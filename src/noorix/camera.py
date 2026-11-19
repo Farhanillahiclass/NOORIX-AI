@@ -56,6 +56,7 @@ class WebcamCapture:
     def start(self) -> None:
         if self._capture is not None:
             return
+        self._release_error = None
         factory = self._capture_factory
         if factory is None:
             try:
@@ -84,8 +85,6 @@ class WebcamCapture:
             if capture is not None:
                 self._release_capture(capture)
             raise RuntimeError(f"Could not open webcam device {self.device_index}")
-        self._release_error = None
-
         try:
             if self._cv2 is not None:
                 capture.set(self._cv2.CAP_PROP_FRAME_WIDTH, self.requested_width)
