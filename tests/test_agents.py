@@ -41,7 +41,7 @@ def test_coordinator_converts_exceptions_to_structured_errors():
         name = "broken"
         def run(self, payload=None): raise RuntimeError("expected test error")
     result = AgentCoordinator([Broken()]).run("broken")
-    assert result.state == AgentState.ERROR and "expected test error" in result.summary
+    assert result.state == AgentState.ERROR\n    assert "RuntimeError" in result.summary\n    assert "expected test error" not in result.summary
 
 def test_coordinator_rejects_duplicate_names():
     class Dummy:
@@ -100,3 +100,17 @@ def test_object_agent_uses_shared_detector_factory(tmp_path, monkeypatch):
     assert result.successful
     assert captured["config"] == config
     assert captured["config_path"] == config_path
+
+
+def test_coordinator_does_not_expose_sensitive_exception_text():
+    secret = "private OCR text and C:/Users/example/private-image.png"
+
+    class Broken:
+        name = "broken"
+        def run(self, payload=None):
+            raise RuntimeError(secret)
+
+    result = AgentCoordinator([Broken()]).run("broken")
+    assert result.state == AgentState.ERROR
+    assert secret not in result.summary
+    assert all(secret not in warning for warning in result.warnings)
