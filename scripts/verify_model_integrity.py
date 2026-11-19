@@ -6,12 +6,11 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
-import sys
 from typing import Any
 
 
 def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
-    """Verify every manifest entry; never follow symlinks or escape the model root."""
+    """Verify every manifest entry without following symlinks or escaping root."""
     root = root.resolve()
     manifest_path = manifest_path.resolve()
     try:
@@ -19,9 +18,12 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
     except (OSError, UnicodeError, json.JSONDecodeError) as exc:
         return [{"path": str(manifest_path), "status": "ERROR", "detail": f"manifest unreadable: {exc}"}]
 
-    if not isinstance(document, dict) or document.get("algorithm") != "sha256":
+    if not isinstance(document, dict):
+        return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest root must be an object"}]
+    integrity = document.get("integrity", document)
+    if not isinstance(integrity, dict) or integrity.get("algorithm") != "sha256":
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest algorithm must be sha256"}]
-    entries = document.get("files")
+    entries = integrity.get("files")
     if not isinstance(entries, list) or not entries:
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest files must be a non-empty list"}]
 
@@ -36,7 +38,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
         if not isinstance(relative, str) or not relative or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
             results.append({"path": str(relative), "status": "ERROR", "detail": "path and 64-character SHA-256 are required"})
             continue
-        normalized = relative.replace("\\\\", "/")
+        normalized = relative.replace("\\", "/")
         pure = PurePosixPath(normalized)
         key = pure.as_posix().casefold()
         if pure.is_absolute() or ".." in pure.parts or ":" in normalized or key in seen:
@@ -66,7 +68,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify SHA-256 checksums for model files.")
     parser.add_argument("--root", type=Path, required=True, help="Trusted root directory containing model artifacts.")
-    parser.add_argument("--manifest", type=Path, required=True, help="JSON manifest with algorithm=sha256 and files[].")
+    parser.add_argument("--manifest", type=Path, required=True, help="JSON manifest containing SHA-256 entries.")
     args = parser.parse_args()
     results = verify_manifest(args.root, args.manifest)
     for item in results:
