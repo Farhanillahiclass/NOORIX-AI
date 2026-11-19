@@ -78,3 +78,8 @@ def test_config_rejects_unsupported_ocr_language():
 def test_config_rejects_invalid_currency_labels():
     error = validate_example_config({"currency": {"labels": "one,two"}})
     assert error == "currency.labels must be a list of strings"
+
+
+def test_config_rejects_non_string_ocr_language_without_crashing():
+    error = validate_example_config({"ocr": {"language": ["eng"]}})
+    assert error == "ocr.language must be eng, urd, or eng+urd"
