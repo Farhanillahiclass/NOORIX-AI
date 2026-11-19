@@ -90,3 +90,78 @@ def test_postprocess_ignores_non_finite_and_low_confidence_candidates():
     output[0, :4, 1] = [320, 320, 100, 100]
     output[0, 4, 1] = 0.1
     assert detector._postprocess(output, (640, 640), 1.0, 0, 0) == []
+
+
+
+def test_detector_rejects_wrong_coco_label_order():
+    labels = list(LABELS)
+    labels[0], labels[1] = labels[1], labels[0]
+    with pytest.raises(ValueError, match="canonical COCO-80"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+
+
+def test_detector_rejects_duplicate_and_blank_labels():
+    labels = list(YOLOv8ONNXDetector.COCO_LABELS)
+    labels[1] = labels[0]
+    with pytest.raises(ValueError, match="unique"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+    labels = list(YOLOv8ONNXDetector.COCO_LABELS)
+    labels[0] = " "
+    with pytest.raises(ValueError, match="non-empty"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+
+
+def test_load_validates_output_metadata_before_inference(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            assert providers == ["CPUExecutionProvider"]
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 8400])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    detector.load()
+    assert detector._input_name == "images"
+
+
+def test_load_rejects_incompatible_output_metadata(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 100, 6])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    with pytest.raises(ValueError, match="84-value feature axis"):
+        detector.load()
