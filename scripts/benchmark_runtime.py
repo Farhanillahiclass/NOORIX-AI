@@ -9,6 +9,7 @@ import argparse
 from datetime import datetime
 import importlib.metadata
 import json
+import math
 from pathlib import Path
 import platform
 import statistics
@@ -23,7 +24,10 @@ def percentile(values: Sequence[float], quantile: float) -> float:
         raise ValueError("values must not be empty")
     if not 0.0 <= quantile <= 1.0:
         raise ValueError("quantile must be between 0 and 1")
-    ordered = sorted(float(value) for value in values)
+    ordered = [float(value) for value in values]
+    if not all(math.isfinite(value) for value in ordered):
+        raise ValueError("values must all be finite numbers")
+    ordered.sort()
     position = (len(ordered) - 1) * quantile
     lower = int(position)
     upper = min(lower + 1, len(ordered) - 1)
@@ -31,18 +35,21 @@ def percentile(values: Sequence[float], quantile: float) -> float:
     return ordered[lower] + (ordered[upper] - ordered[lower]) * fraction
 
 
-def summarize_latencies(samples_ms: Sequence[float]) -> dict[str, float]:
+def summarize_latencies(samples_ms: Sequence[float]) -> dict[str, float | int]:
     if not samples_ms:
         raise ValueError("at least one latency sample is required")
     values = [float(value) for value in samples_ms]
+    if not all(math.isfinite(value) and value > 0 for value in values):
+        raise ValueError("latency samples must be finite positive numbers")
+    mean = statistics.fmean(values)
     return {
         "iterations": len(values),
-        "mean_ms": statistics.fmean(values),
+        "mean_ms": mean,
         "median_ms": statistics.median(values),
         "p95_ms": percentile(values, 0.95),
         "min_ms": min(values),
         "max_ms": max(values),
-        "throughput_fps": 1000.0 / statistics.fmean(values),
+        "throughput_fps": 1000.0 / mean,
     }
 
 
@@ -190,7 +197,7 @@ def main(argv: list[str] | None = None) -> int:
         print("This single-image benchmark is not a production performance or safety certification.")
         return 0
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, RuntimeError, ImportError) as exc:
-        print(f"Benchmark failed: {type(exc).__name__}: {exc}", file=sys.stderr)
+        print(f"Benchmark failed ({type(exc).__name__}). Check local config, model and image files.", file=sys.stderr)
         return 2
 
 
