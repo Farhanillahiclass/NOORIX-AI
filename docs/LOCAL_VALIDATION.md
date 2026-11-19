@@ -24,7 +24,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 4. Installed Python dependency consistency (python -m pip check).
 5. JSON syntax of root config.example*.json files.
 6. Basic nbformat-4 JSON structure for project Jupyter notebooks.
-7. Optional Tesseract executable and installed language inventory.
+7. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.\n8. Optional Tesseract executable and installed language inventory.
 
 Tesseract is informational: if it is missing, OCR runtime tests may skip according
 to their own test conditions. A warning is not counted as a passing test.
