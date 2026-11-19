@@ -29,3 +29,22 @@ def test_latency_summary_rejects_empty_samples():
 
     with pytest.raises(ValueError, match="at least one"):
         summarize_latencies([])
+
+
+
+def test_percentile_rejects_non_finite_values():
+    import math
+    import pytest
+
+    with pytest.raises(ValueError, match="finite"):
+        percentile([1.0, math.inf], 0.5)
+
+
+def test_latency_summary_rejects_non_positive_or_non_finite_samples():
+    import math
+    import pytest
+
+    with pytest.raises(ValueError, match="finite positive"):
+        summarize_latencies([0.0, 1.0])
+    with pytest.raises(ValueError, match="finite positive"):
+        summarize_latencies([math.nan])
