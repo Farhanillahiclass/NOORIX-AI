@@ -146,8 +146,8 @@ def main():
                     raise zipfile.BadZipFile(
                         f"Archive expands to {total_size} bytes; limit is {MAX_ARCHIVE_BYTES}"
                     )
-                bad=zf.testzip()
-                if bad: raise zipfile.BadZipFile(f"Corrupt member: {bad}")
+                # CRC is verified while each accepted member is streamed to disk.
+                # Avoid eagerly decompressing ignored ZIP entries via testzip().
                 for info in members:
                     p=safe_extract_member(zf,info,staging)
                     if p: kept.append(p)
