@@ -83,3 +83,27 @@ def test_config_rejects_invalid_currency_labels():
 def test_config_rejects_non_string_ocr_language_without_crashing():
     error = validate_example_config({"ocr": {"language": ["eng"]}})
     assert error == "ocr.language must be eng, urd, or eng+urd"
+
+
+from scripts.run_full_validation import validate_label_map
+
+
+def test_valid_coco_label_map_is_accepted():
+    labels = [f"label-{index}" for index in range(80)]
+    assert validate_label_map(labels) is None
+
+
+def test_label_map_requires_exactly_80_entries():
+    assert "exactly 80" in validate_label_map(["person"])
+
+
+def test_label_map_rejects_blank_and_duplicate_entries():
+    labels = [f"label-{index}" for index in range(80)]
+    labels[1] = ""
+    assert validate_label_map(labels) == "label map entries must be non-empty strings"
+    labels[1] = labels[0]
+    assert validate_label_map(labels) == "label map entries must be unique"
+
+
+def test_label_map_requires_json_list():
+    assert validate_label_map({"0": "person"}) == "label map root must be a JSON list"
