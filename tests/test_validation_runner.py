@@ -1,4 +1,4 @@
-from scripts.run_full_validation import validate_notebook_document
+from scripts.run_full_validation import validate_example_config, validate_notebook_document
 
 
 def test_valid_empty_notebook_is_accepted():
@@ -34,3 +34,47 @@ def test_code_cell_requires_list_outputs():
         "cells": [{"cell_type": "code", "source": "print('hi')", "outputs": {}}],
     }
     assert validate_notebook_document(document) == "code cell 0 outputs must be a list"
+
+
+def test_valid_example_config_is_accepted():
+    assert validate_example_config({
+        "object_detection": {
+            "backend": "yolov8_onnx",
+            "model_path": "models/model.onnx",
+            "confidence_threshold": 0.25,
+            "iou_threshold": 0.45,
+            "input_size": 640,
+            "max_detections": 100,
+        },
+        "ocr": {"language": "eng+urd"},
+        "currency": {"labels": ["note"], "input_size": 224},
+    }) is None
+
+
+def test_config_rejects_non_object_root():
+    assert validate_example_config([]) == "configuration root must be an object"
+
+
+def test_config_rejects_out_of_range_confidence():
+    error = validate_example_config({"object_detection": {"confidence_threshold": 1.5}})
+    assert error == "object_detection.confidence_threshold must be a number between 0 and 1"
+
+
+def test_config_rejects_boolean_as_numeric_threshold():
+    error = validate_example_config({"object_detection": {"iou_threshold": True}})
+    assert error == "object_detection.iou_threshold must be a number between 0 and 1"
+
+
+def test_config_rejects_non_positive_input_size():
+    error = validate_example_config({"object_detection": {"input_size": 0}})
+    assert error == "object_detection.input_size must be a positive integer"
+
+
+def test_config_rejects_unsupported_ocr_language():
+    error = validate_example_config({"ocr": {"language": "auto"}})
+    assert error == "ocr.language must be eng, urd, or eng+urd"
+
+
+def test_config_rejects_invalid_currency_labels():
+    error = validate_example_config({"currency": {"labels": "one,two"}})
+    assert error == "currency.labels must be a list of strings"
