@@ -164,8 +164,25 @@ def main():
                 print(f"\nNo recognized model/config files in {archive.name}; source ZIP kept.")
                 shutil.rmtree(staging,ignore_errors=True); continue
             shutil.move(str(staging),str(destination))
-            files=[str(p.relative_to(destination)).replace("\\","/") for p in destination.rglob("*") if p.is_file()]
-            manifest={"source_zip":archive.name,"project":"NOORIX-AI","imported_files":files,"note":"Artifacts imported only. Validate and implement a model-specific adapter before activation."}
+            files=[p for p in destination.rglob("*") if p.is_file()]
+            imported_files=[str(p.relative_to(destination)).replace("\\","/") for p in files]
+            checksums=[]
+            for path in files:
+                digest=hashlib.sha256()
+                with path.open("rb") as stream:
+                    for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                        digest.update(chunk)
+                checksums.append({
+                    "path": str(path.relative_to(destination)).replace("\\","/"),
+                    "sha256": digest.hexdigest(),
+                })
+            manifest={
+                "source_zip":archive.name,
+                "project":"NOORIX-AI",
+                "imported_files":imported_files,
+                "integrity":{"algorithm":"sha256","files":checksums},
+                "note":"Artifacts imported only. Validate provenance, integrity and a model-specific adapter before activation.",
+            }
             (destination/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
             print(f"\nIMPORTED: {archive.name}")
             for name in files: print("  +",name)
