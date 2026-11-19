@@ -56,3 +56,26 @@ or navigation. Currency output is not banknote authentication. OCR can misread
 or omit text, especially on blurred, small, stylized or low-contrast content.
 NOORIX must never be presented as a replacement for a white cane, guide dog or
 trained mobility support.
+
+## Urdu OCR runtime smoke test
+
+NOORIX supports Urdu OCR through the `PrintedEnglishOCR` adapter when
+Tesseract's Urdu (`urd`) language data is installed.
+
+Run the optional end-to-end Urdu OCR runtime test with:
+
+`python -m pytest tests/test_urdu_ocr_runtime_smoke.py -q`
+
+The test generates a synthetic Urdu image and checks recognition through
+`OCRAgent`, `AgentCoordinator.run_vision()`, and `SafetyAgent`.
+
+Requirements:
+- Tesseract executable available on PATH.
+- Tesseract Urdu (`urd`) language data installed.
+- Pillow with RAQM support.
+- A suitable Urdu-capable Tahoma font at
+  `C:\Windows\Fonts\tahoma.ttf`.
+
+The test skips when required local OCR or image-rendering dependencies are
+unavailable. A passing result validates the generated sample on that machine;
+it is not a general Urdu OCR accuracy benchmark.
