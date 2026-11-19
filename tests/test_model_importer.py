@@ -63,3 +63,41 @@ def test_safe_extract_does_not_overwrite_duplicate_archive_entries(tmp_path):
     assert first is not None
     assert second is None
     assert first.read_bytes() == b"first"
+
+def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    for name in ("CON.onnx", "nul.txt", "weights/model.onnx."):
+        with make_archive([(name, b"bad", None)]) as archive:
+            assert safe_extract_member(archive, archive.infolist()[0], target) is None
+
+
+def test_safe_extract_rejects_case_insensitive_duplicate_names(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([("Weights/Model.onnx", b"first", None)]) as archive:
+        first = safe_extract_member(archive, archive.infolist()[0], target)
+    with make_archive([("weights/model.ONNX", b"second", None)]) as archive:
+        second = safe_extract_member(archive, archive.infolist()[0], target)
+    assert first is not None
+    assert second is None
+    assert first.read_bytes() == b"first"
+
+
+def test_safe_extract_normalizes_single_windows_backslashes(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([(r"folder\\model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result == target / "folder" / "model.onnx"
+    assert result.read_bytes() == b"model"
+
+
+def test_safe_extract_rejects_encrypted_entries(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        info = archive.infolist()[0]
+        info.flag_bits |= 0x1
+        assert safe_extract_member(archive, info, target) is None
+
