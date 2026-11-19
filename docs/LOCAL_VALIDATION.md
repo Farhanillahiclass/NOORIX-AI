@@ -62,3 +62,24 @@ python -m pip install -e ".[all,dev]"
 
 This installs Python dependencies from the repository. Tesseract itself and
 trained language data are separate system installations.
+
+
+## Optional CPU object-detection benchmark
+
+After configuring a compatible model, run a repeatable single-image timing
+sample:
+
+```bash
+python scripts/benchmark_runtime.py --config config.json --image tests/assets/coco_sample.jpg --iterations 30 --warmup 5
+```
+
+The script records cold first-inference time, warm-run mean/median/P95/min/max,
+approximate throughput, runtime/platform metadata, and the number of detections
+from the final run. It writes JSON and Markdown reports under
+`reports/benchmarks/`. Use the same image, model, configuration, power mode,
+and hardware when comparing runs.
+
+This benchmark does not measure memory, camera capture, OCR, speech, thermal
+throttling, recognition accuracy, or end-to-end user experience. A single image
+cannot establish real-world performance or accessibility safety. Do not use
+its FPS figure as a product claim.
