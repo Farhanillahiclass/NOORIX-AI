@@ -13,7 +13,7 @@ contact package indexes or install, update, or remove packages.
 
 The report lists base dependencies and every optional extra, the declared
 specifier, whether a matching distribution is installed in the current Python
-environment, and whether the declared range has an upper bound. Optional
+environment, whether the installed version satisfies its declared specifier (when `packaging` is installed), and whether the declared range has an upper bound. Optional
 dependencies that are not selected for the current environment may correctly
 be absent.
 
@@ -24,14 +24,15 @@ requirement has no upper version bound:
 python scripts/dependency_audit.py --strict-upper-bounds
 ~~~
 
+The full validation environment installs `packaging` through the `dev` extra so version compatibility can be evaluated. In a minimal environment without `packaging`, compatibility is reported as unknown rather than guessed.
+
 This is a review gate, not an automatic mandate to pin versions. Upper bounds
 can prevent compatible security and bug-fix updates; maintainers should select
 a tested compatibility window and update it through a reviewed release process.
 
 ## Important limitations
 
-- Installed-version presence does not prove that the installed version
-  satisfies the declared specifier.
+- Version compatibility is evaluated locally when `packaging` is installed; an unknown result is not a pass.
 - This is not a vulnerability, malware, license, provenance, or transitive
   dependency scan.
 - No lockfile or reproducible dependency resolution is generated.
