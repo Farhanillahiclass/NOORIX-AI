@@ -260,8 +260,17 @@ def main():
             for name in imported_files: print("  +",name)
             print("  + import_manifest.json")
             print("  Destination:",destination)
-            if args.delete_zips: archive.unlink(); print("  Source ZIP deleted.")
-            else: print("  Source ZIP preserved.")
+            if args.delete_zips:
+                try:
+                    archive.unlink()
+                    print("  Source ZIP deleted.")
+                except OSError as cleanup_error:
+                    print(
+                        "  IMPORT SUCCEEDED; source ZIP could not be deleted "
+                        f"({type(cleanup_error).__name__})."
+                    )
+            else:
+                print("  Source ZIP preserved.")
         except Exception as exc:
             if staging.is_dir() and not staging.is_symlink():
                 shutil.rmtree(staging,ignore_errors=True)
