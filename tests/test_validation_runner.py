@@ -157,3 +157,22 @@ def test_validation_report_redacts_project_and_home_paths(tmp_path):
     assert str(home) not in redacted
     assert "<PROJECT>" in redacted
     assert "<HOME>" in redacted
+
+
+
+def test_validation_refuses_symlinked_input_components_when_supported(tmp_path):
+    import pytest
+    from scripts.run_full_validation import _has_symlink_component
+
+    root = tmp_path / "project"
+    real = root / "real"
+    real.mkdir(parents=True)
+    (real / "manifest.json").write_text("{}", encoding="utf-8")
+    alias = root / "alias"
+    try:
+        alias.symlink_to(real, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    assert _has_symlink_component(alias / "manifest.json", root)
+    assert not _has_symlink_component(real / "manifest.json", root)
