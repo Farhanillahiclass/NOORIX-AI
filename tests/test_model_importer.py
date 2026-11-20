@@ -201,3 +201,12 @@ def test_safe_extract_reuses_path_index_for_case_collision_checks(tmp_path):
     assert first is not None
     assert second is None
     assert first.read_bytes() == b"first"
+
+
+def test_safe_extract_rejects_ambiguous_existing_casefold_directories(tmp_path):
+    target = tmp_path / "stage"
+    (target / "Weights").mkdir(parents=True)
+    (target / "weights").mkdir()
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result is None
