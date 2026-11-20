@@ -248,3 +248,19 @@ def test_safe_extract_rejects_symlinked_parent_of_target(tmp_path):
     assert result is None
     assert not (real_parent / "stage" / "weights").exists()
 
+def test_staging_setup_refuses_symlinked_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    staging = linked_parent / "staging"
+    destination = linked_parent / "destination"
+    assert not prepare_staging_directory(staging, destination)
+    assert not (real_parent / "staging").exists()
+
