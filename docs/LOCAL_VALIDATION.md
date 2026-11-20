@@ -25,7 +25,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 5. JSON syntax and supported semantic constraints in root config.example*.json files.
 6. Basic nbformat-4 JSON structure for project Jupyter notebooks.
 7. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
-8. Optional Tesseract executable and installed language inventory.
+8. Optional Tesseract executable and installed language inventory.\n9. Offline wheelhouse dependency resolution is available as a separate, opt-in check.
 
 Tesseract is informational: if it is missing, OCR runtime tests may skip according
 to their own test conditions. A warning is not counted as a passing test.
@@ -93,3 +93,40 @@ summaries, because library and driver messages can contain local paths or
 content. Detailed diagnostics are intentionally limited; use the local
 validation report and reproduce configuration problems without adding private
 images or OCR text to logs.
+
+
+## Offline installation bundle
+
+Build a wheelhouse on an internet-connected machine using the **same operating
+system, CPU architecture and Python version** as the offline target:
+
+~~~bash
+python -m pip install --upgrade pip
+python -m pip wheel --wheel-dir wheelhouse ".[all,dev]"
+~~~
+
+Copy the repository and the complete `wheelhouse/` directory to the offline
+machine. From the repository root, verify dependency resolution without
+network access or installing anything:
+
+~~~bash
+python scripts/verify_offline_bundle.py --wheelhouse wheelhouse --extras all,dev
+~~~
+
+The checker requires the NOORIX project wheel and asks pip to resolve the
+selected extras using `--no-index` and `--dry-run`. A successful check means
+the local wheel files satisfy the current Python environment's dependency
+resolver; it does not prove runtime functionality.
+
+After reviewing a successful report, install from the local wheelhouse:
+
+~~~bash
+python -m pip install --no-index --find-links wheelhouse "noorix-ai[all,dev]"
+~~~
+
+Do not reuse a wheelhouse across different Python versions, operating systems
+or CPU architectures without rebuilding and rechecking it. Native packages
+such as OpenCV and ONNX Runtime are platform-specific. Tesseract executable
+and language-data files are separate system assets and are not provided by
+Python wheels. Model weights must be provisioned separately and their
+licenses/integrity verified.
