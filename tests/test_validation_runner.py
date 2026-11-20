@@ -120,3 +120,25 @@ def test_supported_python_range_matches_ci_matrix():
     assert python_version_supported((3, 13, 0))
     assert not python_version_supported((3, 10, 99))
     assert not python_version_supported((3, 14, 0))
+
+
+def test_notebook_rejects_boolean_or_negative_minor_version():
+    base = {"nbformat": 4, "nbformat_minor": 5, "metadata": {}, "cells": []}
+    for invalid in (True, -1):
+        document = {**base, "nbformat_minor": invalid}
+        assert validate_notebook_document(document) == "nbformat_minor must be a non-negative integer"
+
+
+def test_notebook_rejects_boolean_or_negative_execution_count():
+    for invalid in (True, -1):
+        document = {
+            "nbformat": 4,
+            "nbformat_minor": 5,
+            "cells": [{
+                "cell_type": "code",
+                "source": "print('hi')",
+                "outputs": [],
+                "execution_count": invalid,
+            }],
+        }
+        assert validate_notebook_document(document) == "code cell 0 execution_count must be a non-negative integer or null"
