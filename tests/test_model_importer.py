@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from import_kaggle_models import archive_slug, prepare_staging_directory, safe_extract_member
+from import_kaggle_models import archive_slug, prepare_staging_directory, publish_staging_directory, safe_extract_member
 
 
 def make_archive(entries):
@@ -263,4 +263,34 @@ def test_staging_setup_refuses_symlinked_parent(tmp_path):
     destination = linked_parent / "destination"
     assert not prepare_staging_directory(staging, destination)
     assert not (real_parent / "staging").exists()
+
+def test_publish_staging_refuses_existing_destination_without_nesting(tmp_path):
+    import pytest
+
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    (staging / "import_manifest.json").write_text("{}", encoding="utf-8")
+    destination.mkdir()
+    marker = destination / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        publish_staging_directory(staging, destination)
+
+    assert marker.read_text(encoding="utf-8") == "preserve"
+    assert (staging / "import_manifest.json").is_file()
+    assert not (destination / "staging").exists()
+
+
+def test_publish_staging_renames_completed_tree(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    (staging / "import_manifest.json").write_text("{}", encoding="utf-8")
+
+    publish_staging_directory(staging, destination)
+
+    assert not staging.exists()
+    assert (destination / "import_manifest.json").is_file()
 
