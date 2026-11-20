@@ -27,8 +27,9 @@ def validate_notebook_document(document: Any) -> str | None:
         return "top-level JSON value must be an object"
     if document.get("nbformat") != 4:
         return "nbformat must be 4"
-    if not isinstance(document.get("nbformat_minor"), int):
-        return "nbformat_minor must be an integer"
+    minor = document.get("nbformat_minor")
+    if isinstance(minor, bool) or not isinstance(minor, int) or minor < 0:
+        return "nbformat_minor must be a non-negative integer"
     cells = document.get("cells")
     if not isinstance(cells, list):
         return "cells must be a list"
@@ -46,8 +47,8 @@ def validate_notebook_document(document: Any) -> str | None:
             if not isinstance(cell.get("outputs", []), list):
                 return f"code cell {index} outputs must be a list"
             count = cell.get("execution_count")
-            if count is not None and not isinstance(count, int):
-                return f"code cell {index} execution_count must be an integer or null"
+            if count is not None and (isinstance(count, bool) or not isinstance(count, int) or count < 0):
+                return f"code cell {index} execution_count must be a non-negative integer or null"
     return None
 
 
