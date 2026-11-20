@@ -4,6 +4,7 @@ import pytest
 
 from scripts.verify_offline_bundle import (
     normalize_distribution,
+    pip_supports_dry_run,
     selected_requirement,
     validate_wheelhouse,
 )
@@ -38,3 +39,9 @@ def test_wheelhouse_requires_directory_and_project_wheel(tmp_path: Path):
 
     (wheelhouse / "noorix_ai-0.2.0-py3-none-any.whl").write_bytes(b"")
     assert validate_wheelhouse(wheelhouse, "noorix-ai") is None
+
+
+
+def test_pip_dry_run_capability_detection():
+    assert pip_supports_dry_run("Usage: pip install [options] --dry-run")
+    assert not pip_supports_dry_run("Usage: pip install [options]")
