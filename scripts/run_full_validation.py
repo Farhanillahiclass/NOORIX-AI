@@ -283,7 +283,11 @@ def main() -> int:
     else:
         results.append(_run("Full pytest suite", [sys.executable, "-m", "pytest", "-q"], root))
     results.append(_run("Dependency consistency", [sys.executable, "-m", "pip", "check"], root))
-    results.append(_run(\n        "Declared dependency audit",\n        [sys.executable, str(root / "scripts" / "dependency_audit.py")],\n        root,\n    ))
+    results.append(_run(
+        "Declared dependency audit",
+        [sys.executable, str(root / "scripts" / "dependency_audit.py")],
+        root,
+    ))
     results.append(_run(
         "Installed package capability check",
         [sys.executable, "-m", "noorix", "--check"],
