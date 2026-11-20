@@ -77,6 +77,20 @@ def _redact_local_paths(text: str, root: Path) -> str:
     return text
 
 
+def _has_symlink_component(path: Path, root: Path) -> bool:
+    """Return true for symlinks in a project-relative path; fail closed."""
+    try:
+        relative = path.absolute().relative_to(root.absolute())
+        current = root
+        for part in relative.parts:
+            current = current / part
+            if current.is_symlink():
+                return True
+        return False
+    except (OSError, RuntimeError, ValueError):
+        return True
+
+
 def _run(name: str, command: list[str], root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
@@ -99,7 +113,7 @@ def _notebook_check(root: Path) -> dict[str, str]:
     paths = []
     for path in root.rglob("*.ipynb"):
         relative = path.relative_to(root)
-        if path.is_file() and not any(part in excluded for part in relative.parts) and not any(part.startswith(".") and part != ".github" for part in relative.parts):
+        if path.is_file() and not _has_symlink_component(path, root) and not any(part in excluded for part in relative.parts) and not any(part.startswith(".") and part != ".github" for part in relative.parts):
             paths.append(path)
     if not paths:
         return _result("Notebook JSON", "WARN", "no notebooks found")
@@ -212,12 +226,18 @@ def _config_check(root: Path) -> dict[str, str]:
 
 def _model_integrity_check(root: Path) -> list[dict[str, str]]:
     imported = root / "models" / "imported"
+    if imported.is_symlink():
+        return [_result("Imported model integrity", "FAIL", "models/imported is a symlink; refusing to inspect external content")]
     manifests = sorted(imported.rglob("import_manifest.json")) if imported.is_dir() else []
     if not manifests:
         return [_result("Imported model integrity", "WARN", "no imported model manifests found")]
     results = []
     verifier = root / "scripts" / "verify_model_integrity.py"
     for manifest in manifests:
+        if _has_symlink_component(manifest, root):
+            results.append(_result("Imported model integrity", "FAIL",
+                                   f"{manifest.parent.relative_to(root)} contains a symlinked path component"))
+            continue
         try:
             document = json.loads(manifest.read_text(encoding="utf-8"))
             integrity = document.get("integrity", {}) if isinstance(document, dict) else {}
