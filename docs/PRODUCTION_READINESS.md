@@ -47,7 +47,8 @@ not a passing runtime validation.
 ### 1. Build, compatibility and CI
 
 - [ ] CI passes on every supported Python version and operating system.
-- [x] Python support is constrained to 3.11–3.13 in package metadata and the local validation runner, matching the existing CI matrix.\n- [ ] Supported OS/Python combinations are explicitly documented and tested.
+- [x] Python support is constrained to 3.11–3.13 in package metadata and the local validation runner, matching the existing CI matrix.
+- [ ] Supported OS/Python combinations are explicitly documented and tested.
 
 Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs). Hosted workflows have since been paused to avoid additional Actions usage. The new local validation runner on the current feature branch has not yet been executed; its full result must be recorded after the planned combined Windows validation.
 - [ ] Clean installation succeeds from a fresh environment without relying on
