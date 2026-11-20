@@ -21,6 +21,11 @@ def selected_requirement(package: str, extras: list[str]) -> str:
     return f"{package}[{','.join(extras)}]" if extras else package
 
 
+def pip_supports_dry_run(help_text: str) -> bool:
+    """Return whether this pip exposes the non-installing dry-run option."""
+    return "--dry-run" in help_text
+
+
 def validate_wheelhouse(wheelhouse: Path, package: str) -> str | None:
     if not wheelhouse.exists() or not wheelhouse.is_dir():
         return "wheelhouse directory does not exist"
@@ -79,6 +84,20 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(problem)
     except (OSError, tomllib.TOMLDecodeError, ValueError) as exc:
         print(f"Offline bundle check failed ({type(exc).__name__}): {exc}", file=sys.stderr)
+        return 2
+
+    try:
+        help_result = subprocess.run(
+            [sys.executable, "-m", "pip", "install", "--help"],
+            cwd=root, text=True, encoding="utf-8", errors="replace",
+            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, check=False, timeout=30,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        print(f"Could not inspect pip capabilities ({type(exc).__name__}).", file=sys.stderr)
+        return 2
+    if help_result.returncode or not pip_supports_dry_run(help_result.stdout or ""):
+        print("This pip version does not expose install --dry-run.", file=sys.stderr)
+        print("Upgrade pip on a connected machine, rebuild or retain the wheelhouse, then retry.", file=sys.stderr)
         return 2
 
     command = [
