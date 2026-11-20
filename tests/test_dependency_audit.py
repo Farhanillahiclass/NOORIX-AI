@@ -1,5 +1,3 @@
-from pathlib import Path
-
 import pytest
 
 from scripts.dependency_audit import audit_project, parse_requirement
