@@ -49,8 +49,9 @@ python scripts/verify_model_integrity.py --root models/imported/ARCHIVE_FOLDER -
 ~~~
 
 Replace `ARCHIVE_FOLDER` with the generated folder name. The offline verifier
-rejects unsafe paths, duplicate case-insensitive entries, symlinks in any path
-component, missing files and checksum mismatches. The combined local validation command automatically checks
+rejects unsafe paths (including Windows reserved device names, NUL bytes,
+empty/dot components and trailing spaces/dots), duplicate case-insensitive
+entries, symlinks in any path component, missing files and checksum mismatches. The combined local validation command automatically checks
 imported packages containing this inventory. Older imports without checksums are
 reported as warnings; re-import them if integrity evidence is required.
 
