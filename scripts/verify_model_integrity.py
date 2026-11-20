@@ -47,7 +47,21 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
         seen.add(key)
         candidate = root.joinpath(*pure.parts)
         try:
-            if candidate.is_symlink() or not candidate.is_file() or not candidate.resolve().is_relative_to(root):
+            # Reject symlinks in every component, including parent directories.
+            # Checking only candidate.is_symlink() misses an in-root symlinked
+            # directory that redirects traversal to another file.
+            current = root
+            has_symlink_component = False
+            for part in pure.parts:
+                current = current / part
+                if current.is_symlink():
+                    has_symlink_component = True
+                    break
+            if (
+                has_symlink_component
+                or not candidate.is_file()
+                or not candidate.resolve().is_relative_to(root)
+            ):
                 results.append({"path": relative, "status": "ERROR", "detail": "missing, non-regular, symlink, or outside model root"})
                 continue
             digest = hashlib.sha256()
