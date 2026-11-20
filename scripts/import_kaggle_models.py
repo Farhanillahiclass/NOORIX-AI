@@ -150,11 +150,13 @@ def safe_extract_member(zf, info, target, path_index=None):
 
 
 def prepare_staging_directory(staging: Path, destination: Path) -> bool:
-    """Create a fresh staging directory without deleting existing user data."""
-    if staging.exists() or staging.is_symlink():
-        return False
-    if destination.exists() or destination.is_symlink():
-        return False
+    """Create a fresh staging directory without following symlinked parents."""
+    for candidate in (staging, destination):
+        if candidate.exists() or candidate.is_symlink():
+            return False
+        for component in candidate.parents:
+            if component.is_symlink():
+                return False
     staging.mkdir(parents=True, exist_ok=False)
     return True
 
