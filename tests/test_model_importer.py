@@ -72,7 +72,6 @@ def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path)
         "COM1.bin", "folder/LPT9.onnx", "COM¹.txt",
         "weights//model.onnx", "./model.onnx", "folder/../model.onnx",
         "trailing /model.onnx", "model.onnx ",
-        "bad\x00name.onnx",
     ):
         with make_archive([(name, b"bad", None)]) as archive:
             assert safe_extract_member(archive, archive.infolist()[0], target) is None
@@ -116,3 +115,26 @@ def test_archive_slug_cannot_escape_staging_directory():
         assert "/" not in slug
         assert "\\\\" not in slug
         assert len(slug) <= 91
+
+
+def test_safe_extract_rejects_nul_in_filename_before_open(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+
+    class FakeEntry:
+        filename = "bad\x00name.onnx"
+        external_attr = 0
+        file_size = 3
+        compress_size = 3
+        flag_bits = 0
+
+        @staticmethod
+        def is_dir():
+            return False
+
+    class FakeArchive:
+        @staticmethod
+        def open(_entry):
+            raise AssertionError("unsafe entry must be rejected before opening")
+
+    assert safe_extract_member(FakeArchive(), FakeEntry(), target) is None
