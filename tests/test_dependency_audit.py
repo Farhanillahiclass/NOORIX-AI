@@ -63,3 +63,14 @@ def test_audit_reports_installed_version_mismatch(monkeypatch):
     })
     assert report["dependencies"][0]["installed_satisfies_specifier"] is False
     assert report["summary"]["installed_version_mismatches"] == 1
+
+
+def test_requirement_parser_rejects_malformed_specifier_list():
+    with pytest.raises(ValueError):
+        parse_requirement("demo>=1,,<2")
+
+
+def test_markdown_cell_escapes_table_delimiters_and_newlines():
+    from scripts.dependency_audit import _markdown_cell
+
+    assert _markdown_cell("pkg|name\nnext") == r"pkg\|name next"
