@@ -23,7 +23,7 @@ For the final combined local validation, run:
 python scripts/run_full_validation.py
 ```
 
-This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/. See [One-command local validation](docs/LOCAL_VALIDATION.md) for an optional offline wheelhouse build, verification and installation procedure. Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
+This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/, plus an offline dependency declaration audit under reports/dependencies/. See [Dependency Audit](docs/DEPENDENCY_AUDIT.md) and [One-command local validation](docs/LOCAL_VALIDATION.md) for an optional offline wheelhouse build, verification and installation procedure. Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
 
 Optional CPU object-detection timing report (after configuring a compatible model):
 
