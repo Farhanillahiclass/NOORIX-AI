@@ -18,7 +18,9 @@ it does not activate, execute, or trust a model.
 - Extraction streams in 1 MiB chunks, checks actual bytes against the declared
   size and member limit, and relies on ZIP CRC verification while reading.
 - Existing paths and case-insensitive path collisions are rejected, making
-  imports more portable between Linux and Windows.
+  imports more portable between Linux and Windows. A per-archive path index
+  avoids rescanning all extracted entries for every ZIP member; ambiguous
+  pre-existing case-folded directory aliases are treated as blocked.
 - Archive-derived staging names are sanitized and bounded; manifests record the ZIP filename, not the developer's absolute local source path.
 - Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
 - Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP.
