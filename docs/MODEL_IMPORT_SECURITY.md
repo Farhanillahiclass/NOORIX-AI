@@ -24,6 +24,7 @@ it does not activate, execute, or trust a model.
 - Archive-derived staging names are sanitized and bounded; manifests record the ZIP filename, not the developer's absolute local source path.
 - Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
 - Staging setup and the extraction helper reject symlinked target directories or ancestors before creating or resolving the extraction root, preventing a redirected staging path.
+- Completed imports are published with a same-filesystem directory rename rather than `shutil.move`, avoiding its behavior of nesting a source directory inside a destination that appears concurrently. The destination is checked again immediately before publication.
 - Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP.
 
 ## Important limitations
@@ -35,7 +36,7 @@ Do not load untrusted model artifacts in a privileged environment. Keep imported
 models disabled until provenance, hashes, model format, output contract, label
 order, license and runtime behavior have been reviewed.
 
-The importer has not yet been validated against a comprehensive adversarial ZIP
+The importer does not provide a cross-process filesystem lock or eliminate every time-of-check/time-of-use race if another process mutates the model directories concurrently. Avoid concurrent manual changes to staging/destination paths during import. The importer has not yet been validated against a comprehensive adversarial ZIP
 corpus. Its new regression tests must be run in the planned final local validation
 batch before the controls are treated as verified.
 
