@@ -152,3 +152,25 @@ def test_rejects_symlinked_manifest_inside_trusted_root_when_supported(tmp_path)
     result = verify_manifest(tmp_path, link)
     assert result[0]["status"] == "ERROR"
     assert "non-symlink file" in result[0]["detail"]
+
+def test_normalizes_single_windows_separator_in_manifest_path(tmp_path):
+    model = tmp_path / "folder" / "model.onnx"
+    model.parent.mkdir()
+    model.write_bytes(b"model")
+    manifest = _write_manifest(tmp_path, [{
+        "path": r"folder\model.onnx",
+        "sha256": hashlib.sha256(b"model").hexdigest(),
+    }])
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "PASS"
+
+
+def test_rejects_actual_nul_character_in_manifest_path(tmp_path):
+    manifest = _write_manifest(tmp_path, [{
+        "path": f"bad{chr(0)}name.onnx",
+        "sha256": "0" * 64,
+    }])
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert result[0]["detail"] == "unsafe or duplicate manifest path"
+
