@@ -87,7 +87,18 @@ def safe_extract_member(zf, info, target, path_index=None):
     if Path(raw.name).suffix.lower() not in ALLOWED_SUFFIXES:
         return None
 
-    target_root = Path(target).resolve()
+    target_path = Path(target)
+    # Do not resolve first: doing so would silently accept a symlinked staging
+    # root and redirect extraction outside the caller's intended directory.
+    try:
+        if target_path.is_symlink() or not target_path.is_dir():
+            return None
+        for component in (target_path, *target_path.parents):
+            if component.is_symlink():
+                return None
+        target_root = target_path.resolve(strict=True)
+    except (OSError, RuntimeError):
+        return None
     out = target_root.joinpath(*raw.parts)
     try:
         if not out.resolve().is_relative_to(target_root):
