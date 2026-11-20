@@ -16,6 +16,11 @@ MAX_OUTPUT_CHARS = 12000
 TIMEOUT_SECONDS = 1800
 
 
+def python_version_supported(version: tuple[int, ...]) -> bool:
+    """The currently CI-verified interpreter range is Python 3.11 through 3.13."""
+    return (3, 11) <= version[:2] < (3, 14)
+
+
 def validate_notebook_document(document: Any) -> str | None:
     """Return a structural error, or None for valid nbformat-4 JSON."""
     if not isinstance(document, dict):
@@ -271,8 +276,11 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
 
 def main() -> int:
     root = Path(__file__).resolve().parents[1]
-    results = [_result("Python version", "PASS" if sys.version_info >= (3, 11) else "FAIL",
-                       f"{sys.version.split()[0]} (Python 3.11+ required)")]
+    results = [_result(
+        "Python version",
+        "PASS" if python_version_supported(sys.version_info) else "FAIL",
+        f"{sys.version.split()[0]} (Python 3.11–3.13 currently supported)",
+    )]
     targets = [name for name in ("src", "tests", "scripts") if (root / name).exists()]
     if targets:
         results.append(_run("Compile source, tests and scripts", [sys.executable, "-m", "compileall", "-q", *targets], root))
