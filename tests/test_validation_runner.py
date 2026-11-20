@@ -142,3 +142,18 @@ def test_notebook_rejects_boolean_or_negative_execution_count():
             }],
         }
         assert validate_notebook_document(document) == "code cell 0 execution_count must be a non-negative integer or null"
+
+
+
+def test_validation_report_redacts_project_and_home_paths(tmp_path):
+    from scripts.run_full_validation import _redact_local_paths
+
+    project = tmp_path / "project"
+    home = tmp_path / "home"
+    sample = f"failed at {project / 'tests' / 'test_example.py'}; user={home / 'private.txt'}"
+    redacted = _redact_local_paths(sample, project)
+
+    assert str(project) not in redacted
+    assert str(home) not in redacted
+    assert "<PROJECT>" in redacted
+    assert "<HOME>" in redacted
