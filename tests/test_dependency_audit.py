@@ -35,3 +35,31 @@ def test_audit_includes_base_and_optional_dependencies():
     assert report["summary"]["declared"] == 1
     assert report["dependencies"][0]["group"] == "extra:dev"
     assert report["dependencies"][0]["review"] == "upper bound present"
+
+
+def test_audit_reports_installed_version_mismatch(monkeypatch):
+    import scripts.dependency_audit as audit_module
+
+    class FakeSpecifierSet:
+        def __init__(self, specifier):
+            self.specifier = specifier
+
+        def __contains__(self, version):
+            return str(version) == "1.0"
+
+    class FakeVersion:
+        def __init__(self, value):
+            self.value = value
+
+        def __str__(self):
+            return self.value
+
+    monkeypatch.setattr(audit_module, "SpecifierSet", FakeSpecifierSet)
+    monkeypatch.setattr(audit_module, "Version", FakeVersion)
+    monkeypatch.setattr(audit_module.metadata, "version", lambda name: "2.0")
+    report = audit_project({
+        "name": "demo", "version": "1.0", "requires_python": ">=3.11",
+        "dependencies": ["demo-lib>=1,<2"], "optional": {},
+    })
+    assert report["dependencies"][0]["installed_satisfies_specifier"] is False
+    assert report["summary"]["installed_version_mismatches"] == 1
