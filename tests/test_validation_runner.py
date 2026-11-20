@@ -149,7 +149,7 @@ def test_validation_report_redacts_project_and_home_paths(tmp_path):
     from scripts.run_full_validation import _redact_local_paths
 
     project = tmp_path / "project"
-    home = tmp_path / "home"
+    home = __import__("pathlib").Path.home()
     sample = f"failed at {project / 'tests' / 'test_example.py'}; user={home / 'private.txt'}"
     redacted = _redact_local_paths(sample, project)
 
