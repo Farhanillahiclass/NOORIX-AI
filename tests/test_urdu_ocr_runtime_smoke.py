@@ -56,7 +56,7 @@ def _local_urdu_ocr_available():
     reason="Tesseract executable and Urdu language data are required",
 )
 def test_real_urdu_ocr_flows_through_vision_pipeline():
-    from PIL import Image, ImageDraw, ImageFont, features
+    from PIL import Image, ImageDraw, features
 
     if not features.check("raqm"):
         pytest.skip("Pillow RAQM support is required for Urdu rendering")
