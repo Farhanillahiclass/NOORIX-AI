@@ -9,7 +9,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from import_kaggle_models import archive_slug, safe_extract_member
+from import_kaggle_models import archive_slug, prepare_staging_directory, safe_extract_member
 
 
 def make_archive(entries):
@@ -157,3 +157,34 @@ def test_safe_extract_allows_exact_case_shared_parent_directory(tmp_path):
         result = safe_extract_member(archive, archive.infolist()[0], target)
     assert result == target / "weights" / "new-model.onnx"
     assert result.read_bytes() == b"model"
+
+
+def test_staging_setup_preserves_existing_directory(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    marker = staging / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    assert not prepare_staging_directory(staging, destination)
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_staging_setup_refuses_existing_destination(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    marker = destination / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    assert not prepare_staging_directory(staging, destination)
+    assert not staging.exists()
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_staging_setup_creates_only_new_directory(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+
+    assert prepare_staging_directory(staging, destination)
+    assert staging.is_dir()
