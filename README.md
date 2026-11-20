@@ -13,7 +13,7 @@ python -m venv .venv
 source .venv/Scripts/activate
 # Windows PowerShell:
 .venv\\Scripts\\Activate.ps1
-python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
+python -m pip install -e ".[all,dev]"
 python -m pytest -q
 ```
 
