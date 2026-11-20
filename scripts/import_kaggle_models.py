@@ -112,6 +112,17 @@ def safe_extract_member(zf, info, target):
             raise zipfile.BadZipFile(f"Member size mismatch: {info.filename}")
     return out
 
+
+def prepare_staging_directory(staging: Path, destination: Path) -> bool:
+    """Create a fresh staging directory without deleting existing user data."""
+    if staging.exists() or staging.is_symlink():
+        return False
+    if destination.exists() or destination.is_symlink():
+        return False
+    staging.mkdir(parents=True, exist_ok=False)
+    return True
+
+
 def main():
     parser=argparse.ArgumentParser(description="Safely import NOORIX model artifacts from Kaggle ZIPs.")
     parser.add_argument("--scan-downloads",action="store_true",help="Also scan the Windows Downloads folder.")
@@ -151,10 +162,10 @@ def main():
     for archive in sorted(archives.values(),key=lambda p:p.stat().st_mtime):
         slug=archive_slug(archive.name)
         staging=TEMP/slug; destination=DEST/slug
-        if destination.exists():
-            print(f"\nAlready imported (skipping): {archive.name}"); continue
-        if staging.exists(): shutil.rmtree(staging)
-        staging.mkdir(parents=True,exist_ok=True); kept=[]
+        if not prepare_staging_directory(staging, destination):
+            print(f"\nExisting staging or destination path found; refusing to overwrite: {archive.name}")
+            continue
+        kept=[]
         try:
             with zipfile.ZipFile(archive) as zf:
                 members = zf.infolist()
@@ -202,7 +213,8 @@ def main():
             if args.delete_zips: archive.unlink(); print("  Source ZIP deleted.")
             else: print("  Source ZIP preserved.")
         except Exception as exc:
-            shutil.rmtree(staging,ignore_errors=True)
+            if staging.is_dir() and not staging.is_symlink():
+                shutil.rmtree(staging,ignore_errors=True)
             print(f"\nFAILED: {archive.name}: {type(exc).__name__}: {exc}")
             print("  Original ZIP preserved.")
     try: TEMP.rmdir()
