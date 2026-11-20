@@ -212,9 +212,8 @@ def main():
             if not kept:
                 print(f"\nNo recognized model/config files in {archive.name}; source ZIP kept.")
                 shutil.rmtree(staging,ignore_errors=True); continue
-            shutil.move(str(staging),str(destination))
-            files=[p for p in destination.rglob("*") if p.is_file()]
-            imported_files=[str(p.relative_to(destination)).replace("\\","/") for p in files]
+            files=[p for p in staging.rglob("*") if p.is_file()]
+            imported_files=[str(p.relative_to(staging)).replace("\\","/") for p in files]
             checksums=[]
             for path in files:
                 digest=hashlib.sha256()
@@ -222,7 +221,7 @@ def main():
                     for chunk in iter(lambda: stream.read(1024 * 1024), b""):
                         digest.update(chunk)
                 checksums.append({
-                    "path": str(path.relative_to(destination)).replace("\\","/"),
+                    "path": str(path.relative_to(staging)).replace("\\","/"),
                     "sha256": digest.hexdigest(),
                 })
             manifest={
@@ -232,9 +231,12 @@ def main():
                 "integrity":{"algorithm":"sha256","files":checksums},
                 "note":"Artifacts imported only. Validate provenance, integrity and a model-specific adapter before activation.",
             }
-            (destination/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
-            print(f"\nIMPORTED: {archive.name}")
-            for name in files: print("  +",name)
+            (staging/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
+            # Publish only after extraction, checksums and manifest are complete.
+            shutil.move(str(staging),str(destination))
+            print(f"\\nIMPORTED: {archive.name}")
+            for name in imported_files: print("  +",name)
+            print("  + import_manifest.json")
             print("  Destination:",destination)
             if args.delete_zips: archive.unlink(); print("  Source ZIP deleted.")
             else: print("  Source ZIP preserved.")
