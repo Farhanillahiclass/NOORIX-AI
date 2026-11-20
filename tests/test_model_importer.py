@@ -138,3 +138,22 @@ def test_safe_extract_rejects_nul_in_filename_before_open(tmp_path):
             raise AssertionError("unsafe entry must be rejected before opening")
 
     assert safe_extract_member(FakeArchive(), FakeEntry(), target) is None
+
+
+def test_safe_extract_rejects_casefold_directory_collision(tmp_path):
+    target = tmp_path / "stage"
+    (target / "Weights").mkdir(parents=True)
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result is None
+    assert not (target / "weights").exists()
+
+
+def test_safe_extract_allows_exact_case_shared_parent_directory(tmp_path):
+    target = tmp_path / "stage"
+    (target / "weights").mkdir(parents=True)
+    (target / "weights" / "existing.onnx").write_bytes(b"existing")
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result == target / "weights" / "new-model.onnx"
+    assert result.read_bytes() == b"model"
