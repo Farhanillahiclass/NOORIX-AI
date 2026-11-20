@@ -121,3 +121,34 @@ def test_rejects_windows_reserved_and_nonportable_path_components(tmp_path):
     results = verify_manifest(tmp_path, manifest)
     assert len(results) == len(unsafe_paths)
     assert all(item["status"] == "ERROR" for item in results)
+
+
+def test_rejects_manifest_outside_trusted_model_root(tmp_path):
+    model_root = tmp_path / "models"
+    model_root.mkdir()
+    outside_manifest = tmp_path / "external-manifest.json"
+    outside_manifest.write_text(json.dumps({
+        "algorithm": "sha256",
+        "files": [{"path": "missing.onnx", "sha256": "0" * 64}],
+    }), encoding="utf-8")
+
+    result = verify_manifest(model_root, outside_manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "inside the trusted model root" in result[0]["detail"]
+
+
+def test_rejects_symlinked_manifest_inside_trusted_root_when_supported(tmp_path):
+    outside_manifest = tmp_path / "external-manifest.json"
+    outside_manifest.write_text(json.dumps({
+        "algorithm": "sha256",
+        "files": [{"path": "missing.onnx", "sha256": "0" * 64}],
+    }), encoding="utf-8")
+    link = tmp_path / "import_manifest.json"
+    try:
+        link.symlink_to(outside_manifest)
+    except (OSError, NotImplementedError):
+        return
+
+    result = verify_manifest(tmp_path, link)
+    assert result[0]["status"] == "ERROR"
+    assert "non-symlink file" in result[0]["detail"]
