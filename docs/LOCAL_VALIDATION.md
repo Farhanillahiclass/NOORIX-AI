@@ -137,4 +137,4 @@ licenses/integrity verified.
 
 ## Declared dependency review
 
-Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra and checks whether dependency ranges have upper bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases, verify installed versions against specifiers, or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).\n
+Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra and checks whether dependency ranges have upper bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases, verify installed versions against specifiers, or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
