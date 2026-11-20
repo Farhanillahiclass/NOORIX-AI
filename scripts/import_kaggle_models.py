@@ -36,18 +36,22 @@ def safe_extract_member(zf, info, target):
     raw = PurePosixPath(normalized)
     mode = (info.external_attr >> 16) & 0o170000
     windows_parts = normalized.split("/")
-    reserved = any(
-        part.rstrip(" .").split(".", 1)[0].upper() in WINDOWS_RESERVED_NAMES
+    reserved_names = WINDOWS_RESERVED_NAMES | {
+        "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³",
+    }
+    invalid_component = any(
+        not part
+        or part in {".", ".."}
         or part.endswith((" ", "."))
+        or part.split(".", 1)[0].rstrip(" .").upper() in reserved_names
         for part in windows_parts
     )
     if (
         not normalized
-        or "\\x00" in normalized
+        or "\x00" in normalized
         or raw.is_absolute()
-        or ".." in raw.parts
-        or any(":" in part for part in raw.parts)
-        or reserved
+        or invalid_component
+        or any(":" in part for part in windows_parts)
         or mode not in (0, stat.S_IFREG)
         or info.is_dir()
         or info.flag_bits & 0x1
