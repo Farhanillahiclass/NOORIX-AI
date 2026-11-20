@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import platform
+import re
 import shutil
 import subprocess
 import sys
@@ -56,6 +57,26 @@ def _result(name: str, status: str, summary: str, output: str = "") -> dict[str,
     return {"name": name, "status": status, "summary": summary, "output": output[-MAX_OUTPUT_CHARS:]}
 
 
+def _redact_local_paths(text: str, root: Path) -> str:
+    """Redact project and home directory prefixes before writing local reports."""
+    candidates: list[tuple[str, str]] = []
+    for path, replacement in ((root, "<PROJECT>"), (Path.home(), "<HOME>")):
+        try:
+            value = str(path)
+            if value:
+                candidates.extend([
+                    (value, replacement),
+                    (path.as_posix(), replacement),
+                    (value.replace("/", "\\\\"), replacement),
+                ])
+        except (OSError, RuntimeError):
+            continue
+    # Longest first prevents a shorter home prefix consuming a project prefix.
+    for value, replacement in sorted(set(candidates), key=lambda item: len(item[0]), reverse=True):
+        text = re.sub(re.escape(value), replacement, text, flags=re.IGNORECASE)
+    return text
+
+
 def _run(name: str, command: list[str], root: Path) -> dict[str, str]:
     env = os.environ.copy()
     env.setdefault("PYTHONIOENCODING", "utf-8")
@@ -67,10 +88,10 @@ def _run(name: str, command: list[str], root: Path) -> dict[str, str]:
         output = exc.stdout or ""
         if isinstance(output, bytes):
             output = output.decode("utf-8", errors="replace")
-        return _result(name, "FAIL", f"timed out after {TIMEOUT_SECONDS}s", output)
+        return _result(name, "FAIL", f"timed out after {TIMEOUT_SECONDS}s", _redact_local_paths(output, root))
     except OSError as exc:
-        return _result(name, "FAIL", f"could not start command: {exc}")
-    return _result(name, "PASS" if proc.returncode == 0 else "FAIL", f"exit code {proc.returncode}", proc.stdout or "")
+        return _result(name, "FAIL", f"could not start command ({type(exc).__name__})")
+    return _result(name, "PASS" if proc.returncode == 0 else "FAIL", f"exit code {proc.returncode}", _redact_local_paths(proc.stdout or "", root))
 
 
 def _notebook_check(root: Path) -> dict[str, str]:
@@ -181,9 +202,9 @@ def _config_check(root: Path) -> dict[str, str]:
                     if label_error:
                         errors.append(f"{path.name}: {label_error}")
                 except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-                    errors.append(f"{path.name}: object_detection.labels_path could not be read: {exc}")
+                    errors.append(f"{path.name}: object_detection.labels_path could not be read ({type(exc).__name__})")
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            errors.append(f"{path.name}: {exc}")
+            errors.append(f"{path.name}: could not be read ({type(exc).__name__})")
     if errors:
         return _result("Example config JSON", "FAIL", f"{len(errors)} invalid file(s)", "\n".join(errors))
     return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) and configured YOLO label maps validated")
@@ -206,7 +227,7 @@ def _model_integrity_check(root: Path) -> list[dict[str, str]]:
                 continue
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             results.append(_result("Imported model integrity", "FAIL",
-                                   f"{manifest.parent.relative_to(root)} manifest unreadable: {exc}"))
+                                   f"{manifest.parent.relative_to(root)} manifest unreadable ({type(exc).__name__})"))
             continue
         results.append(_run(
             f"Model SHA-256: {manifest.parent.relative_to(root)}",
@@ -237,9 +258,9 @@ def _tesseract_check() -> dict[str, str]:
         proc = subprocess.run([exe, "--list-langs"], text=True, encoding="utf-8", errors="replace",
                               stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=20, check=False)
     except (OSError, subprocess.TimeoutExpired) as exc:
-        return _result("Optional Tesseract", "WARN", str(exc))
+        return _result("Optional Tesseract", "WARN", f"language discovery failed ({type(exc).__name__})")
     if proc.returncode:
-        return _result("Optional Tesseract", "WARN", "language discovery failed", proc.stdout or "")
+        return _result("Optional Tesseract", "WARN", "language discovery failed", _redact_local_paths(proc.stdout or "", Path.cwd()))
     langs = [line.strip() for line in (proc.stdout or "").splitlines()
              if line.strip() and not line.lower().startswith("list of available")]
     return _result("Optional Tesseract", "INFO", "languages: " + (", ".join(langs) if langs else "none reported"))
