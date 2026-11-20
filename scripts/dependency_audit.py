@@ -12,15 +12,17 @@ import tomllib
 from typing import Any
 
 try:
+    from packaging.requirements import Requirement
     from packaging.specifiers import SpecifierSet
     from packaging.version import Version
 except ImportError:
-    SpecifierSet = Version = None
+    Requirement = SpecifierSet = Version = None
 
 _REQUIREMENT = re.compile(
     r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[([^]]+)\])?\s*(.*)$"
 )
 _VERSION_BOUND = re.compile(r"(?:^|,)\s*(===|==|~=|!=|<=|>=|<|>)\s*([^,;\s]+)")
+_SPECIFIER_LIST = re.compile(r"^(?:\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)(?:,\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)*$")
 
 
 def parse_requirement(value: str) -> dict[str, Any]:
@@ -31,6 +33,20 @@ def parse_requirement(value: str) -> dict[str, Any]:
     name, extras, specifier = match.groups()
     if ";" in specifier:
         raise ValueError("environment markers are not supported by this local audit")
+    if "@" in specifier:
+        raise ValueError("direct URL dependencies are not supported by this local audit")
+    if specifier.strip() and not _SPECIFIER_LIST.fullmatch(specifier):
+        raise ValueError(f"invalid version specifier: {specifier!r}")
+    if Requirement is not None:
+        try:
+            parsed = Requirement(value)
+        except Exception as exc:
+            raise ValueError(f"invalid PEP 508 requirement: {value!r}") from exc
+        if parsed.marker is not None or parsed.url is not None:
+            raise ValueError("environment markers and direct URLs are not supported by this local audit")
+        name = parsed.name
+        extras = ",".join(sorted(parsed.extras)) if parsed.extras else None
+        specifier = str(parsed.specifier)
     operators = [item[0] for item in _VERSION_BOUND.findall(specifier)]
     return {
         "requirement": value,
@@ -120,6 +136,11 @@ def audit_project(project: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _markdown_cell(value: Any) -> str:
+    """Keep dependency metadata on one Markdown table row."""
+    return str(value).replace("|", r"\|").replace("\r", " ").replace("\n", " ")
+
+
 def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
@@ -144,7 +165,8 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         installed = item["installed_version"] or "not installed here"
         upper = "yes" if item["has_upper_bound"] or item["is_exact"] else "no"
         satisfies = "yes" if item["installed_satisfies_specifier"] is True else "no" if item["installed_satisfies_specifier"] is False else "unknown"
-        lines.append(f"| {item['group']} | {item['requirement']} | {installed} | {satisfies} | {upper} | {item['review']} |")
+        cells = (item["group"], item["requirement"], installed, satisfies, upper, item["review"])
+        lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
