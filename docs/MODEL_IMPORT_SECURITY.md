@@ -7,9 +7,10 @@ it does not activate, execute, or trust a model.
 ## Current extraction controls
 
 - ZIP paths are normalized for Windows separators before validation.
-- Absolute paths, parent traversal, drive/alternate-stream colons, NUL bytes,
-  Windows reserved device names, trailing spaces/dots, symlinks, directories,
-  encrypted entries and unsupported file types are rejected.
+- Absolute paths, parent traversal, empty or dot path components,
+  drive/alternate-stream colons, NUL bytes, Windows reserved device names
+  (including superscript COM/LPT aliases), trailing spaces/dots, symlinks,
+  directories, encrypted entries and unsupported file types are rejected.
 - Only the configured artifact suffix allowlist is extracted.
 - A single member is limited to 4 GiB; the expanded archive is limited to 8 GiB;
   archives are limited to 20,000 entries.
