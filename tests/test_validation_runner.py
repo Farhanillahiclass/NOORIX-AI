@@ -1,4 +1,8 @@
-from scripts.run_full_validation import validate_example_config, validate_notebook_document
+from scripts.run_full_validation import (
+    python_version_supported,
+    validate_example_config,
+    validate_notebook_document,
+)
 
 
 def test_valid_empty_notebook_is_accepted():
@@ -107,3 +111,12 @@ def test_label_map_rejects_blank_and_duplicate_entries():
 
 def test_label_map_requires_json_list():
     assert validate_label_map({"0": "person"}) == "label map root must be a JSON list"
+
+
+
+def test_supported_python_range_matches_ci_matrix():
+    assert python_version_supported((3, 11, 0))
+    assert python_version_supported((3, 12, 9))
+    assert python_version_supported((3, 13, 0))
+    assert not python_version_supported((3, 10, 99))
+    assert not python_version_supported((3, 14, 0))
