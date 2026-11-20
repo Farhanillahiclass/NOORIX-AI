@@ -5,7 +5,7 @@
 NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. Its intended modules are Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR and spoken feedback.
 
 ## Run locally
-Python 3.11+ is recommended.
+Supported Python versions: 3.11, 3.12 and 3.13 (the versions covered by the current CI matrix).
 
 ```bash
 python -m venv .venv
