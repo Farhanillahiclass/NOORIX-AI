@@ -210,3 +210,41 @@ def test_safe_extract_rejects_ambiguous_existing_casefold_directories(tmp_path):
     with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
         result = safe_extract_member(archive, archive.infolist()[0], target)
     assert result is None
+
+def test_safe_extract_rejects_symlinked_target_root(tmp_path):
+    import pytest
+
+    real_target = tmp_path / "real-stage"
+    real_target.mkdir()
+    linked_target = tmp_path / "linked-stage"
+    try:
+        linked_target.symlink_to(real_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], linked_target)
+
+    assert result is None
+    assert not (real_target / "weights").exists()
+
+
+def test_safe_extract_rejects_symlinked_parent_of_target(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    target = linked_parent / "stage"
+    target.mkdir()
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+
+    assert result is None
+    assert not (real_parent / "stage" / "weights").exists()
+
