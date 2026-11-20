@@ -31,7 +31,18 @@ def archive_slug(filename: str) -> str:
     return f"{safe_stem}-{digest}"
 
 
-def safe_extract_member(zf, info, target):
+def _build_path_index(target_root: Path) -> dict[str, tuple[tuple[str, ...], str]]:
+    """Index existing paths once for portable case-insensitive collision checks."""
+    index: dict[str, tuple[tuple[str, ...], str]] = {}
+    for existing in target_root.rglob("*"):
+        parts = existing.relative_to(target_root).parts
+        key = "/".join(part.casefold() for part in parts)
+        kind = "blocked" if existing.is_symlink() else "directory" if existing.is_dir() else "file"
+        index[key] = (parts, kind)
+    return index
+
+
+def safe_extract_member(zf, info, target, path_index=None):
     """Extract one approved regular file without escaping or overwriting target."""
     normalized = info.filename.replace("\\", "/")
     raw = PurePosixPath(normalized)
@@ -80,22 +91,26 @@ def safe_extract_member(zf, info, target):
     except (OSError, RuntimeError):
         return None
 
-    # Windows filesystems are commonly case-insensitive. Reject case-only
-    # collisions in every existing path component, not just leaf filenames.
-    # Exact-case shared parent directories remain valid.
-    for existing in target_root.rglob("*"):
-        existing_parts = existing.relative_to(target_root).parts
-        shared = min(len(existing_parts), len(raw.parts))
-        for index in range(shared):
-            current_part = existing_parts[index]
-            requested_part = raw.parts[index]
-            if current_part.casefold() == requested_part.casefold() and current_part != requested_part:
+    # Reuse one path index for the archive instead of rescanning the complete
+    # staging tree for every member. Exact-case shared parent directories are valid.
+    if path_index is None:
+        path_index = _build_path_index(target_root)
+    for position, part in enumerate(raw.parts):
+        prefix = tuple(raw.parts[:position + 1])
+        key = "/".join(item.casefold() for item in prefix)
+        existing = path_index.get(key)
+        if existing is None:
+            continue
+        existing_parts, kind = existing
+        if existing_parts != prefix:
+            return None
+        if kind == "blocked":
+            return None
+        if position < len(raw.parts) - 1:
+            if kind != "directory":
                 return None
-        if len(existing_parts) <= len(raw.parts) and existing.is_file():
-            if tuple(existing_parts) == tuple(raw.parts[:len(existing_parts)]):
-                return None
-    if out.exists():
-        return None
+        else:
+            return None
 
     out.parent.mkdir(parents=True, exist_ok=True)
     with zf.open(info) as src, out.open("xb") as dst:
@@ -110,6 +125,12 @@ def safe_extract_member(zf, info, target):
             dst.write(chunk)
         if copied != info.file_size:
             raise zipfile.BadZipFile(f"Member size mismatch: {info.filename}")
+    for position in range(1, len(raw.parts)):
+        prefix = tuple(raw.parts[:position])
+        key = "/".join(item.casefold() for item in prefix)
+        path_index.setdefault(key, (prefix, "directory"))
+    leaf_key = "/".join(part.casefold() for part in raw.parts)
+    path_index[leaf_key] = (tuple(raw.parts), "file")
     return out
 
 
@@ -166,6 +187,7 @@ def main():
             print(f"\nExisting staging or destination path found; refusing to overwrite: {archive.name}")
             continue
         kept=[]
+        path_index: dict[str, tuple[tuple[str, ...], str]] = {}
         try:
             with zipfile.ZipFile(archive) as zf:
                 members = zf.infolist()
@@ -181,7 +203,7 @@ def main():
                 # CRC is verified while each accepted member is streamed to disk.
                 # Avoid eagerly decompressing ignored ZIP entries via testzip().
                 for info in members:
-                    p=safe_extract_member(zf,info,staging)
+                    p=safe_extract_member(zf,info,staging,path_index)
                     if p: kept.append(p)
             if not kept:
                 print(f"\nNo recognized model/config files in {archive.name}; source ZIP kept.")
