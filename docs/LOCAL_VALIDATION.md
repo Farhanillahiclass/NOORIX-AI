@@ -22,11 +22,12 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 2. Bytecode compilation for src/, tests/ and scripts/.
 3. The complete pytest suite (python -m pytest -q).
 4. Installed Python dependency consistency (python -m pip check).
-5. JSON syntax and supported semantic constraints in root config.example*.json files.
-6. Basic nbformat-4 JSON structure for project Jupyter notebooks.
-7. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
-8. Optional Tesseract executable and installed language inventory.
-9. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
+5. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
+6. JSON syntax and supported semantic constraints in root config.example*.json files.
+7. Basic nbformat-4 JSON structure for project Jupyter notebooks.
+8. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
+9. Optional Tesseract executable and installed language inventory.
+10. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
 
 Tesseract is informational: if it is missing, OCR runtime tests may skip according
 to their own test conditions. A warning is not counted as a passing test.
