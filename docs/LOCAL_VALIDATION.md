@@ -25,7 +25,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 5. JSON syntax and supported semantic constraints in root config.example*.json files.
 6. Basic nbformat-4 JSON structure for project Jupyter notebooks.
 7. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
-8. Optional Tesseract executable and installed language inventory.\n9. Offline wheelhouse dependency resolution is available as a separate, opt-in check.
+8. Optional Tesseract executable and installed language inventory.\n9. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
 
 Tesseract is informational: if it is missing, OCR runtime tests may skip according
 to their own test conditions. A warning is not counted as a passing test.
@@ -118,7 +118,7 @@ selected extras using `--no-index` and `--dry-run`. A successful check means
 the local wheel files satisfy the current Python environment's dependency
 resolver; it does not prove runtime functionality.
 
-After reviewing a successful report, install from the local wheelhouse:
+After reviewing a successful report (also included automatically by the final validation runner when wheelhouse/ exists), install from the local wheelhouse:
 
 ~~~bash
 python -m pip install --no-index --find-links wheelhouse "noorix-ai[all,dev]"
