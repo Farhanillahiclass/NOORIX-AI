@@ -21,13 +21,13 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 1. Python version requirement (3.11+).
 2. Bytecode compilation for src/, tests/ and scripts/.
 3. The complete pytest suite (python -m pytest -q).
-4. Installed Python dependency consistency (python -m pip check).
-5. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
-6. JSON syntax and supported semantic constraints in root config.example*.json files.
-7. Basic nbformat-4 JSON structure for project Jupyter notebooks.
-8. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
-9. Optional Tesseract executable and installed language inventory.
-10. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
+4. Installed Python dependency consistency (python -m pip check).\n5. Offline dependency declaration audit (base dependencies, extras, local installed versions and version-bound review), with timestamped reports under reports/dependencies/.
+6. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
+7. JSON syntax and supported semantic constraints in root config.example*.json files.
+8. Basic nbformat-4 JSON structure for project Jupyter notebooks.
+9. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
+10. Optional Tesseract executable and installed language inventory.
+11. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
 
 Tesseract is informational: if it is missing, OCR runtime tests may skip according
 to their own test conditions. A warning is not counted as a passing test.
@@ -132,3 +132,4 @@ such as OpenCV and ONNX Runtime are platform-specific. Tesseract executable
 and language-data files are separate system assets and are not provided by
 Python wheels. Model weights must be provisioned separately and their
 licenses/integrity verified.
+\n\n## Declared dependency review\n\nRun the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra and checks whether dependency ranges have upper bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases, verify installed versions against specifiers, or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).\n
