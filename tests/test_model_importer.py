@@ -69,7 +69,7 @@ def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path)
     target.mkdir()
     for name in (
         "CON.onnx", "nul.txt", "weights/model.onnx.",
-        "COM1.bin", "folder/LPT9.onnx", "COM¹.txt",
+        "COM1.bin", "folder/LPT9.onnx", "COM¹.txt", "folder/LPT².bin",
         "weights//model.onnx", "./model.onnx", "folder/../model.onnx",
         "trailing /model.onnx", "model.onnx ",
     ):
