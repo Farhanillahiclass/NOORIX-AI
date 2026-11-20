@@ -12,9 +12,9 @@ import tomllib
 from typing import Any
 
 _REQUIREMENT = re.compile(
-    r"^\\s*([A-Za-z0-9][A-Za-z0-9._-]*)\\s*(?:\\[([^]]+)\\])?\\s*(.*)$"
+    r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[([^]]+)\])?\s*(.*)$"
 )
-_VERSION_BOUND = re.compile(r"(?:^|,)\\s*(===|==|~=|!=|<=|>=|<|>)\\s*([^,;\\s]+)")
+_VERSION_BOUND = re.compile(r"(?:^|,)\s*(===|==|~=|!=|<=|>=|<|>)\s*([^,;\s]+)")
 
 
 def parse_requirement(value: str) -> dict[str, Any]:
@@ -116,7 +116,7 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
     target.mkdir()
     json_path = target / "dependency-audit.json"
     md_path = target / "dependency-audit.md"
-    json_path.write_text(json.dumps(report, indent=2) + "\\n", encoding="utf-8")
+    json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
     lines = [
         "# NOORIX-AI Dependency Audit", "",
         f"- Project: {report['project']} {report['project_version']}",
@@ -131,7 +131,7 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         lines.append(f"| {item['group']} | {item['requirement']} | {installed} | {upper} | {item['review']} |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
-    md_path.write_text("\\n".join(lines) + "\\n", encoding="utf-8")
+    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return json_path, md_path
 
 
