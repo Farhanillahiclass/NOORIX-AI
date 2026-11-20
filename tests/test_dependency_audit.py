@@ -35,4 +35,5 @@ def test_audit_includes_base_and_optional_dependencies():
     })
     assert report["project"] == "demo"
     assert report["summary"]["declared"] == 1
-    assert report["dependencies"][0]["group"] == "extra:dev"\n    assert report["dependencies"][0]["review"] == "upper bound present"
+    assert report["dependencies"][0]["group"] == "extra:dev"
+    assert report["dependencies"][0]["review"] == "upper bound present"
