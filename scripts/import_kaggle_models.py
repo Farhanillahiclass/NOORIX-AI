@@ -38,7 +38,11 @@ def _build_path_index(target_root: Path) -> dict[str, tuple[tuple[str, ...], str
         parts = existing.relative_to(target_root).parts
         key = "/".join(part.casefold() for part in parts)
         kind = "blocked" if existing.is_symlink() else "directory" if existing.is_dir() else "file"
-        index[key] = (parts, kind)
+        previous = index.get(key)
+        if previous is not None and previous[0] != parts:
+            index[key] = (previous[0], "blocked")
+        else:
+            index[key] = (parts, kind)
     return index
 
 
