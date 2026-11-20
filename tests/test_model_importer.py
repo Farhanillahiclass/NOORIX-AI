@@ -188,3 +188,16 @@ def test_staging_setup_creates_only_new_directory(tmp_path):
 
     assert prepare_staging_directory(staging, destination)
     assert staging.is_dir()
+
+
+def test_safe_extract_reuses_path_index_for_case_collision_checks(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    path_index = {}
+    with make_archive([("Weights/first.onnx", b"first", None)]) as archive:
+        first = safe_extract_member(archive, archive.infolist()[0], target, path_index)
+    with make_archive([("weights/second.onnx", b"second", None)]) as archive:
+        second = safe_extract_member(archive, archive.infolist()[0], target, path_index)
+    assert first is not None
+    assert second is None
+    assert first.read_bytes() == b"first"
