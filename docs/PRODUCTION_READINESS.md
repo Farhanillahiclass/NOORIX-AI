@@ -34,7 +34,7 @@ Evidence recorded from the project branch and local test reports as of
 | Safety validation | Conservative warnings and explicit product limitations are documented; camera open/read failures stop preview and release handling now records only a release exception type | Partial |
 | Diagnostic privacy | Agent and GUI exception summaries now omit raw exception messages to reduce accidental exposure of OCR text and local paths; background UI callbacks are guarded during shutdown; broader UI/console logging review remains outstanding | Partial |
 | Model compatibility | YOLOv8 runtime now checks the one-input/one-output tensor contract and canonical COCO-80 label order before inference; regression coverage is pending the combined local run | Partial |
-| Installation / packaging | Developer setup instructions exist; clean-machine install and offline package acceptance are not evidenced | Blocked |
+| Installation / packaging | Added a documented platform-specific wheelhouse build and offline pip dry-run resolver; no wheelhouse has yet been built or validated on a clean offline target | Blocked |
 | Licensing | Project license not selected; model and dataset redistribution rights need review | Blocked |
 | Continuous integration | Historical PR #25 run passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs); hosted runs are now paused to conserve the exhausted Actions allowance | Partial |
 
