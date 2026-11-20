@@ -5,7 +5,7 @@
 NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. Its intended modules are Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR and spoken feedback.
 
 ## Run locally
-Python 3.11+ is recommended.
+Supported Python versions: 3.11, 3.12 and 3.13 (the versions covered by the current CI matrix).
 
 ```bash
 python -m venv .venv
@@ -13,9 +13,27 @@ python -m venv .venv
 source .venv/Scripts/activate
 # Windows PowerShell:
 .venv\\Scripts\\Activate.ps1
-python -m pip install -e ".[dev,camera,speech,ocr,onnx]"
+python -m pip install -e ".[all,dev]"
 python -m pytest -q
 ```
+
+For the final combined local validation, run:
+
+```bash
+python scripts/run_full_validation.py
+```
+
+This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/, plus an offline dependency declaration audit under reports/dependencies/. See [Dependency Audit](docs/DEPENDENCY_AUDIT.md) and [One-command local validation](docs/LOCAL_VALIDATION.md) for an optional offline wheelhouse build, verification and installation procedure. Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
+
+Optional CPU object-detection timing report (after configuring a compatible model):
+
+```bash
+python scripts/benchmark_runtime.py --config config.json --image tests/assets/coco_sample.jpg --iterations 30 --warmup 5
+```
+
+The tool writes cold-start and warm-inference latency statistics under
+`reports/benchmarks/`. It repeats one image and is not an accuracy,
+memory-use, end-to-end, or accessibility-safety benchmark.
 
 Run the desktop interface:
 
@@ -56,6 +74,10 @@ For the optional standard YOLOv8 COCO-80 ONNX backend, see [YOLOv8 ONNX setup an
 - Speech: pyttsx3 uses voices installed on the computer. Auto Scan looks for an installed Urdu-compatible voice before speaking Urdu summaries; if none is found, it reports that limitation.
 - Recognition: trained model weights are not bundled. The optional YOLOv8 ONNX adapter is implemented for a specific standard COCO-80 output contract; it still requires the matching local model file. Currency weights remain separately configured.
 - GUI: Tkinter is included with most standard Python Windows installations.
+
+## Model archive imports
+
+Downloaded model ZIP files are treated as untrusted input. The importer applies path, file-type, size, compression-ratio and overwrite checks before extracting approved artifacts. Importing a file does not validate or activate the model. Review [Model Import Security](docs/MODEL_IMPORT_SECURITY.md) before importing third-party artifacts.
 
 ## Privacy and safety
 

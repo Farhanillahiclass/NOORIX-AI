@@ -27,13 +27,17 @@ Evidence recorded from the project branch and local test reports as of
 | Automated tests | 126 passed, 1 skipped, 1 existing ZIP-fixture warning on the developer's Windows environment | Partial |
 | English OCR runtime | Synthetic high-contrast sample passed through Tesseract, OCR Agent, coordinator and Safety Agent | Partial |
 | Urdu OCR runtime | Synthetic Urdu sample passed on one Windows machine with Tesseract `urd`, Pillow RAQM and Tahoma | Partial |
-| Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist | Partial |
+| Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist; strict canonical label order and ONNX input/output metadata checks have been added, but new regression tests await the combined local run | Partial |
+| Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
 | Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
-| Target-device performance | CPU-only hardware is known, but no repeatable latency/RAM benchmark report is recorded | Blocked |
-| Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
-| Installation / packaging | Developer setup instructions exist; clean-machine install and offline package acceptance are not evidenced | Blocked |
+| Target-device performance | A local single-image detector latency benchmark tool now records cold start, warm-run percentiles, throughput, platform and runtime versions; no representative target-device latency/RAM acceptance report exists yet | Blocked |
+| Safety validation | Conservative warnings and explicit product limitations are documented; camera open/read failures stop preview and release handling now records only a release exception type | Partial |
+| Diagnostic privacy | Agent and GUI exception summaries now omit raw exception messages to reduce accidental exposure of OCR text and local paths; background UI callbacks are guarded during shutdown; broader UI/console logging review remains outstanding | Partial |
+| Model compatibility | YOLOv8 runtime now checks the one-input/one-output tensor contract and canonical COCO-80 label order before inference; regression coverage is pending the combined local run | Partial |
+| Dependency policy | Added an offline declaration audit for optional extras, local installed-version presence, specifier compatibility checks when `packaging` is installed, and upper-bound review; no vulnerability database, lockfile or license scan is performed | Partial |
+| Installation / packaging | Added a documented platform-specific wheelhouse build and offline pip dry-run resolver; no wheelhouse has yet been built or validated on a clean offline target | Blocked |
 | Licensing | Project license not selected; model and dataset redistribution rights need review | Blocked |
-| Continuous integration | GitHub Actions passed on Ubuntu with Python 3.11, 3.12 and 3.13; Windows Python 3.12 coverage has been added on a follow-up branch and is awaiting its run | Partial |
+| Continuous integration | Historical PR #25 run passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs); hosted runs are now paused to conserve the exhausted Actions allowance | Partial |
 
 This table must be updated only when evidence is available. A skipped test is
 not a passing runtime validation.
@@ -43,9 +47,10 @@ not a passing runtime validation.
 ### 1. Build, compatibility and CI
 
 - [ ] CI passes on every supported Python version and operating system.
+- [x] Python support is constrained to 3.11–3.13 in package metadata and the local validation runner, matching the existing CI matrix.
 - [ ] Supported OS/Python combinations are explicitly documented and tested.
 
-Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with Python 3.12. The Windows job is newly added and must pass before Windows compatibility is considered evidenced.
+Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs). Hosted workflows have since been paused to avoid additional Actions usage. The new local validation runner on the current feature branch has not yet been executed; its full result must be recorded after the planned combined Windows validation.
 - [ ] Clean installation succeeds from a fresh environment without relying on
   developer-machine state.
 - [ ] Full test suite passes; every skip is understood and intentional.

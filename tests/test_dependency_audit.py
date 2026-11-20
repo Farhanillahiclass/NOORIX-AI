@@ -1,0 +1,76 @@
+import pytest
+
+from scripts.dependency_audit import audit_project, parse_requirement
+
+
+def test_requirement_parser_detects_lower_and_upper_bounds():
+    parsed = parse_requirement("Example_Pkg>=1.2,<2")
+    assert parsed["normalized_name"] == "example-pkg"
+    assert parsed["has_lower_bound"] is True
+    assert parsed["has_upper_bound"] is True
+    assert parsed["is_exact"] is False
+
+
+def test_requirement_parser_identifies_unbounded_range():
+    parsed = parse_requirement("opencv-python>=4.9")
+    assert parsed["has_lower_bound"] is True
+    assert parsed["has_upper_bound"] is False
+    assert parsed["is_exact"] is False
+
+
+def test_requirement_parser_rejects_unsupported_marker():
+    with pytest.raises(ValueError):
+        parse_requirement("demo>=1; python_version<'4'")
+
+
+def test_audit_includes_base_and_optional_dependencies():
+    report = audit_project({
+        "name": "demo",
+        "version": "1.0",
+        "requires_python": ">=3.11",
+        "dependencies": [],
+        "optional": {"dev": ["pytest>=8,<9"]},
+    })
+    assert report["project"] == "demo"
+    assert report["summary"]["declared"] == 1
+    assert report["dependencies"][0]["group"] == "extra:dev"
+    assert report["dependencies"][0]["review"] == "upper bound present"
+
+
+def test_audit_reports_installed_version_mismatch(monkeypatch):
+    import scripts.dependency_audit as audit_module
+
+    class FakeSpecifierSet:
+        def __init__(self, specifier):
+            self.specifier = specifier
+
+        def __contains__(self, version):
+            return str(version) == "1.0"
+
+    class FakeVersion:
+        def __init__(self, value):
+            self.value = value
+
+        def __str__(self):
+            return self.value
+
+    monkeypatch.setattr(audit_module, "SpecifierSet", FakeSpecifierSet)
+    monkeypatch.setattr(audit_module, "Version", FakeVersion)
+    monkeypatch.setattr(audit_module.metadata, "version", lambda name: "2.0")
+    report = audit_project({
+        "name": "demo", "version": "1.0", "requires_python": ">=3.11",
+        "dependencies": ["demo-lib>=1,<2"], "optional": {},
+    })
+    assert report["dependencies"][0]["installed_satisfies_specifier"] is False
+    assert report["summary"]["installed_version_mismatches"] == 1
+
+
+def test_requirement_parser_rejects_malformed_specifier_list():
+    with pytest.raises(ValueError):
+        parse_requirement("demo>=1,,<2")
+
+
+def test_markdown_cell_escapes_table_delimiters_and_newlines():
+    from scripts.dependency_audit import _markdown_cell
+
+    assert _markdown_cell("pkg|name\nnext") == r"pkg\|name next"

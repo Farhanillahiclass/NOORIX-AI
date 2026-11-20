@@ -46,7 +46,7 @@ class AgentCoordinator:
             return AgentResult(
                 name,
                 AgentState.ERROR,
-                f"{type(exc).__name__}: {exc}",
+                f"Agent execution failed ({type(exc).__name__}). Details are omitted to protect local content and paths.",
                 warnings=("The task did not complete; do not rely on a prediction.",),
             )
 

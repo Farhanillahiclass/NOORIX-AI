@@ -73,8 +73,10 @@ Requirements:
 - Tesseract executable available on PATH.
 - Tesseract Urdu (`urd`) language data installed.
 - Pillow with RAQM support.
-- A suitable Urdu-capable Tahoma font at
-  `C:\Windows\Fonts\tahoma.ttf`.
+- A local Urdu-capable font. The test checks common Tahoma/Arial, Noto Naskh,
+  Noto Sans Arabic, DejaVu Sans and FreeSans paths. Set
+  `NOORIX_URDU_TEST_FONT` to an explicit font file when it is installed
+  elsewhere. No font is downloaded by the test.
 
 The test skips when required local OCR or image-rendering dependencies are
 unavailable. A passing result validates the generated sample on that machine;

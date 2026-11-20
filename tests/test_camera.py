@@ -57,3 +57,32 @@ def test_failed_frame_read_is_reported():
     with pytest.raises(RuntimeError, match="Could not read"):
         camera.read()
     camera.stop()
+
+
+
+def test_camera_releases_handle_when_open_status_raises():
+    class BrokenCapture(FakeCapture):
+        def isOpened(self):
+            raise OSError("driver diagnostic with private detail")
+
+    fake = BrokenCapture()
+    camera = WebcamCapture(capture_factory=lambda _: fake)
+    with pytest.raises(RuntimeError, match="Could not initialize"):
+        camera.start()
+    assert fake.released
+    assert not camera.is_running
+    assert camera.capture_info["release_error"] is None
+
+
+def test_camera_stop_detaches_handle_even_if_driver_release_raises():
+    class BrokenReleaseCapture(FakeCapture):
+        def release(self):
+            raise OSError("driver diagnostic with private detail")
+
+    fake = BrokenReleaseCapture()
+    camera = WebcamCapture(capture_factory=lambda _: fake)
+    camera.start()
+    camera.stop()
+    assert not camera.is_running
+    assert camera.capture_info["release_error"] == "OSError"
+    camera.stop()  # repeated stop remains safe

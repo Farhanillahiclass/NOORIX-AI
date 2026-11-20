@@ -10,11 +10,12 @@ The ONNX weights are intentionally not committed to Git. Put a compatible model 
 
 The adapter expects:
 - one NCHW input: `[1, 3, 640, 640]` by default;
-- one raw detection output shaped `[1, 84, N]` or `[1, N, 84]`;
-- 4 box values (center x, center y, width, height) and 80 class scores per candidate;
+- exactly one raw detection output shaped `[1, 84, N]` or `[1, N, 84]`, with a statically visible 84-value feature axis when model metadata provides fixed dimensions;
+- float32 output, 4 box values (center x, center y, width, height) and 80 class scores per candidate;
+- the canonical COCO-80 labels in their original class-index order (the runtime rejects reordered, duplicate, blank, or custom labels);
 - a standard detection export, not segmentation, pose, custom-class, or end-to-end/NMS-included output.
 
-Use the exact YOLOv8n COCO-80 ONNX model that was already exported and tested in the NOORIX model workspace. Do not rename a different model and assume compatibility. The runtime validates input/output shapes and fails clearly for unsupported exports.
+Use the exact YOLOv8n COCO-80 ONNX model that was already exported and tested in the NOORIX model workspace. Do not rename a different model and assume compatibility. The runtime validates input and output metadata before the first inference, then validates the actual output tensor shape. It also checks that the supplied label map exactly matches the canonical COCO-80 class order, preventing silent class-name mismatches.
 
 ## Install and configure
 

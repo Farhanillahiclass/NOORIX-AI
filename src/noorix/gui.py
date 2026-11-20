@@ -11,6 +11,8 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import messagebox, simpledialog
 
+from noorix.privacy import safe_error_summary
+
 
 C = {
     "bg": "#07111f", "sidebar": "#0b1728", "panel": "#101f33",
@@ -29,6 +31,7 @@ class NoorixApp:
         self.cv2 = cv2
         self.WebcamCapture = WebcamCapture
         self.root = root
+        self._closing = False
         self.camera_index = camera_index
         self.camera = None
         self.current_frame = None
@@ -62,7 +65,7 @@ class NoorixApp:
             value = json.loads(path.read_text(encoding="utf-8"))
             return value if isinstance(value, dict) else {}
         except (OSError, json.JSONDecodeError) as exc:
-            raise RuntimeError(f"Could not read {path}: {exc}") from exc
+            raise RuntimeError(safe_error_summary(exc, "Could not read local configuration")) from None
 
     def _setup_window(self):
         self.root.title("NOORIX AI — See Beyond. Understand More.")
@@ -502,7 +505,7 @@ class NoorixApp:
                 messagebox.showinfo("NOORIX AI", "Local settings saved. Restart the camera if its device index changed.", parent=window)
                 window.destroy()
             except (ValueError, OSError, TypeError) as exc:
-                messagebox.showerror("Settings not saved", str(exc), parent=window)
+                messagebox.showerror("Settings not saved", safe_error_summary(exc, "Settings were not saved"), parent=window)
 
         self._button(window, "Save local settings", save_settings, True).pack(anchor="e", padx=20, pady=16)
 
@@ -640,6 +643,16 @@ class NoorixApp:
         self._label(card, title, 9, C["text"], True).pack(anchor="w", pady=(4, 2))
         self._label(card, detail, 8, C["muted"]).pack(anchor="w")
 
+    def _post_to_ui(self, callback):
+        """Schedule a worker result only while the Tk window is alive."""
+        if self._closing:
+            return
+        try:
+            self.root.after(0, callback)
+        except tk.TclError:
+            # The window may have been destroyed while a worker was finishing.
+            pass
+
     def _set_status(self, title, detail, color):
         self.status_title.configure(text=title)
         self.status_detail.configure(text=detail)
@@ -652,7 +665,7 @@ class NoorixApp:
         self.result.configure(state="disabled")
 
     def start_camera(self):
-        if self.camera is not None:
+        if self._closing or self.camera is not None:
             return
         try:
             self.camera = self.WebcamCapture(self.camera_index)
@@ -671,11 +684,11 @@ class NoorixApp:
         except Exception as exc:
             self.camera = None
             self.camera_metric.configure(text="UNAVAILABLE", fg=C["amber"])
-            self._set_status("CAMERA ERROR", str(exc), C["amber"])
-            messagebox.showerror("NOORIX AI — Camera error", str(exc))
+            self._set_status("CAMERA ERROR", safe_error_summary(exc, "Camera unavailable"), C["amber"])
+            messagebox.showerror("NOORIX AI — Camera error", safe_error_summary(exc, "Check camera connection and permissions"))
 
     def _update_frame(self):
-        if self.camera is None:
+        if self._closing or self.camera is None:
             return
         try:
             from PIL import Image, ImageTk
@@ -690,8 +703,8 @@ class NoorixApp:
             self.preview.configure(image=self.photo, text="")
             self.after_id = self.root.after(33, self._update_frame)
         except Exception as exc:
-            self._set_status("PREVIEW STOPPED", str(exc), C["amber"])
             self.stop_camera()
+            self._set_status("PREVIEW STOPPED", safe_error_summary(exc, "Camera preview stopped"), C["amber"])
 
     def stop_camera(self):
         self.disable_auto_mode()
@@ -739,7 +752,7 @@ class NoorixApp:
                 detail += " · Improve focus, lighting or contrast"
             self._set_status("TEXT READING COMPLETE", detail, C["green"] if not quality_notes else C["amber"])
         except Exception as exc:
-            self._set_result(f"OCR unavailable: {exc}")
+            self._set_result(safe_error_summary(exc, "OCR unavailable"))
             self._set_status("OCR UNAVAILABLE", "Tesseract executable is required.", C["amber"])
 
     def _resolve_model_path(self, value):
@@ -832,7 +845,7 @@ class NoorixApp:
                 )
 
         except Exception as exc:
-            self._set_result(f"Analysis unavailable: {type(exc).__name__}: {exc}")
+            self._set_result(safe_error_summary(exc, "Analysis unavailable"))
             self._set_status(
                 "ANALYSIS ERROR",
                 "Check agent registration and configuration.",
@@ -848,11 +861,8 @@ class NoorixApp:
                 from noorix.speech import SpeechOutput
                 SpeechOutput().speak(text)
             except Exception as exc:
-                error = str(exc)
-                try:
-                    self.root.after(0, lambda: self._set_status("SPEECH UNAVAILABLE", error, C["amber"]))
-                except tk.TclError:
-                    pass
+                error = safe_error_summary(exc, "Speech output unavailable")
+                self._post_to_ui(lambda: self._set_status("SPEECH UNAVAILABLE", error, C["amber"]))
         threading.Thread(target=worker, daemon=True).start()
         self._set_status("SPEECH REQUESTED", "Uses an installed local system voice.", C["cyan"])
 
@@ -882,7 +892,7 @@ class NoorixApp:
             self.auto_button.configure(text="Enable Auto Scan", bg=C["panel2"], fg=C["text"])
 
     def _auto_scan_tick(self):
-        if not self.auto_mode or self.camera is None:
+        if self._closing or not self.auto_mode or self.camera is None:
             return
         if self.auto_busy:
             self.auto_after_id = self.root.after(1000, self._auto_scan_tick)
@@ -902,15 +912,17 @@ class NoorixApp:
                     coordinator.run("object_detection", frame),
                     coordinator.run("currency", frame),
                 ]
-                self.root.after(0, lambda r=results: self._auto_scan_complete(r))
+                self._post_to_ui(lambda r=results: self._auto_scan_complete(r))
             except Exception as exc:
-                error = f"{type(exc).__name__}: {exc}"
-                self.root.after(0, lambda e=error: self._auto_scan_failed(e))
+                error = safe_error_summary(exc, "Automatic analysis failed")
+                self._post_to_ui(lambda e=error: self._auto_scan_failed(e))
 
         threading.Thread(target=worker, daemon=True).start()
 
     def _auto_scan_complete(self, results):
         self.auto_busy = False
+        if self._closing:
+            return
         lines = ["AUTO SCAN RESULTS"]
         spoken_parts = ["NOORIX کیمرہ تجزیہ"]
         for result in results:
@@ -948,6 +960,8 @@ class NoorixApp:
 
     def _auto_scan_failed(self, error):
         self.auto_busy = False
+        if self._closing:
+            return
         self._set_result("Automatic analysis failed: " + error)
         self._set_status("AUTO SCAN ERROR", error, C["amber"])
         if self.auto_mode and self.camera is not None:
@@ -980,14 +994,12 @@ class NoorixApp:
                     raise RuntimeError("No Urdu-compatible Windows speech voice was detected. Install an Urdu voice in Windows Speech settings.")
                 SpeechOutput(voice_id=urdu_voice).speak(text)
             except Exception as exc:
-                error = str(exc)
-                try:
-                    self.root.after(0, lambda e=error: self._set_status("URDU VOICE UNAVAILABLE", e, C["amber"]))
-                except tk.TclError:
-                    pass
+                error = safe_error_summary(exc, "Urdu voice unavailable")
+                self._post_to_ui(lambda e=error: self._set_status("URDU VOICE UNAVAILABLE", e, C["amber"]))
         threading.Thread(target=worker, daemon=True).start()
 
     def close(self):
+        self._closing = True
         self.disable_auto_mode()
         self.stop_camera()
         self.root.destroy()
