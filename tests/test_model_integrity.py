@@ -83,3 +83,21 @@ def test_rejects_symlinked_model_when_supported(tmp_path):
         "sha256": hashlib.sha256(b"outside").hexdigest(),
     }])
     assert verify_manifest(tmp_path, manifest)[0]["status"] == "ERROR"
+
+
+def test_rejects_symlinked_parent_directory_even_when_target_stays_inside_root(tmp_path):
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    model = real_dir / "model.onnx"
+    model.write_bytes(b"model")
+    alias = tmp_path / "alias"
+    try:
+        alias.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return
+
+    manifest = _write_manifest(tmp_path, [{
+        "path": "alias/model.onnx",
+        "sha256": hashlib.sha256(b"model").hexdigest(),
+    }])
+    assert verify_manifest(tmp_path, manifest)[0]["status"] == "ERROR"
