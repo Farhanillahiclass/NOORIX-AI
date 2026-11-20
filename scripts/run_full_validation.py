@@ -283,6 +283,11 @@ def main() -> int:
     else:
         results.append(_run("Full pytest suite", [sys.executable, "-m", "pytest", "-q"], root))
     results.append(_run("Dependency consistency", [sys.executable, "-m", "pip", "check"], root))
+    results.append(_run(
+        "Installed package capability check",
+        [sys.executable, "-m", "noorix", "--check"],
+        root,
+    ))
     results.extend([_config_check(root), _notebook_check(root), *_model_integrity_check(root), _offline_bundle_check(root), _tesseract_check()])
     try:
         json_path, md_path = _write_reports(root, results)
