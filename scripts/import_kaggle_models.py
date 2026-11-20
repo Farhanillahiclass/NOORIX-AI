@@ -79,12 +79,19 @@ def safe_extract_member(zf, info, target):
     except (OSError, RuntimeError):
         return None
 
-    # Windows filesystems are commonly case-insensitive. Reject collisions on
-    # every platform so an import validated on Linux remains portable.
-    relative_key = "/".join(raw.parts).casefold()
+    # Windows filesystems are commonly case-insensitive. Reject case-only
+    # collisions in every existing path component, not just leaf filenames.
+    # Exact-case shared parent directories remain valid.
     for existing in target_root.rglob("*"):
-        if existing.is_file():
-            if existing.relative_to(target_root).as_posix().casefold() == relative_key:
+        existing_parts = existing.relative_to(target_root).parts
+        shared = min(len(existing_parts), len(raw.parts))
+        for index in range(shared):
+            current_part = existing_parts[index]
+            requested_part = raw.parts[index]
+            if current_part.casefold() == requested_part.casefold() and current_part != requested_part:
+                return None
+        if len(existing_parts) <= len(raw.parts) and existing.is_file():
+            if tuple(existing_parts) == tuple(raw.parts[:len(existing_parts)]):
                 return None
     if out.exists():
         return None
