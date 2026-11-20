@@ -101,3 +101,23 @@ def test_rejects_symlinked_parent_directory_even_when_target_stays_inside_root(t
         "sha256": hashlib.sha256(b"model").hexdigest(),
     }])
     assert verify_manifest(tmp_path, manifest)[0]["status"] == "ERROR"
+
+
+def test_rejects_windows_reserved_and_nonportable_path_components(tmp_path):
+    unsafe_paths = [
+        "CON",
+        "nul.txt",
+        "folder/COM1.onnx",
+        "folder/LPT9.bin",
+        "model.onnx ",
+        "model.onnx.",
+        "bad\\x00name.onnx",
+        "folder//model.onnx",
+        "./model.onnx",
+    ]
+    manifest = _write_manifest(tmp_path, [
+        {"path": path, "sha256": "0" * 64} for path in unsafe_paths
+    ])
+    results = verify_manifest(tmp_path, manifest)
+    assert len(results) == len(unsafe_paths)
+    assert all(item["status"] == "ERROR" for item in results)
