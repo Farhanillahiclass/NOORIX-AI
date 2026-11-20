@@ -111,7 +111,7 @@ def test_rejects_windows_reserved_and_nonportable_path_components(tmp_path):
         "folder/LPT9.bin",
         "model.onnx ",
         "model.onnx.",
-        "bad\\x00name.onnx",
+        f"bad{chr(0)}name.onnx",
         "folder//model.onnx",
         "./model.onnx",
     ]
