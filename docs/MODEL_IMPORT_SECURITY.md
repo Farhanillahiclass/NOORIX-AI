@@ -25,7 +25,7 @@ it does not activate, execute, or trust a model.
 - Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
 - Staging setup and the extraction helper reject symlinked target directories or ancestors before creating or resolving the extraction root, preventing a redirected staging path.
 - Completed imports are published with a same-filesystem directory rename rather than `shutil.move`, avoiding its behavior of nesting a source directory inside a destination that appears concurrently. The destination is checked again immediately before publication.
-- Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP.
+- Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP. The optional `--delete-zips` flag is applied only after publication succeeds; if source cleanup fails, the importer reports that cleanup issue separately and keeps the successful import status.
 
 ## Important limitations
 
