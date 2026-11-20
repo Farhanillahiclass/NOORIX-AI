@@ -20,7 +20,8 @@ it does not activate, execute, or trust a model.
 - Existing paths and case-insensitive path collisions are rejected, making
   imports more portable between Linux and Windows.
 - Archive-derived staging names are sanitized and bounded; manifests record the ZIP filename, not the developer's absolute local source path.
-- Failed imports remove the staging directory and preserve the original ZIP.
+- Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
+- Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP.
 
 ## Important limitations
 
