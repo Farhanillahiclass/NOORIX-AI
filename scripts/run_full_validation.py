@@ -262,7 +262,7 @@ def main() -> int:
                        f"{sys.version.split()[0]} (Python 3.11+ required)")]
     targets = [name for name in ("src", "tests", "scripts") if (root / name).exists()]
     if targets:
-        results.append(_run("Compile source and tests", [sys.executable, "-m", "compileall", "-q", *targets], root))
+        results.append(_run("Compile source, tests and scripts", [sys.executable, "-m", "compileall", "-q", *targets], root))
     else:
         results.append(_result("Compile source and tests", "WARN", "no src/ or tests/ directory found"))
     if importlib.util.find_spec("pytest") is None:
