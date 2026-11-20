@@ -11,6 +11,12 @@ import sys
 import tomllib
 from typing import Any
 
+try:
+    from packaging.specifiers import SpecifierSet
+    from packaging.version import Version
+except ImportError:
+    SpecifierSet = Version = None
+
 _REQUIREMENT = re.compile(
     r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[([^]]+)\])?\s*(.*)$"
 )
@@ -74,9 +80,16 @@ def audit_project(project: dict[str, Any]) -> dict[str, Any]:
                 installed = metadata.version(item["name"])
                 item["installed_version"] = installed
                 item["installed"] = True
+                if not item["specifier"]:
+                    item["installed_satisfies_specifier"] = True
+                elif SpecifierSet is not None:
+                    item["installed_satisfies_specifier"] = Version(installed) in SpecifierSet(item["specifier"])
+                else:
+                    item["installed_satisfies_specifier"] = None
             except metadata.PackageNotFoundError:
                 item["installed_version"] = None
                 item["installed"] = False
+                item["installed_satisfies_specifier"] = None
             item["group"] = group
             item["review"] = (
                 "exact pin" if item["is_exact"] else
@@ -95,9 +108,11 @@ def audit_project(project: dict[str, Any]) -> dict[str, Any]:
             "installed": sum(item["installed"] for item in entries),
             "missing_in_current_environment": sum(not item["installed"] for item in entries),
             "without_upper_bound": sum(not item["has_upper_bound"] and not item["is_exact"] for item in entries),
+            "installed_version_mismatches": sum(item["installed_satisfies_specifier"] is False for item in entries),
+            "version_checks_unavailable": sum(item["installed"] and item["installed_satisfies_specifier"] is None for item in entries),
         },
         "limitations": [
-            "Installed-version presence is not proof that the installed version satisfies the declared specifier.",
+            "Installed-version compatibility is checked with packaging when available; unknown means the optional packaging library is absent.",
             "No network vulnerability database, malware scan, license scan, or transitive lockfile audit is performed.",
             "Optional extras are listed even when they are not installed in the current environment.",
             "A missing optional dependency is not automatically a failure for an environment that did not select that extra.",
@@ -122,13 +137,14 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         f"- Project: {report['project']} {report['project_version']}",
         f"- Python requirement: {report['requires_python']}",
         f"- Generated: {report['generated_at']}", "",
-        "| Group | Requirement | Installed version | Upper bound | Review |",
+        "| Group | Requirement | Installed version | Satisfies specifier | Upper bound | Review |",
         "|---|---|---|---|---|",
     ]
     for item in report["dependencies"]:
         installed = item["installed_version"] or "not installed here"
         upper = "yes" if item["has_upper_bound"] or item["is_exact"] else "no"
-        lines.append(f"| {item['group']} | {item['requirement']} | {installed} | {upper} | {item['review']} |")
+        satisfies = "yes" if item["installed_satisfies_specifier"] is True else "no" if item["installed_satisfies_specifier"] is False else "unknown"
+        lines.append(f"| {item['group']} | {item['requirement']} | {installed} | {satisfies} | {upper} | {item['review']} |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
     md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
@@ -152,7 +168,7 @@ def main(argv: list[str] | None = None) -> int:
     summary = report["summary"]
     print("NOORIX-AI DEPENDENCY AUDIT (offline metadata only)")
     print(f"Declared: {summary['declared']}; installed in this environment: {summary['installed']}")
-    print(f"Missing here: {summary['missing_in_current_environment']}; without upper bound: {summary['without_upper_bound']}")
+    print(f"Missing here: {summary['missing_in_current_environment']}; version mismatches: {summary['installed_version_mismatches']}; without upper bound: {summary['without_upper_bound']}")
     print(f"JSON report: {json_path}")
     print(f"Markdown report: {md_path}")
     if summary["without_upper_bound"]:
