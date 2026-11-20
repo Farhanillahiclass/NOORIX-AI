@@ -17,7 +17,7 @@ def test_requirement_parser_identifies_unbounded_range():
     parsed = parse_requirement("opencv-python>=4.9")
     assert parsed["has_lower_bound"] is True
     assert parsed["has_upper_bound"] is False
-    assert parsed["review"] if "review" in parsed else True
+    assert parsed["is_exact"] is False
 
 
 def test_requirement_parser_rejects_unsupported_marker():
@@ -35,4 +35,4 @@ def test_audit_includes_base_and_optional_dependencies():
     })
     assert report["project"] == "demo"
     assert report["summary"]["declared"] == 1
-    assert report["dependencies"][0]["group"] == "extra:dev"
+    assert report["dependencies"][0]["group"] == "extra:dev"\n    assert report["dependencies"][0]["review"] == "upper bound present"
