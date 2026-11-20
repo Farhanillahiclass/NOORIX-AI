@@ -47,6 +47,8 @@ def parse_requirement(value: str) -> dict[str, Any]:
         name = parsed.name
         extras = ",".join(sorted(parsed.extras)) if parsed.extras else None
         specifier = str(parsed.specifier)
+    if specifier and SpecifierSet is not None:
+        SpecifierSet(specifier)
     operators = [item[0] for item in _VERSION_BOUND.findall(specifier)]
     return {
         "requirement": value,
