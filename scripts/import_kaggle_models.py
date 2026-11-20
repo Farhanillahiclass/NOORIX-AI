@@ -19,6 +19,7 @@ WINDOWS_RESERVED_NAMES = {
     "CON", "PRN", "AUX", "NUL",
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
+    "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³",
 }
 
 def archive_slug(filename: str) -> str:
