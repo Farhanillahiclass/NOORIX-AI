@@ -37,7 +37,7 @@ def test_safe_extract_allows_expected_model_file(tmp_path):
 def test_safe_extract_rejects_parent_traversal_and_windows_paths(tmp_path):
     target = tmp_path / "stage"
     target.mkdir()
-    names = ["../escape.onnx", r"..\\..\\escape.onnx", r"C:\\temp\\escape.onnx", "/tmp/escape.onnx"]
+    names = ["../escape.onnx", r"..\..\escape.onnx", r"C:\temp\escape.onnx", "/tmp/escape.onnx"]
     for name in names:
         with make_archive([(name, b"bad", None)]) as archive:
             assert safe_extract_member(archive, archive.infolist()[0], target) is None
@@ -67,7 +67,13 @@ def test_safe_extract_does_not_overwrite_duplicate_archive_entries(tmp_path):
 def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path):
     target = tmp_path / "stage"
     target.mkdir()
-    for name in ("CON.onnx", "nul.txt", "weights/model.onnx."):
+    for name in (
+        "CON.onnx", "nul.txt", "weights/model.onnx.",
+        "COM1.bin", "folder/LPT9.onnx", "COM¹.txt",
+        "weights//model.onnx", "./model.onnx", "folder/../model.onnx",
+        "trailing /model.onnx", "model.onnx ",
+        "bad\x00name.onnx",
+    ):
         with make_archive([(name, b"bad", None)]) as archive:
             assert safe_extract_member(archive, archive.infolist()[0], target) is None
 
@@ -87,7 +93,7 @@ def test_safe_extract_rejects_case_insensitive_duplicate_names(tmp_path):
 def test_safe_extract_normalizes_single_windows_backslashes(tmp_path):
     target = tmp_path / "stage"
     target.mkdir()
-    with make_archive([(r"folder\\model.onnx", b"model", None)]) as archive:
+    with make_archive([(r"folder\model.onnx", b"model", None)]) as archive:
         result = safe_extract_member(archive, archive.infolist()[0], target)
     assert result == target / "folder" / "model.onnx"
     assert result.read_bytes() == b"model"
