@@ -125,7 +125,7 @@ def _notebook_check(root: Path) -> dict[str, str]:
             if error:
                 failures.append(f"{path.relative_to(root)}: {error}")
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
-            failures.append(f"{path.relative_to(root)}: {exc}")
+            failures.append(f"{path.relative_to(root)}: could not be read ({type(exc).__name__})")
     if failures:
         return _result("Notebook JSON", "FAIL", f"{len(failures)} invalid of {len(paths)}", "\n".join(failures))
     return _result("Notebook JSON", "PASS", f"{len(paths)} valid nbformat-4 notebook(s)")
