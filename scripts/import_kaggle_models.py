@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, hashlib, json, re, shutil, zipfile
+import argparse, hashlib, json, os, re, shutil, zipfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 import stat
@@ -161,6 +161,15 @@ def prepare_staging_directory(staging: Path, destination: Path) -> bool:
     return True
 
 
+def publish_staging_directory(staging: Path, destination: Path) -> None:
+    """Rename a completed staging tree without shutil.move's nested-dir fallback."""
+    if destination.exists() or destination.is_symlink():
+        raise FileExistsError(f"Import destination already exists: {destination.name}")
+    # Both paths live under the repository's models directory, so this is an
+    # atomic same-filesystem rename in the normal importer layout.
+    os.rename(staging, destination)
+
+
 def main():
     parser=argparse.ArgumentParser(description="Safely import NOORIX model artifacts from Kaggle ZIPs.")
     parser.add_argument("--scan-downloads",action="store_true",help="Also scan the Windows Downloads folder.")
@@ -246,7 +255,7 @@ def main():
             }
             (staging/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
             # Publish only after extraction, checksums and manifest are complete.
-            shutil.move(str(staging),str(destination))
+            publish_staging_directory(staging, destination)
             print(f"\\nIMPORTED: {archive.name}")
             for name in imported_files: print("  +",name)
             print("  + import_manifest.json")
