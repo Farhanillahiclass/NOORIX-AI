@@ -42,7 +42,7 @@ reports/validation/:
 - validation-report.md — readable summary and command output.
 - validation-report.json — machine-readable result details.
 
-Existing reports are not overwritten. The script excludes report folders,
+Existing reports are not overwritten. Captured subprocess output redacts the project-root and home-directory prefixes before saving, and command-start failures report only the exception type. Reports can still contain other diagnostic details; review them before sharing. The script excludes report folders,
 virtual environments, Git metadata, caches and build output when searching for
 notebooks. It only parses example configuration files; it does not read the
 user's local config.json.
