@@ -38,7 +38,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
         if not isinstance(relative, str) or not relative or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
             results.append({"path": str(relative), "status": "ERROR", "detail": "path and 64-character SHA-256 are required"})
             continue
-        normalized = relative.replace("\\\\", "/")
+        normalized = relative.replace("\\", "/")
         raw_parts = normalized.split("/")
         windows_reserved = {
             "CON", "PRN", "AUX", "NUL",
@@ -50,7 +50,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             not part
             or part in {".", ".."}
             or part.endswith((" ", "."))
-            or "\\x00" in part
+            or "\x00" in part
             or part.split(".", 1)[0].rstrip(" .").upper() in windows_reserved
             for part in raw_parts
         )
