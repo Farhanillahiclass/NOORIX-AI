@@ -22,7 +22,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 2. Bytecode compilation for src/, tests/ and scripts/.
 3. The complete pytest suite (python -m pytest -q).
 4. Installed Python dependency consistency (python -m pip check).
-5. Offline dependency declaration audit (base dependencies, extras, local installed versions and version-bound review), with timestamped reports under reports/dependencies/.
+5. Offline dependency declaration audit (base dependencies, extras, installed-version compatibility when packaging is available, and version-bound review), with timestamped reports under reports/dependencies/.
 6. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
 7. JSON syntax and supported semantic constraints in root config.example*.json files.
 8. Basic nbformat-4 JSON structure for project Jupyter notebooks.
@@ -57,7 +57,7 @@ supervised human evaluation on the target device.
 
 ## Dependency setup if needed
 
-If pytest is not installed in the active environment:
+If the project test and validation dependencies are not installed in the active environment:
 
 ~~~bash
 python -m pip install -e ".[all,dev]"
@@ -116,7 +116,7 @@ network access or installing anything:
 python scripts/verify_offline_bundle.py --wheelhouse wheelhouse --extras all,dev
 ~~~
 
-The checker requires the NOORIX project wheel and asks pip to resolve the
+The checker requires the NOORIX project wheel, confirms that the active pip supports `install --dry-run`, and asks pip to resolve the
 selected extras using `--no-index` and `--dry-run`. A successful check means
 the local wheel files satisfy the current Python environment's dependency
 resolver; it does not prove runtime functionality.
@@ -137,4 +137,4 @@ licenses/integrity verified.
 
 ## Declared dependency review
 
-Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra and checks whether dependency ranges have upper bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases, verify installed versions against specifiers, or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
+Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra, checks local installed-version compatibility when packaging is installed, and reviews upper version bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
