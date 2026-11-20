@@ -210,6 +210,19 @@ def _model_integrity_check(root: Path) -> list[dict[str, str]]:
     return results
 
 
+def _offline_bundle_check(root: Path) -> dict[str, str]:
+    """Resolve an optional local wheelhouse without network access or installation."""
+    wheelhouse = root / "wheelhouse"
+    if not wheelhouse.is_dir():
+        return _result("Offline wheelhouse", "INFO", "no local wheelhouse supplied; optional check not run")
+    return _run(
+        "Offline wheelhouse",
+        [sys.executable, str(root / "scripts" / "verify_offline_bundle.py"),
+         "--wheelhouse", str(wheelhouse), "--extras", "all,dev"],
+        root,
+    )
+
+
 def _tesseract_check() -> dict[str, str]:
     exe = shutil.which("tesseract")
     if not exe:
@@ -270,7 +283,7 @@ def main() -> int:
     else:
         results.append(_run("Full pytest suite", [sys.executable, "-m", "pytest", "-q"], root))
     results.append(_run("Dependency consistency", [sys.executable, "-m", "pip", "check"], root))
-    results.extend([_config_check(root), _notebook_check(root), *_model_integrity_check(root), _tesseract_check()])
+    results.extend([_config_check(root), _notebook_check(root), *_model_integrity_check(root), _offline_bundle_check(root), _tesseract_check()])
     try:
         json_path, md_path = _write_reports(root, results)
     except OSError as exc:
