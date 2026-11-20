@@ -23,6 +23,7 @@ it does not activate, execute, or trust a model.
   pre-existing case-folded directory aliases are treated as blocked.
 - Archive-derived staging names are sanitized and bounded; manifests record the ZIP filename, not the developer's absolute local source path.
 - Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
+- The extraction helper rejects a symlinked target directory or any symlinked ancestor before resolving the extraction root, preventing a redirected staging path.
 - Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP.
 
 ## Important limitations
