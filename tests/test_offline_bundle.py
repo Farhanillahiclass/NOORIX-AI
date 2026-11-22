@@ -41,6 +41,31 @@ def test_wheelhouse_requires_directory_and_project_wheel(tmp_path: Path):
     assert validate_wheelhouse(wheelhouse, "noorix-ai") is None
 
 
+def test_wheelhouse_rejects_symlinked_directory(tmp_path: Path):
+    actual = tmp_path / "actual-wheelhouse"
+    actual.mkdir()
+    linked = tmp_path / "wheelhouse-link"
+    try:
+        linked.symlink_to(actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    assert validate_wheelhouse(linked, "noorix-ai") == "wheelhouse path contains a symbolic link"
+
+
+def test_wheelhouse_rejects_symlinked_wheel(tmp_path: Path):
+    wheelhouse = tmp_path / "wheelhouse"
+    wheelhouse.mkdir()
+    actual = tmp_path / "noorix_ai-0.2.0-py3-none-any.whl"
+    actual.write_bytes(b"")
+    linked = wheelhouse / actual.name
+    try:
+        linked.symlink_to(actual)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    assert validate_wheelhouse(wheelhouse, "noorix-ai") == "wheelhouse contains a symbolic-link wheel path"
+
 
 def test_pip_dry_run_capability_detection():
     assert pip_supports_dry_run("Usage: pip install [options] --dry-run")
