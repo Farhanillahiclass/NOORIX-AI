@@ -174,3 +174,22 @@ def test_rejects_actual_nul_character_in_manifest_path(tmp_path):
     assert result[0]["status"] == "ERROR"
     assert result[0]["detail"] == "unsafe or duplicate manifest path"
 
+
+
+
+def test_rejects_symlinked_trusted_model_root_when_supported(tmp_path):
+    real_root = tmp_path / "real-models"
+    real_root.mkdir()
+    manifest = _write_manifest(real_root, [{
+        "path": "missing.onnx",
+        "sha256": "0" * 64,
+    }])
+    linked_root = tmp_path / "models-link"
+    try:
+        linked_root.symlink_to(real_root, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        return
+
+    result = verify_manifest(linked_root, linked_root / manifest.name)
+    assert result[0]["status"] == "ERROR"
+    assert "trusted model root" in result[0]["detail"]
