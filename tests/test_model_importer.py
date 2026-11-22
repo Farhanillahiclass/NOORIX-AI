@@ -351,6 +351,26 @@ def test_dataset_zip_copy_rejects_symlinked_source(tmp_path):
     assert not (inbox / linked_source.name).exists()
 
 
+def test_dataset_zip_copy_rejects_symlinked_source_parent(tmp_path):
+    import pytest
+
+    real_downloads = tmp_path / "real-downloads"
+    real_downloads.mkdir()
+    linked_downloads = tmp_path / "linked-downloads"
+    try:
+        linked_downloads.symlink_to(real_downloads, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    source = linked_downloads / "data.zip"
+    (real_downloads / "data.zip").write_bytes(b"zip-content")
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+
+    with pytest.raises(ValueError, match="source path has a symlinked component"):
+        copy_dataset_archive(source, inbox)
+    assert not (inbox / "data.zip").exists()
+
+
 def test_dataset_zip_copy_rejects_symlinked_inbox(tmp_path):
     import pytest
 
