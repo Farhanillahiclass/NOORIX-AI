@@ -12,6 +12,7 @@ sys.path.insert(0, str(ROOT / "scripts"))
 from import_kaggle_models import (
     archive_slug,
     copy_dataset_archive,
+    has_symlink_component,
     prepare_staging_directory,
     publish_staging_directory,
     safe_display_filename,
@@ -349,6 +350,24 @@ def test_dataset_zip_copy_rejects_symlinked_source(tmp_path):
     with pytest.raises(ValueError, match="regular, non-symlink"):
         copy_dataset_archive(linked_source, inbox)
     assert not (inbox / linked_source.name).exists()
+
+
+def test_model_archive_path_check_detects_symlinked_file_and_parent(tmp_path):
+    import pytest
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    archive = real_dir / "model.zip"
+    archive.write_bytes(b"zip-content")
+    assert has_symlink_component(archive) is False
+
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    assert has_symlink_component(linked_dir / "model.zip") is True
 
 
 def test_dataset_zip_copy_rejects_symlinked_source_parent(tmp_path):
