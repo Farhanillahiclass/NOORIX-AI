@@ -53,6 +53,14 @@ def summarize_latencies(samples_ms: Sequence[float]) -> dict[str, float | int]:
     }
 
 
+def validate_positive_latency(value: float, label: str = "latency") -> float:
+    """Validate one measured duration before including it in a report."""
+    measured = float(value)
+    if not math.isfinite(measured) or measured <= 0:
+        raise ValueError(f"{label} must be a finite positive number")
+    return measured
+
+
 def _has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the output path or any existing ancestor."""
     candidate = Path(path).absolute()
@@ -107,8 +115,7 @@ def main(argv: list[str] | None = None) -> int:
         started = time.perf_counter()
         first_results = detector.detect(frame)
         cold_start_ms = (time.perf_counter() - started) * 1000.0
-        if not math.isfinite(cold_start_ms) or cold_start_ms <= 0:
-            raise ValueError("cold-start timing was not a finite positive value")
+        cold_start_ms = validate_positive_latency(cold_start_ms, "cold-start timing")
 
         for _ in range(args.warmup):
             detector.detect(frame)
