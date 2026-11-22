@@ -158,9 +158,8 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
         raise ValueError("source must be a regular, non-symlink file")
     # A regular-looking file can still be reached through a symlinked parent
     # (for example, Downloads itself may be redirected elsewhere).
-    for component in (source, *source.parents):
-        if component.is_symlink():
-            raise ValueError("source path has a symlinked component")
+    if has_symlink_component(source):
+        raise ValueError("source path has a symlinked component")
     if target_dir.is_symlink() or not target_dir.is_dir():
         raise ValueError("dataset inbox must be an existing, non-symlink directory")
     for component in (target_dir, *target_dir.parents):
@@ -187,6 +186,12 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
                 pass
         raise
     return True
+
+
+def has_symlink_component(path: Path) -> bool:
+    """Detect a symlink at any existing component of a local path."""
+    candidate = Path(path).absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
 
 
 def safe_display_filename(filename: str) -> str:
@@ -227,7 +232,15 @@ def main():
     parser.add_argument("--delete-zips",action="store_true",help="Delete source ZIPs after successful import (not recommended).")
     args=parser.parse_args()
     INCOMING.mkdir(parents=True,exist_ok=True); DEST.mkdir(parents=True,exist_ok=True); DATA_INCOMING.mkdir(parents=True,exist_ok=True); TEMP.mkdir(parents=True,exist_ok=True)
-    archives={p.resolve():p for p in INCOMING.glob("*.zip")}
+    archives = {}
+    for candidate in INCOMING.glob("*.zip"):
+        if has_symlink_component(candidate) or not candidate.is_file():
+            print(f"Skipping non-regular or symlinked model ZIP: {safe_display_filename(candidate.name)}")
+            continue
+        try:
+            archives[candidate.resolve()]=candidate
+        except (OSError, RuntimeError):
+            print(f"Skipping inaccessible model ZIP: {safe_display_filename(candidate.name)}")
     if args.scan_downloads:
         downloads=Path(args.downloads_dir).expanduser()
         cutoff=datetime.now().timestamp()-max(0,args.since_hours)*3600
@@ -245,7 +258,13 @@ def main():
                 # NOORIX-named archives are trained model packages.
                 # Other recent ZIPs are copied intact into the dataset inbox.
                 if p.name.upper().startswith("NOORIX_") or p.name.upper().startswith("NOORIX-"):
-                    archives[p.resolve()]=p
+                    if has_symlink_component(p):
+                        print(f"Skipping symlinked model ZIP path: {safe_display_filename(p.name)}")
+                        continue
+                    try:
+                        archives[p.resolve()]=p
+                    except (OSError, RuntimeError):
+                        print(f"Skipping inaccessible model ZIP: {safe_display_filename(p.name)}")
                 else:
                     try:
                         copied = copy_dataset_archive(p, DATA_INCOMING)
