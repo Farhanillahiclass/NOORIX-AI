@@ -223,6 +223,9 @@ def _config_check(root: Path) -> dict[str, str]:
         return _result("Example config JSON", "WARN", "no root config.example*.json found")
     errors = []
     for path in files:
+        if _has_symlink_component(path, root):
+            errors.append(f"{path.name}: config file has a symlinked path component")
+            continue
         try:
             document = json.loads(path.read_text(encoding="utf-8"))
             error = validate_example_config(document)
@@ -232,7 +235,11 @@ def _config_check(root: Path) -> dict[str, str]:
             detection = document.get("object_detection", {})
             labels_path = detection.get("labels_path") if isinstance(detection, dict) else None
             if labels_path:
-                label_file = (root / labels_path).resolve()
+                candidate = root / labels_path
+                if _has_symlink_component(candidate, root):
+                    errors.append(f"{path.name}: object_detection.labels_path has a symlinked path component")
+                    continue
+                label_file = candidate.resolve()
                 if not label_file.is_relative_to(root.resolve()):
                     errors.append(f"{path.name}: object_detection.labels_path escapes the project root")
                     continue
