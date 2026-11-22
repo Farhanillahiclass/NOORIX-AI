@@ -390,6 +390,6 @@ def test_dataset_zip_copy_refuses_symlinked_inbox_parent(tmp_path):
 
 
 def test_safe_display_filename_removes_terminal_control_characters():
-    assert safe_display_filename("data\\n.zip") == "data.zip"
-    assert safe_display_filename("bad\\x1b[31m.zip") == "bad[31m.zip"
-    assert safe_display_filename("\\n\\t") == "<unnamed>"
+    assert safe_display_filename("data" + chr(10) + ".zip") == "data.zip"
+    assert safe_display_filename("bad" + chr(27) + "[31m.zip") == "bad[31m.zip"
+    assert safe_display_filename(chr(10) + chr(9)) == "<unnamed>"
