@@ -24,7 +24,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 4. Installed Python dependency consistency (python -m pip check).
 5. Offline dependency declaration audit (base dependencies, extras, installed-version compatibility when packaging is available, and version-bound review), with timestamped reports under reports/dependencies/.
 6. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
-7. JSON syntax and supported semantic constraints in root config.example*.json files.
+7. JSON syntax and supported semantic constraints in root config.example*.json files; symlinked config files and label-map path components are rejected.
 8. Basic nbformat-4 JSON structure for project Jupyter notebooks.
 9. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
 10. Optional Tesseract executable and installed language inventory.
