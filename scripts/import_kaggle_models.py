@@ -188,10 +188,9 @@ def safe_display_filename(filename: str) -> str:
     """Keep untrusted filenames from injecting terminal control characters."""
     cleaned = "".join(
         character for character in filename
-        if character.isprintable() and character not in "\\r\\n\\t"
+        if character.isprintable() and character not in "\r\n\t"
     )
     return cleaned[:120] or "<unnamed>"
-
 
 
 def prepare_staging_directory(staging: Path, destination: Path) -> bool:
@@ -327,7 +326,7 @@ def main():
             if staging.is_dir() and not staging.is_symlink():
                 shutil.rmtree(staging,ignore_errors=True)
             print(
-                f"\\nFAILED: {safe_display_filename(archive.name)} "
+                f"\nFAILED: {safe_display_filename(archive.name)} "
                 f"({type(exc).__name__}); details omitted."
             )
             print("  Original ZIP preserved.")
