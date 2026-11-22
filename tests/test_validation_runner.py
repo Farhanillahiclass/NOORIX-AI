@@ -176,3 +176,38 @@ def test_validation_refuses_symlinked_input_components_when_supported(tmp_path):
 
     assert _has_symlink_component(alias / "manifest.json", root)
     assert not _has_symlink_component(real / "manifest.json", root)
+
+
+
+def test_discover_notebooks_skips_symlinked_directories(tmp_path):
+    import pytest
+    from run_full_validation import discover_notebooks
+
+    real = tmp_path / "real"
+    real.mkdir()
+    (real / "hidden.ipynb").write_text("{}", encoding="utf-8")
+    link = tmp_path / "linked"
+    try:
+        link.symlink_to(real, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    found, errors = discover_notebooks(tmp_path)
+    assert found == [real / "hidden.ipynb"]
+    assert errors == []
+
+
+def test_discover_notebooks_reports_walk_errors(tmp_path, monkeypatch):
+    import run_full_validation
+
+    def failing_walk(*args, **kwargs):
+        onerror = kwargs["onerror"]
+        onerror(PermissionError("private path"))
+        return iter(())
+
+    monkeypatch.setattr(run_full_validation.os, "walk", failing_walk)
+    found, errors = run_full_validation.discover_notebooks(tmp_path)
+    assert found == []
+    assert len(errors) == 1
+    assert "PermissionError" in errors[0]
+    assert "private path" not in errors[0]
