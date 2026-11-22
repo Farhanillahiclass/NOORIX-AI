@@ -79,8 +79,11 @@ python scripts/benchmark_runtime.py --config config.json --image tests/assets/co
 The script records cold first-inference time, warm-run mean/median/P95/min/max,
 approximate throughput, runtime/platform metadata, and the number of detections
 from the final run. It writes JSON and Markdown reports under
-`reports/benchmarks/`. Use the same image, model, configuration, power mode,
-and hardware when comparing runs.
+`reports/benchmarks/`. The benchmark rejects symlinked components in its report
+output path and refuses invalid cold-start timing values. This reduces unsafe
+writes through linked directories but cannot eliminate concurrent filesystem
+mutation races. Use the same image, model, configuration, power mode, and
+hardware when comparing runs.
 
 This benchmark does not measure memory, camera capture, OCR, speech, thermal
 throttling, recognition accuracy, or end-to-end user experience. A single image
