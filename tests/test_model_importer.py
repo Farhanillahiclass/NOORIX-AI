@@ -9,7 +9,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from import_kaggle_models import archive_slug, prepare_staging_directory, publish_staging_directory, safe_extract_member
+from import_kaggle_models import (
+    archive_slug,
+    copy_dataset_archive,
+    prepare_staging_directory,
+    publish_staging_directory,
+    safe_display_filename,
+    safe_extract_member,
+)
 
 
 def make_archive(entries):
@@ -294,3 +301,95 @@ def test_publish_staging_renames_completed_tree(tmp_path):
     assert not staging.exists()
     assert (destination / "import_manifest.json").is_file()
 
+
+
+
+def test_dataset_zip_copy_preserves_bytes_and_source(tmp_path):
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    source = downloads / "research-data.zip"
+    source.write_bytes(b"zip-content")
+
+    assert copy_dataset_archive(source, inbox) is True
+    assert (inbox / source.name).read_bytes() == b"zip-content"
+    assert source.read_bytes() == b"zip-content"
+
+
+def test_dataset_zip_copy_never_overwrites_existing_file(tmp_path):
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    source = downloads / "research-data.zip"
+    source.write_bytes(b"new-content")
+    existing = inbox / source.name
+    existing.write_bytes(b"keep-existing")
+
+    assert copy_dataset_archive(source, inbox) is False
+    assert existing.read_bytes() == b"keep-existing"
+
+
+def test_dataset_zip_copy_rejects_symlinked_source(tmp_path):
+    import pytest
+
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    real_source = downloads / "real.zip"
+    real_source.write_bytes(b"zip-content")
+    linked_source = downloads / "linked.zip"
+    try:
+        linked_source.symlink_to(real_source)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="regular, non-symlink"):
+        copy_dataset_archive(linked_source, inbox)
+    assert not (inbox / linked_source.name).exists()
+
+
+def test_dataset_zip_copy_rejects_symlinked_inbox(tmp_path):
+    import pytest
+
+    real_inbox = tmp_path / "real-inbox"
+    real_inbox.mkdir()
+    linked_inbox = tmp_path / "linked-inbox"
+    try:
+        linked_inbox.symlink_to(real_inbox, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    source = tmp_path / "data.zip"
+    source.write_bytes(b"zip-content")
+
+    with pytest.raises(ValueError, match="existing, non-symlink"):
+        copy_dataset_archive(source, linked_inbox)
+    assert not (real_inbox / source.name).exists()
+
+
+def test_dataset_zip_copy_refuses_symlinked_inbox_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    inbox = linked_parent / "inbox"
+    inbox.mkdir()
+    source = tmp_path / "data.zip"
+    source.write_bytes(b"zip-content")
+
+    with pytest.raises(ValueError, match="symlinked path component"):
+        copy_dataset_archive(source, inbox)
+    assert not (real_parent / "inbox" / source.name).exists()
+
+
+def test_safe_display_filename_removes_terminal_control_characters():
+    assert safe_display_filename("data\\n.zip") == "data.zip"
+    assert safe_display_filename("bad\\x1b[31m.zip") == "bad[31m.zip"
+    assert safe_display_filename("\\n\\t") == "<unnamed>"
