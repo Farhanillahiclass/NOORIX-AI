@@ -149,6 +149,51 @@ def safe_extract_member(zf, info, target, path_index=None):
     return out
 
 
+
+def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
+    """Copy a downloaded dataset ZIP without following links or overwriting data."""
+    source = Path(source)
+    target_dir = Path(target_dir)
+    if source.is_symlink() or not source.is_file():
+        raise ValueError("source must be a regular, non-symlink file")
+    if target_dir.is_symlink() or not target_dir.is_dir():
+        raise ValueError("dataset inbox must be an existing, non-symlink directory")
+    for component in (target_dir, *target_dir.parents):
+        if component.is_symlink():
+            raise ValueError("dataset inbox has a symlinked path component")
+
+    target = target_dir / source.name
+    if target.exists() or target.is_symlink():
+        return False
+
+    created = False
+    try:
+        # Exclusive creation prevents a concurrent file or symlink from being
+        # overwritten after the existence check.
+        with source.open("rb") as src, target.open("xb") as dst:
+            created = True
+            shutil.copyfileobj(src, dst, length=1024 * 1024)
+        shutil.copystat(source, target, follow_symlinks=False)
+    except Exception:
+        if created:
+            try:
+                target.unlink()
+            except OSError:
+                pass
+        raise
+    return True
+
+
+def safe_display_filename(filename: str) -> str:
+    """Keep untrusted filenames from injecting terminal control characters."""
+    cleaned = "".join(
+        character for character in filename
+        if character.isprintable() and character not in "\\r\\n\\t"
+    )
+    return cleaned[:120] or "<unnamed>"
+
+
+
 def prepare_staging_directory(staging: Path, destination: Path) -> bool:
     """Create a fresh staging directory without following symlinked parents."""
     for candidate in (staging, destination):
@@ -186,8 +231,10 @@ def main():
             recent=[]
             for p in downloads.glob("*.zip"):
                 try:
-                    if p.is_file() and p.stat().st_mtime>=cutoff: recent.append(p)
-                except OSError: pass
+                    if not p.is_symlink() and p.is_file() and p.stat().st_mtime>=cutoff:
+                        recent.append(p)
+                except OSError:
+                    pass
             print(f"Scanning recent ZIP downloads in: {downloads}")
             print(f"Time window: last {args.since_hours:g} hour(s)")
             for p in recent:
@@ -196,12 +243,17 @@ def main():
                 if p.name.upper().startswith("NOORIX_") or p.name.upper().startswith("NOORIX-"):
                     archives[p.resolve()]=p
                 else:
-                    target=DATA_INCOMING/p.name
-                    if target.exists():
-                        print(f"Dataset ZIP already present (skip): {target.name}")
-                    else:
-                        shutil.copy2(p,target)
-                        print(f"DATASET ZIP COPIED: {p.name} -> {target}")
+                    try:
+                        copied = copy_dataset_archive(p, DATA_INCOMING)
+                        if copied:
+                            print(f"DATASET ZIP COPIED: {safe_display_filename(p.name)}")
+                        else:
+                            print(f"Dataset ZIP already present (skip): {safe_display_filename(p.name)}")
+                    except (OSError, ValueError) as copy_error:
+                        print(
+                            f"Dataset ZIP copy skipped: {safe_display_filename(p.name)} "
+                            f"({type(copy_error).__name__})"
+                        )
         else: print(f"Downloads folder not found: {downloads}")
     if not archives:
         print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
@@ -274,7 +326,10 @@ def main():
         except Exception as exc:
             if staging.is_dir() and not staging.is_symlink():
                 shutil.rmtree(staging,ignore_errors=True)
-            print(f"\nFAILED: {archive.name}: {type(exc).__name__}: {exc}")
+            print(
+                f"\\nFAILED: {safe_display_filename(archive.name)} "
+                f"({type(exc).__name__}); details omitted."
+            )
             print("  Original ZIP preserved.")
     try: TEMP.rmdir()
     except OSError: pass
