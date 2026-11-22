@@ -156,6 +156,11 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
     target_dir = Path(target_dir)
     if source.is_symlink() or not source.is_file():
         raise ValueError("source must be a regular, non-symlink file")
+    # A regular-looking file can still be reached through a symlinked parent
+    # (for example, Downloads itself may be redirected elsewhere).
+    for component in (source, *source.parents):
+        if component.is_symlink():
+            raise ValueError("source path has a symlinked component")
     if target_dir.is_symlink() or not target_dir.is_dir():
         raise ValueError("dataset inbox must be an existing, non-symlink directory")
     for component in (target_dir, *target_dir.parents):
