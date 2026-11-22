@@ -108,17 +108,44 @@ def _run(name: str, command: list[str], root: Path) -> dict[str, str]:
     return _result(name, "PASS" if proc.returncode == 0 else "FAIL", f"exit code {proc.returncode}", _redact_local_paths(proc.stdout or "", root))
 
 
+
+def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
+    """Find notebooks without following symlinked directories; report scan errors."""
+    paths: list[Path] = []
+    errors: list[str] = []
+
+    def onerror(error: OSError) -> None:
+        filename = getattr(error, "filename", None)
+        try:
+            relative = Path(filename).relative_to(root).as_posix() if filename else "<unknown>"
+        except (OSError, ValueError, TypeError):
+            relative = "<unavailable path>"
+        errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
+
+    for current, directories, files in os.walk(root, topdown=True, followlinks=False, onerror=onerror):
+        current_path = Path(current)
+        directories[:] = [
+            name for name in directories
+            if name not in EXCLUDED_DIRS
+            and not (name.startswith(".") and name != ".github")
+            and not (current_path / name).is_symlink()
+        ]
+        for name in files:
+            if not name.endswith(".ipynb"):
+                continue
+            path = current_path / name
+            if path.is_file() and not _has_symlink_component(path, root):
+                paths.append(path)
+    return sorted(paths), errors
+
+
+
 def _notebook_check(root: Path) -> dict[str, str]:
-    excluded = EXCLUDED_DIRS
-    paths = []
-    for path in root.rglob("*.ipynb"):
-        relative = path.relative_to(root)
-        if path.is_file() and not _has_symlink_component(path, root) and not any(part in excluded for part in relative.parts) and not any(part.startswith(".") and part != ".github" for part in relative.parts):
-            paths.append(path)
-    if not paths:
+    paths, scan_errors = discover_notebooks(root)
+    if not paths and not scan_errors:
         return _result("Notebook JSON", "WARN", "no notebooks found")
-    failures = []
-    for path in sorted(paths):
+    failures = list(scan_errors)
+    for path in paths:
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
             error = validate_notebook_document(data)
@@ -127,9 +154,8 @@ def _notebook_check(root: Path) -> dict[str, str]:
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             failures.append(f"{path.relative_to(root)}: could not be read ({type(exc).__name__})")
     if failures:
-        return _result("Notebook JSON", "FAIL", f"{len(failures)} invalid of {len(paths)}", "\n".join(failures))
+        return _result("Notebook JSON", "FAIL", f"{len(failures)} issue(s) across {len(paths)} notebook(s)", "\n".join(failures))
     return _result("Notebook JSON", "PASS", f"{len(paths)} valid nbformat-4 notebook(s)")
-
 
 def validate_example_config(document: Any) -> str | None:
     """Validate supported config sections and safety-critical numeric bounds."""
