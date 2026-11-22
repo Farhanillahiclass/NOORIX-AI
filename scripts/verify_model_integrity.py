@@ -9,6 +9,20 @@ import re
 from typing import Any
 
 
+def _has_symlink_component(path: Path) -> bool:
+    """Detect a symlink at the path or any existing ancestor."""
+    candidate = Path(path).absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+
+
+def _trusted_root_is_safe(root: Path) -> bool:
+    """Require the supplied model root to be an existing non-symlink directory."""
+    try:
+        return not _has_symlink_component(root) and Path(root).is_dir()
+    except (OSError, RuntimeError):
+        return False
+
+
 def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
     """Require the manifest itself to be a regular, non-symlink file under root."""
     try:
@@ -27,7 +41,11 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
 
 def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
     """Verify every manifest entry without following symlinks or escaping root."""
-    root = root.resolve()
+    supplied_root = Path(root)
+    if not _trusted_root_is_safe(supplied_root):
+        return [{"path": str(manifest_path), "status": "ERROR",
+                 "detail": "trusted model root must be an existing non-symlink directory"}]
+    root = supplied_root.resolve()
     if not _manifest_location_is_safe(root, manifest_path):
         return [{"path": str(manifest_path), "status": "ERROR",
                  "detail": "manifest must be a regular non-symlink file inside the trusted model root"}]
