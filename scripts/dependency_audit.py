@@ -143,7 +143,16 @@ def _markdown_cell(value: Any) -> str:
     return str(value).replace("|", r"\|").replace("\r", " ").replace("\n", " ")
 
 
+def _has_symlink_component(path: Path) -> bool:
+    """Reject symlinks in report output paths before creating files."""
+    candidate = Path(path).absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+
+
 def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
+    output_dir = Path(output_dir).expanduser()
+    if _has_symlink_component(output_dir):
+        raise ValueError("report output path contains a symbolic link")
     output_dir.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     target = output_dir / stamp
