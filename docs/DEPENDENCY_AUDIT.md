@@ -7,7 +7,10 @@ python scripts/dependency_audit.py
 ~~~
 
 The report is written to a timestamped folder under
-`reports/dependencies/` in both JSON and Markdown formats. The command reads
+`reports/dependencies/` in both JSON and Markdown formats. Report generation rejects
+output paths containing symlinks before creating files. This reduces accidental
+writes through linked directories but cannot eliminate concurrent filesystem
+mutation races. The command reads
 `pyproject.toml` and local Python distribution metadata only; it does not
 contact package indexes or install, update, or remove packages.
 
