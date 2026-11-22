@@ -138,3 +138,6 @@ licenses/integrity verified.
 ## Declared dependency review
 
 Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra, checks local installed-version compatibility when packaging is installed, and reviews upper version bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
+
+
+Notebook discovery does not follow symlinked directories. Inaccessible scan locations are reported as failures instead of silently producing a partial inventory.
