@@ -27,8 +27,9 @@ it does not activate, execute, or trust a model.
 - Completed imports are published with a same-filesystem directory rename rather than `shutil.move`, avoiding its behavior of nesting a source directory inside a destination that appears concurrently. The destination is checked again immediately before publication.
 
 - Recent dataset ZIPs copied from Downloads are accepted only when the source is
-  a regular non-symlink file and the dataset inbox has no symlinked path
-  components. Destination creation uses exclusive mode, so a file or symlink
+  a regular non-symlink file with no symlinked ancestor (including the Downloads
+  directory) and the dataset inbox has no symlinked path components. Destination
+  creation uses exclusive mode, so a file or symlink
   created after the initial existence check is not overwritten. Partial copies
   created by the current attempt are removed on failure; the original ZIP is
   preserved. Dataset copy errors report only the exception type.
