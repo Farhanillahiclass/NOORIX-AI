@@ -116,8 +116,8 @@ network access or installing anything:
 python scripts/verify_offline_bundle.py --wheelhouse wheelhouse --extras all,dev
 ~~~
 
-The checker requires the NOORIX project wheel, confirms that the active pip supports `install --dry-run`, and asks pip to resolve the
-selected extras using `--no-index` and `--dry-run`. A successful check means
+The checker rejects a wheelhouse path containing symlinks and rejects symlinked or non-regular wheel entries before invoking pip. It requires the NOORIX project wheel, confirms that the active pip supports `install --dry-run`, and asks pip to resolve the
+selected extras using `--no-index` and `--dry-run`. These checks reduce unsafe path-following, but do not eliminate filesystem time-of-check/time-of-use races if another process changes the wheelhouse concurrently. A successful check means
 the local wheel files satisfy the current Python environment's dependency
 resolver; it does not prove runtime functionality.
 
