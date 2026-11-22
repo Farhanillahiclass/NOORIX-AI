@@ -53,6 +53,12 @@ def summarize_latencies(samples_ms: Sequence[float]) -> dict[str, float | int]:
     }
 
 
+def _has_symlink_component(path: Path) -> bool:
+    """Detect a symlink at the output path or any existing ancestor."""
+    candidate = Path(path).absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Measure local object-detection latency on a supplied image."
@@ -101,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
         started = time.perf_counter()
         first_results = detector.detect(frame)
         cold_start_ms = (time.perf_counter() - started) * 1000.0
+        if not math.isfinite(cold_start_ms) or cold_start_ms <= 0:
+            raise ValueError("cold-start timing was not a finite positive value")
 
         for _ in range(args.warmup):
             detector.detect(frame)
@@ -117,6 +125,9 @@ def main(argv: list[str] | None = None) -> int:
         output_dir = Path(args.output_dir).expanduser()
         if not output_dir.is_absolute():
             output_dir = root / output_dir
+        if _has_symlink_component(output_dir):
+            raise ValueError("benchmark report output path contains a symbolic link")
+        output_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
         report_dir = output_dir / stamp
         suffix = 1
