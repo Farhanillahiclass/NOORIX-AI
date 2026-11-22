@@ -48,3 +48,30 @@ def test_latency_summary_rejects_non_positive_or_non_finite_samples():
         summarize_latencies([0.0, 1.0])
     with pytest.raises(ValueError, match="finite positive"):
         summarize_latencies([math.nan])
+
+
+
+def test_benchmark_report_path_detects_symlinked_directory(tmp_path):
+    import pytest
+    from pathlib import Path
+    from scripts.benchmark_runtime import _has_symlink_component
+
+    actual = tmp_path / "actual-reports"
+    actual.mkdir()
+    alias = tmp_path / "reports-link"
+    try:
+        alias.symlink_to(actual, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    assert _has_symlink_component(alias)
+    assert not _has_symlink_component(actual / "new-report")
+
+
+def test_benchmark_cold_start_duration_must_be_finite_and_positive():
+    import math
+
+    valid = 12.5
+    assert math.isfinite(valid) and valid > 0
+    for invalid in (0.0, -1.0, math.nan, math.inf):
+        assert not (math.isfinite(invalid) and invalid > 0)
