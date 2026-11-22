@@ -26,6 +26,8 @@ it does not activate, execute, or trust a model.
 - Staging setup and the extraction helper reject symlinked target directories or ancestors before creating or resolving the extraction root, preventing a redirected staging path.
 - Completed imports are published with a same-filesystem directory rename rather than `shutil.move`, avoiding its behavior of nesting a source directory inside a destination that appears concurrently. The destination is checked again immediately before publication.
 
+- Model ZIP discovery in both the incoming folder and Downloads rejects a
+  symlinked file or any symlinked parent path before opening the archive.
 - Recent dataset ZIPs copied from Downloads are accepted only when the source is
   a regular non-symlink file with no symlinked ancestor (including the Downloads
   directory) and the dataset inbox has no symlinked path components. Destination
