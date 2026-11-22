@@ -26,15 +26,37 @@ def pip_supports_dry_run(help_text: str) -> bool:
     return "--dry-run" in help_text
 
 
+def has_symlink_component(path: Path) -> bool:
+    """Detect a symlink at the candidate path or any existing ancestor."""
+    candidate = Path(path).absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+
+
 def validate_wheelhouse(wheelhouse: Path, package: str) -> str | None:
+    wheelhouse = Path(wheelhouse).expanduser()
+    if has_symlink_component(wheelhouse):
+        return "wheelhouse path contains a symbolic link"
     if not wheelhouse.exists() or not wheelhouse.is_dir():
         return "wheelhouse directory does not exist"
-    wheels = list(wheelhouse.glob("*.whl"))
+
+    try:
+        wheels = list(wheelhouse.glob("*.whl"))
+    except OSError:
+        return "wheelhouse contents could not be inspected"
     if not wheels:
         return "wheelhouse contains no wheel (.whl) files"
+
     expected = normalize_distribution(package)
     matching = []
     for wheel in wheels:
+        # Do not let pip follow a wheel symlink or resolve a non-file entry.
+        if has_symlink_component(wheel):
+            return "wheelhouse contains a symbolic-link wheel path"
+        try:
+            if not wheel.is_file() or wheel.resolve().parent != wheelhouse.resolve():
+                return "wheelhouse contains an invalid wheel entry"
+        except OSError:
+            return "wheelhouse contains an unreadable wheel entry"
         parts = wheel.name.split("-")
         if len(parts) >= 5 and normalize_distribution(parts[0]) == expected:
             matching.append(wheel)
@@ -68,7 +90,7 @@ def main(argv: list[str] | None = None) -> int:
     root = Path(__file__).resolve().parents[1]
     wheelhouse = args.wheelhouse.expanduser()
     if not wheelhouse.is_absolute():
-        wheelhouse = (Path.cwd() / wheelhouse).resolve()
+        wheelhouse = Path.cwd() / wheelhouse
     extras = [item.strip() for item in args.extras.split(",") if item.strip()]
     if len(extras) != len(set(extras)):
         print("Duplicate extras were supplied.", file=sys.stderr)
@@ -82,7 +104,8 @@ def main(argv: list[str] | None = None) -> int:
         problem = validate_wheelhouse(wheelhouse, args.package)
         if problem:
             raise ValueError(problem)
-    except (OSError, tomllib.TOMLDecodeError, ValueError) as exc:
+        wheelhouse = wheelhouse.resolve(strict=True)
+    except (OSError, RuntimeError, tomllib.TOMLDecodeError, ValueError) as exc:
         print(f"Offline bundle check failed ({type(exc).__name__}): {exc}", file=sys.stderr)
         return 2
 
