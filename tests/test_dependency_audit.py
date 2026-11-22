@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from scripts.dependency_audit import audit_project, parse_requirement
@@ -74,3 +76,24 @@ def test_markdown_cell_escapes_table_delimiters_and_newlines():
     from scripts.dependency_audit import _markdown_cell
 
     assert _markdown_cell("pkg|name\nnext") == r"pkg\|name next"
+
+
+
+def test_dependency_report_rejects_symlinked_output_directory(tmp_path: Path):
+    from scripts.dependency_audit import write_report
+
+    target = tmp_path / "real-reports"
+    target.mkdir()
+    linked = tmp_path / "reports-link"
+    try:
+        linked.symlink_to(target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    report = audit_project({
+        "name": "demo", "version": "1.0", "requires_python": ">=3.11",
+        "dependencies": [], "optional": {},
+    })
+    with pytest.raises(ValueError, match="symbolic link"):
+        write_report(report, linked)
+    assert list(target.iterdir()) == []
