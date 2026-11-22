@@ -313,8 +313,12 @@ def _tesseract_check() -> dict[str, str]:
 
 
 def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Path]:
+    report_parent = root / "reports" / "validation"
+    if _has_symlink_component(report_parent, root):
+        raise OSError("validation report path contains a symbolic link")
+    report_parent.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
-    base = root / "reports" / "validation" / stamp
+    base = report_parent / stamp
     target, suffix = base, 1
     while target.exists():
         target = base.with_name(f"{base.name}-{suffix}")
