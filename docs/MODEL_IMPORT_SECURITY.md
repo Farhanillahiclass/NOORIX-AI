@@ -25,6 +25,17 @@ it does not activate, execute, or trust a model.
 - Existing staging and destination paths are never automatically deleted or overwritten; the importer refuses to proceed if either path already exists.
 - Staging setup and the extraction helper reject symlinked target directories or ancestors before creating or resolving the extraction root, preventing a redirected staging path.
 - Completed imports are published with a same-filesystem directory rename rather than `shutil.move`, avoiding its behavior of nesting a source directory inside a destination that appears concurrently. The destination is checked again immediately before publication.
+
+- Recent dataset ZIPs copied from Downloads are accepted only when the source is
+  a regular non-symlink file and the dataset inbox has no symlinked path
+  components. Destination creation uses exclusive mode, so a file or symlink
+  created after the initial existence check is not overwritten. Partial copies
+  created by the current attempt are removed on failure; the original ZIP is
+  preserved. Dataset copy errors report only the exception type.
+- Console display of archive filenames strips control characters, and importer
+  failures omit raw exception messages so hostile ZIP metadata cannot inject
+  terminal control sequences or leak local diagnostic paths.
+
 - Failed imports remove only the fresh staging directory created for that import and preserve the original ZIP. The optional `--delete-zips` flag is applied only after publication succeeds; if source cleanup fails, the importer reports that cleanup issue separately and keeps the successful import status.
 
 ## Important limitations
