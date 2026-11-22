@@ -70,8 +70,10 @@ def test_benchmark_report_path_detects_symlinked_directory(tmp_path):
 
 def test_benchmark_cold_start_duration_must_be_finite_and_positive():
     import math
+    import pytest
+    from scripts.benchmark_runtime import validate_positive_latency
 
-    valid = 12.5
-    assert math.isfinite(valid) and valid > 0
+    assert validate_positive_latency(12.5, "cold-start timing") == 12.5
     for invalid in (0.0, -1.0, math.nan, math.inf):
-        assert not (math.isfinite(invalid) and invalid > 0)
+        with pytest.raises(ValueError, match="finite positive"):
+            validate_positive_latency(invalid, "cold-start timing")
