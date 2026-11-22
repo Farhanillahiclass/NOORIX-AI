@@ -211,3 +211,19 @@ def test_discover_notebooks_reports_walk_errors(tmp_path, monkeypatch):
     assert len(errors) == 1
     assert "PermissionError" in errors[0]
     assert "private path" not in errors[0]
+
+
+
+def test_validation_report_rejects_symlinked_output_directory(tmp_path):
+    import pytest
+    from scripts.run_full_validation import _write_reports
+
+    root = tmp_path / "project"
+    root.mkdir()
+    external = tmp_path / "external-reports"
+    external.mkdir()
+    (root / "reports").symlink_to(external, target_is_directory=True)
+
+    with pytest.raises(OSError, match="symbolic link"):
+        _write_reports(root, [])
+    assert list(external.iterdir()) == []
