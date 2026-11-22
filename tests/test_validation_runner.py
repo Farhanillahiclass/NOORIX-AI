@@ -227,3 +227,50 @@ def test_validation_report_rejects_symlinked_output_directory(tmp_path):
     with pytest.raises(OSError, match="symbolic link"):
         _write_reports(root, [])
     assert list(external.iterdir()) == []
+
+
+
+def test_config_check_rejects_symlinked_example_config(tmp_path):
+    import json
+    import pytest
+    from scripts.run_full_validation import _config_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    external = tmp_path / "external-config.json"
+    external.write_text(json.dumps({"ocr": {"language": "eng"}}), encoding="utf-8")
+    link = root / "config.example.json"
+    try:
+        link.symlink_to(external)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "symlinked path component" in result["output"]
+
+
+def test_config_check_rejects_symlinked_label_map(tmp_path):
+    import json
+    import pytest
+    from scripts.run_full_validation import _config_check
+
+    root = tmp_path / "project"
+    (root / "models").mkdir(parents=True)
+    external = tmp_path / "external-labels.json"
+    external.write_text(json.dumps([f"label-{index}" for index in range(80)]), encoding="utf-8")
+    link = root / "models" / "labels.json"
+    try:
+        link.symlink_to(external)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+    (root / "config.example.json").write_text(json.dumps({
+        "object_detection": {
+            "backend": "yolov8_onnx",
+            "labels_path": "models/labels.json",
+        }
+    }), encoding="utf-8")
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "labels_path has a symlinked path component" in result["output"]
