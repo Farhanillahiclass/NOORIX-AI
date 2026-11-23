@@ -489,3 +489,27 @@ def test_ensure_directory_refuses_symlink_target(tmp_path):
     with pytest.raises(ValueError, match="symlinked component"):
         ensure_directory_without_symlinks(linked_target)
     assert list(real_target.iterdir()) == []
+
+
+
+def test_importer_returns_failure_for_symlinked_incoming_directory(tmp_path, monkeypatch):
+    import pytest
+    import import_kaggle_models as importer
+
+    real_incoming = tmp_path / "real-incoming"
+    real_incoming.mkdir()
+    linked_incoming = tmp_path / "linked-incoming"
+    try:
+        linked_incoming.symlink_to(real_incoming, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    monkeypatch.setattr(importer, "INCOMING", linked_incoming)
+    monkeypatch.setattr(importer, "DEST", tmp_path / "imported")
+    monkeypatch.setattr(importer, "DATA_INCOMING", tmp_path / "datasets" / "incoming")
+    monkeypatch.setattr(importer, "TEMP", tmp_path / "staging")
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py"])
+
+    assert main() == 1
+    assert list(real_incoming.iterdir()) == []
+    assert not (tmp_path / "imported").exists()
