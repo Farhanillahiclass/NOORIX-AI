@@ -77,3 +77,50 @@ def test_benchmark_cold_start_duration_must_be_finite_and_positive():
     for invalid in (0.0, -1.0, math.nan, math.inf):
         with pytest.raises(ValueError, match="finite positive"):
             validate_positive_latency(invalid, "cold-start timing")
+
+
+def test_benchmark_report_directory_uses_suffix_on_collision(tmp_path):
+    from scripts.benchmark_runtime import create_unique_report_directory
+
+    output = tmp_path / "reports"
+    output.mkdir()
+    existing = output / "fixed-stamp"
+    existing.mkdir()
+    marker = existing / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    created = create_unique_report_directory(output, "fixed-stamp")
+
+    assert created == output / "fixed-stamp-1"
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_benchmark_report_directory_rejects_symlinked_output(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import create_unique_report_directory
+
+    external = tmp_path / "external"
+    external.mkdir()
+    output_link = tmp_path / "reports-link"
+    try:
+        output_link.symlink_to(external, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        create_unique_report_directory(output_link, "fixed-stamp")
+
+
+def test_benchmark_report_files_are_created_exclusively(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import create_unique_report_directory
+
+    report = create_unique_report_directory(tmp_path, "fixed-stamp")
+    target = report / "benchmark-report.json"
+    target.write_text("keep", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        with target.open("x", encoding="utf-8"):
+            pass
+
+    assert target.read_text(encoding="utf-8") == "keep"
