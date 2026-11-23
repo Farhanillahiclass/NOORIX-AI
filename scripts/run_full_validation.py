@@ -326,11 +326,17 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
     report_parent.mkdir(parents=True, exist_ok=True)
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     base = report_parent / stamp
-    target, suffix = base, 1
-    while target.exists():
-        target = base.with_name(f"{base.name}-{suffix}")
-        suffix += 1
-    target.mkdir(parents=True)
+    target = base
+    suffix = 0
+    while True:
+        if _has_symlink_component(target, root):
+            raise OSError("validation report directory contains a symbolic link")
+        try:
+            target.mkdir()
+            break
+        except FileExistsError:
+            suffix += 1
+            target = base.with_name(f"{base.name}-{suffix}")
     counts = {s.lower(): sum(r["status"] == s for r in results) for s in ("PASS", "FAIL", "WARN", "INFO")}
     generated = datetime.now().astimezone().isoformat(timespec="seconds")
     payload = {"project": "NOORIX-AI", "generated_at": generated, "python": sys.version,
