@@ -281,11 +281,13 @@ def main():
     if not archives:
         print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
         return 0
+    failures = 0
     for archive in sorted(archives.values(),key=lambda p:p.stat().st_mtime):
         slug=archive_slug(archive.name)
         staging=TEMP/slug; destination=DEST/slug
         if not prepare_staging_directory(staging, destination):
             print(f"\nExisting staging or destination path found; refusing to overwrite: {archive.name}")
+            failures += 1
             continue
         kept=[]
         path_index: dict[str, tuple[tuple[str, ...], str]] = {}
@@ -354,8 +356,9 @@ def main():
                 f"({type(exc).__name__}); details omitted."
             )
             print("  Original ZIP preserved.")
+            failures += 1
     try: TEMP.rmdir()
     except OSError: pass
-    return 0
+    return 1 if failures else 0
 
 if __name__=="__main__": raise SystemExit(main())
