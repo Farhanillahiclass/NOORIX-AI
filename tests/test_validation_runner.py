@@ -305,3 +305,35 @@ def test_validation_report_files_are_created_exclusively(tmp_path):
 
     assert json_path.is_file()
     assert markdown_path.is_file()
+
+
+def test_model_integrity_check_rejects_symlinked_models_parent(tmp_path):
+    import pytest
+    from scripts.run_full_validation import _model_integrity_check
+
+    root = tmp_path / "project"
+    external = tmp_path / "external"
+    (external / "imported").mkdir(parents=True)
+    (root).mkdir()
+    try:
+        (root / "models").symlink_to(external, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    result = _model_integrity_check(root)
+    assert result[0]["status"] == "FAIL"
+    assert "symlinked path component" in result[0]["summary"]
+
+
+def test_model_integrity_check_rejects_oversized_manifest_before_json_parse(tmp_path):
+    from scripts.run_full_validation import MAX_IMPORTED_MANIFEST_BYTES, _model_integrity_check
+
+    root = tmp_path / "project"
+    package = root / "models" / "imported" / "sample"
+    package.mkdir(parents=True)
+    manifest = package / "import_manifest.json"
+    manifest.write_bytes(b" " * (MAX_IMPORTED_MANIFEST_BYTES + 1))
+
+    result = _model_integrity_check(root)
+    assert result[0]["status"] == "FAIL"
+    assert "16 MiB inspection limit" in result[0]["summary"]
