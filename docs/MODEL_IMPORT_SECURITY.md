@@ -101,3 +101,8 @@ The optional `--since-hours` argument must be finite and non-negative; NaN, infi
 
 
 The final staging-publication helper independently rechecks the staging path and destination parent for symlink components, requires staging to be an existing regular directory, and refuses an existing destination before performing the same-filesystem rename. This is defense in depth; concurrent filesystem mutation can still create TOCTOU races because the importer does not hold a cross-process directory lock.
+
+
+Directory iteration errors during incoming-folder or Downloads ZIP discovery are now
+reported as scan failures rather than escaping the importer. A scan that cannot be
+completed is not treated as a clean no-op.
