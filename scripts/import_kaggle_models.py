@@ -22,6 +22,14 @@ WINDOWS_RESERVED_NAMES = {
     "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³",
 }
 
+def list_zip_files(directory: Path) -> tuple[list[Path], OSError | None]:
+    """Materialize a ZIP scan so directory iteration errors are reported safely."""
+    try:
+        return list(Path(directory).glob("*.zip")), None
+    except OSError as exc:
+        return [], exc
+
+
 def archive_slug(filename: str) -> str:
     """Create a bounded, filesystem-safe destination name from an archive filename."""
     stem = Path(filename).stem
@@ -257,7 +265,11 @@ def main():
         return 1
     failures = 0
     archives = {}
-    for candidate in INCOMING.glob("*.zip"):
+    incoming_archives, incoming_error = list_zip_files(INCOMING)
+    if incoming_error is not None:
+        print(f"Could not scan incoming model folder ({type(incoming_error).__name__}).")
+        failures += 1
+    for candidate in incoming_archives:
         if has_symlink_component(candidate) or not candidate.is_file():
             print(f"Skipping non-regular or symlinked model ZIP: {safe_display_filename(candidate.name)}")
             failures += 1
@@ -274,21 +286,26 @@ def main():
             print("Downloads path contains a symlinked component; refusing to scan.")
             failures += 1
         elif downloads.is_dir():
-            recent=[]
-            for p in downloads.glob("*.zip"):
+            recent, downloads_scan_error = list_zip_files(downloads)
+            if downloads_scan_error is not None:
+                print(f"Could not scan Downloads ZIP entries ({type(downloads_scan_error).__name__}).")
+                failures += 1
+            eligible_recent = []
+            for p in recent:
                 try:
                     if has_symlink_component(p):
                         print(f"Skipping ZIP with symlinked path: {safe_display_filename(p.name)}")
                         failures += 1
                         continue
                     if p.is_file() and p.stat().st_mtime>=cutoff:
-                        recent.append(p)
+                        eligible_recent.append(p)
                 except OSError as scan_error:
                     print(
                         f"Skipping unavailable ZIP: {safe_display_filename(p.name)} "
                         f"({type(scan_error).__name__})"
                     )
                     failures += 1
+            recent = eligible_recent
             print(f"Scanning recent ZIP downloads in: {downloads}")
             print(f"Time window: last {args.since_hours:g} hour(s)")
             for p in recent:
@@ -386,7 +403,7 @@ def main():
             (staging/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
             # Publish only after extraction, checksums and manifest are complete.
             publish_staging_directory(staging, destination)
-            print(f"\\nIMPORTED: {archive.name}")
+            print(f"\nIMPORTED: {archive.name}")
             for name in imported_files: print("  +",name)
             print("  + import_manifest.json")
             print("  Destination:",destination)
