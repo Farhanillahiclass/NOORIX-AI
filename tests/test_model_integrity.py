@@ -258,3 +258,22 @@ def test_rejects_duplicate_keys_inside_file_entry(tmp_path):
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert result[0]["detail"] == "manifest unreadable"
+
+
+def test_bounds_manifest_read_if_file_grows_after_size_check(tmp_path, monkeypatch):
+    import io
+    from scripts.verify_model_integrity import MAX_MANIFEST_BYTES
+
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text("{}", encoding="utf-8")
+    original_open = type(manifest).open
+
+    def oversized_open(path, mode="r", *args, **kwargs):
+        if path == manifest and mode == "rb":
+            return io.BytesIO(b" " * (MAX_MANIFEST_BYTES + 1))
+        return original_open(path, mode, *args, **kwargs)
+
+    monkeypatch.setattr(type(manifest), "open", oversized_open)
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "size limit" in result[0]["detail"]
