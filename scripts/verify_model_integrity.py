@@ -55,6 +55,13 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
         return False
 
 
+def _manifest_label(path: Path) -> str:
+    """Return a bounded, terminal-safe manifest name without local directories."""
+    name = Path(path).name or "<manifest>"
+    safe = "".join(char if ord(char) >= 32 and ord(char) != 127 else "?" for char in name)
+    return safe[:128] or "<manifest>"
+
+
 def _hash_file_stably(path: Path) -> str | None:
     """Hash one regular file and reject observable changes during the read."""
     try:
@@ -107,42 +114,42 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
     """Verify every manifest entry without following symlinks or escaping root."""
     supplied_root = Path(root)
     if not _trusted_root_is_safe(supplied_root):
-        return [{"path": str(manifest_path), "status": "ERROR",
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                  "detail": "trusted model root must be an existing non-symlink directory"}]
     root = supplied_root.resolve()
     if not _manifest_location_is_safe(root, manifest_path):
-        return [{"path": str(manifest_path), "status": "ERROR",
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                  "detail": "manifest must be a regular non-symlink file inside the trusted model root"}]
     manifest_path = manifest_path.absolute()
     try:
         if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
-            return [{"path": str(manifest_path), "status": "ERROR",
+            return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                      "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
         with manifest_path.open("rb") as stream:
             raw_manifest = stream.read(MAX_MANIFEST_BYTES + 1)
         if len(raw_manifest) > MAX_MANIFEST_BYTES:
-            return [{"path": str(manifest_path), "status": "ERROR",
+            return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                      "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
         document: Any = json.loads(
             raw_manifest.decode("utf-8"),
             object_pairs_hook=_unique_json_object,
         )
     except (OSError, UnicodeError, ValueError, RecursionError):
-        return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest unreadable"}]
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR", "detail": "manifest unreadable"}]
 
     if not isinstance(document, dict):
-        return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest root must be an object"}]
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR", "detail": "manifest root must be an object"}]
     if "integrity" in document and ("algorithm" in document or "files" in document):
-        return [{"path": str(manifest_path), "status": "ERROR",
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                  "detail": "manifest must use either nested integrity or flat checksum fields, not both"}]
     integrity = document.get("integrity", document)
     if not isinstance(integrity, dict) or integrity.get("algorithm") != "sha256":
-        return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest algorithm must be sha256"}]
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR", "detail": "manifest algorithm must be sha256"}]
     entries = integrity.get("files")
     if not isinstance(entries, list) or not entries:
-        return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest files must be a non-empty list"}]
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR", "detail": "manifest files must be a non-empty list"}]
     if len(entries) > MAX_MANIFEST_ENTRIES:
-        return [{"path": str(manifest_path), "status": "ERROR",
+        return [{"path": _manifest_label(manifest_path), "status": "ERROR",
                  "detail": f"manifest exceeds the {MAX_MANIFEST_ENTRIES}-entry limit"}]
 
     results: list[dict[str, str]] = []
