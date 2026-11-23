@@ -15,6 +15,7 @@ from typing import Any
 EXCLUDED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "node_modules", "build", "dist", "reports", ".noorix", ".idea", ".vscode"}
 MAX_OUTPUT_CHARS = 12000
 MAX_NOTEBOOK_BYTES = 64 * 1024 * 1024
+MAX_CONFIG_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 1800
 
 
@@ -236,7 +237,15 @@ def _config_check(root: Path) -> dict[str, str]:
             errors.append(f"{path.name}: config file has a symlinked path component")
             continue
         try:
-            document = json.loads(path.read_text(encoding="utf-8"))
+            if path.stat().st_size > MAX_CONFIG_BYTES:
+                errors.append(f"{path.name}: config exceeds the 1 MiB inspection limit")
+                continue
+            with path.open("rb") as stream:
+                raw = stream.read(MAX_CONFIG_BYTES + 1)
+            if len(raw) > MAX_CONFIG_BYTES:
+                errors.append(f"{path.name}: config exceeds the 1 MiB inspection limit")
+                continue
+            document = json.loads(raw.decode("utf-8"))
             error = validate_example_config(document)
             if error:
                 errors.append(f"{path.name}: {error}")
@@ -253,7 +262,15 @@ def _config_check(root: Path) -> dict[str, str]:
                     errors.append(f"{path.name}: object_detection.labels_path escapes the project root")
                     continue
                 try:
-                    label_document = json.loads(label_file.read_text(encoding="utf-8"))
+                    if label_file.stat().st_size > MAX_CONFIG_BYTES:
+                        errors.append(f"{path.name}: object_detection.labels_path exceeds the 1 MiB inspection limit")
+                        continue
+                    with label_file.open("rb") as stream:
+                        label_raw = stream.read(MAX_CONFIG_BYTES + 1)
+                    if len(label_raw) > MAX_CONFIG_BYTES:
+                        errors.append(f"{path.name}: object_detection.labels_path exceeds the 1 MiB inspection limit")
+                        continue
+                    label_document = json.loads(label_raw.decode("utf-8"))
                     label_error = validate_label_map(label_document) if detection.get("backend") == "yolov8_onnx" else None
                     if label_error:
                         errors.append(f"{path.name}: {label_error}")
