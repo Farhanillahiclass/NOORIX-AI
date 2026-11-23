@@ -442,3 +442,25 @@ def test_deeply_nested_import_manifest_is_reported_without_crashing(tmp_path):
     assert len(results) == 1
     assert results[0]["status"] == "FAIL"
     assert "RecursionError" in results[0]["summary"]
+
+
+def test_validation_report_pair_cleans_partial_json_on_markdown_failure(tmp_path, monkeypatch):
+    from pathlib import Path
+    import pytest
+    from scripts.run_full_validation import _write_report_pair
+
+    json_path = tmp_path / "report.json"
+    markdown_path = tmp_path / "report.md"
+    original_open = Path.open
+
+    def failing_open(path, *args, **kwargs):
+        if path == markdown_path:
+            raise OSError("simulated markdown write failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    with pytest.raises(OSError, match="simulated markdown write failure"):
+        _write_report_pair(json_path, markdown_path, {"ok": True}, "# report")
+
+    assert not json_path.exists()
+    assert not markdown_path.exists()
