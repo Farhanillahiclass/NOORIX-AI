@@ -193,3 +193,42 @@ def test_rejects_symlinked_trusted_model_root_when_supported(tmp_path):
     result = verify_manifest(linked_root, linked_root / manifest.name)
     assert result[0]["status"] == "ERROR"
     assert "trusted model root" in result[0]["detail"]
+
+
+
+def test_rejects_manifest_larger_than_size_limit(tmp_path):
+    from scripts.verify_model_integrity import MAX_MANIFEST_BYTES
+
+    manifest = tmp_path / "manifest.json"
+    with manifest.open("wb") as stream:
+        stream.truncate(MAX_MANIFEST_BYTES + 1)
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "size limit" in result[0]["detail"]
+
+
+def test_rejects_manifest_with_too_many_entries(tmp_path):
+    from scripts.verify_model_integrity import MAX_MANIFEST_ENTRIES
+
+    manifest = _write_manifest(tmp_path, [
+        {"path": f"model-{index}.onnx", "sha256": "0" * 64}
+        for index in range(MAX_MANIFEST_ENTRIES + 1)
+    ])
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "entry limit" in result[0]["detail"]
+
+
+def test_rejects_excessively_long_manifest_path(tmp_path):
+    from scripts.verify_model_integrity import MAX_MANIFEST_PATH_LENGTH
+
+    manifest = _write_manifest(tmp_path, [{
+        "path": "a" * (MAX_MANIFEST_PATH_LENGTH + 1),
+        "sha256": "0" * 64,
+    }])
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "bounded relative path" in result[0]["detail"]
