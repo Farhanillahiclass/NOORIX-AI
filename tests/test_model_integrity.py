@@ -279,7 +279,11 @@ def test_bounds_manifest_read_if_file_grows_after_size_check(tmp_path, monkeypat
     assert "size limit" in result[0]["detail"]
 
 
+
 def test_rejects_model_file_changed_during_hashing(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    import scripts.verify_model_integrity as verifier
+
     model = tmp_path / "model.onnx"
     original_bytes = b"original-model-bytes"
     model.write_bytes(original_bytes)
@@ -288,37 +292,25 @@ def test_rejects_model_file_changed_during_hashing(tmp_path, monkeypatch):
         "sha256": hashlib.sha256(original_bytes).hexdigest(),
     }])
 
-    original_open = type(model).open
+    original_fstat = verifier.os.fstat
+    calls = 0
 
-    class MutatingReader:
-        def __init__(self, stream):
-            self.stream = stream
-            self.mutated = False
+    def changing_fstat(fd):
+        nonlocal calls
+        calls += 1
+        metadata = original_fstat(fd)
+        if calls == 2:
+            return SimpleNamespace(
+                st_dev=metadata.st_dev,
+                st_ino=metadata.st_ino,
+                st_size=metadata.st_size,
+                st_mtime_ns=metadata.st_mtime_ns + 1,
+                st_ctime_ns=metadata.st_ctime_ns,
+                st_mode=metadata.st_mode,
+            )
+        return metadata
 
-        def __enter__(self):
-            self.stream.__enter__()
-            return self
-
-        def __exit__(self, *args):
-            return self.stream.__exit__(*args)
-
-        def fileno(self):
-            return self.stream.fileno()
-
-        def read(self, size=-1):
-            data = self.stream.read(size)
-            if not self.mutated:
-                self.mutated = True
-                model.write_bytes(b"changed-model-content")
-            return data
-
-    def open_with_mutation(path, mode="r", *args, **kwargs):
-        stream = original_open(path, mode, *args, **kwargs)
-        if path == model and mode == "rb":
-            return MutatingReader(stream)
-        return stream
-
-    monkeypatch.setattr(type(model), "open", open_with_mutation)
+    monkeypatch.setattr(verifier.os, "fstat", changing_fstat)
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert "changed during verification" in result[0]["detail"]
