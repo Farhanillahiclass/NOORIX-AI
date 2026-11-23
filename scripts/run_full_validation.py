@@ -228,7 +228,14 @@ def validate_label_map(document: Any) -> str | None:
 
 
 def _config_check(root: Path) -> dict[str, str]:
-    files = sorted(root.glob("config.example*.json"))
+    try:
+        files = sorted(root.glob("config.example*.json"))
+    except OSError as exc:
+        return _result(
+            "Example config JSON",
+            "FAIL",
+            f"could not scan root config files ({type(exc).__name__})",
+        )
     if not files:
         return _result("Example config JSON", "WARN", "no root config.example*.json found")
     errors = []
