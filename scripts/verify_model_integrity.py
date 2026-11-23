@@ -6,6 +6,8 @@ import hashlib
 import json
 from pathlib import Path, PurePosixPath
 import re
+import os
+import stat
 from typing import Any
 
 MAX_MANIFEST_BYTES = 16 * 1024 * 1024
@@ -51,6 +53,54 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
         return current.is_file() and current.resolve().is_relative_to(root)
     except (OSError, RuntimeError, ValueError):
         return False
+
+
+
+def _hash_file_stably(path: Path) -> str | None:
+    """Hash one regular file and reject observable changes during the read."""
+    try:
+        before_path = path.lstat()
+        if stat.S_ISLNK(before_path.st_mode) or not stat.S_ISREG(before_path.st_mode):
+            return None
+        digest = hashlib.sha256()
+        bytes_read = 0
+        with path.open("rb") as stream:
+            before = os.fstat(stream.fileno())
+            if not stat.S_ISREG(before.st_mode):
+                return None
+            identity_before = (
+                before.st_dev, before.st_ino, before.st_size,
+                before.st_mtime_ns, before.st_ctime_ns,
+            )
+            path_identity_before = (
+                before_path.st_dev, before_path.st_ino, before_path.st_size,
+                before_path.st_mtime_ns, before_path.st_ctime_ns,
+            )
+            if identity_before != path_identity_before:
+                return None
+            for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+                bytes_read += len(chunk)
+                digest.update(chunk)
+            after = os.fstat(stream.fileno())
+        after_path = path.lstat()
+        identity_after = (
+            after.st_dev, after.st_ino, after.st_size,
+            after.st_mtime_ns, after.st_ctime_ns,
+        )
+        path_identity_after = (
+            after_path.st_dev, after_path.st_ino, after_path.st_size,
+            after_path.st_mtime_ns, after_path.st_ctime_ns,
+        )
+        if (
+            identity_before != identity_after
+            or identity_after != path_identity_after
+            or bytes_read != before.st_size
+            or not stat.S_ISREG(after.st_mode)
+        ):
+            return None
+        return digest.hexdigest()
+    except OSError:
+        return None
 
 
 def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
@@ -142,11 +192,14 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             if has_symlink_component or not candidate.is_file() or not candidate.resolve().is_relative_to(root):
                 results.append({"path": relative, "status": "ERROR", "detail": "missing, non-regular, symlink, or outside model root"})
                 continue
-            digest = hashlib.sha256()
-            with candidate.open("rb") as stream:
-                for chunk in iter(lambda: stream.read(1024 * 1024), b""):
-                    digest.update(chunk)
-            actual = digest.hexdigest()
+            actual = _hash_file_stably(candidate)
+            if actual is None:
+                results.append({
+                    "path": relative,
+                    "status": "ERROR",
+                    "detail": "model file changed during verification or could not be read",
+                })
+                continue
         except OSError:
             results.append({"path": relative, "status": "ERROR", "detail": "model file could not be read"})
             continue
