@@ -337,3 +337,16 @@ def test_model_integrity_check_rejects_oversized_manifest_before_json_parse(tmp_
     result = _model_integrity_check(root)
     assert result[0]["status"] == "FAIL"
     assert "16 MiB inspection limit" in result[0]["summary"]
+
+
+def test_notebook_check_rejects_oversized_notebook_before_json_parse(tmp_path):
+    from scripts.run_full_validation import MAX_NOTEBOOK_BYTES, _notebook_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    notebook = root / "large.ipynb"
+    notebook.write_bytes(b" " * (MAX_NOTEBOOK_BYTES + 1))
+
+    result = _notebook_check(root)
+    assert result["status"] == "FAIL"
+    assert "64 MiB inspection limit" in result["output"]
