@@ -513,3 +513,17 @@ def test_importer_returns_failure_for_symlinked_incoming_directory(tmp_path, mon
     assert main() == 1
     assert list(real_incoming.iterdir()) == []
     assert not (tmp_path / "imported").exists()
+
+
+
+def test_importer_rejects_non_finite_download_window(tmp_path, monkeypatch):
+    import import_kaggle_models as importer
+
+    monkeypatch.setattr(importer, "INCOMING", tmp_path / "incoming")
+    monkeypatch.setattr(importer, "DEST", tmp_path / "imported")
+    monkeypatch.setattr(importer, "DATA_INCOMING", tmp_path / "datasets" / "incoming")
+    monkeypatch.setattr(importer, "TEMP", tmp_path / "staging")
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py", "--since-hours", "nan"])
+
+    assert main() == 2
+    assert not (tmp_path / "incoming").exists()
