@@ -454,4 +454,4 @@ def test_importer_returns_nonzero_when_archive_import_fails(tmp_path, monkeypatc
 
     assert main() == 1
     assert (incoming / "NOORIX_broken.zip").read_bytes() == b"not-a-zip"
-    assert not (destination / "NOORIX_broken").exists()
+    assert list(destination.iterdir()) == []
