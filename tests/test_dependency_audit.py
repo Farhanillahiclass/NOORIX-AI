@@ -133,7 +133,7 @@ def test_dependency_report_timestamp_collision_uses_suffix_and_preserves_existin
 def test_dependency_report_removes_own_partial_json_when_markdown_write_fails(tmp_path, monkeypatch):
     import pytest
     from pathlib import Path
-    from dependency_audit import write_report
+    from scripts.dependency_audit import write_report
 
     report = {
         "project": "NOORIX-AI",
