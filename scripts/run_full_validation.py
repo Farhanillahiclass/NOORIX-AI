@@ -161,7 +161,7 @@ def _notebook_check(root: Path) -> dict[str, str]:
             error = validate_notebook_document(data)
             if error:
                 failures.append(f"{path.relative_to(root)}: {error}")
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
             failures.append(f"{path.relative_to(root)}: could not be read ({type(exc).__name__})")
     if failures:
         return _result("Notebook JSON", "FAIL", f"{len(failures)} issue(s) across {len(paths)} notebook(s)", "\n".join(failures))
@@ -274,9 +274,9 @@ def _config_check(root: Path) -> dict[str, str]:
                     label_error = validate_label_map(label_document) if detection.get("backend") == "yolov8_onnx" else None
                     if label_error:
                         errors.append(f"{path.name}: {label_error}")
-                except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+                except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
                     errors.append(f"{path.name}: object_detection.labels_path could not be read ({type(exc).__name__})")
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
             errors.append(f"{path.name}: could not be read ({type(exc).__name__})")
     if errors:
         return _result("Example config JSON", "FAIL", f"{len(errors)} invalid file(s)", "\n".join(errors))
@@ -321,7 +321,7 @@ def _model_integrity_check(root: Path) -> list[dict[str, str]]:
                 results.append(_result("Imported model integrity", "WARN",
                                        f"{relative} has no SHA-256 inventory"))
                 continue
-        except (OSError, UnicodeError, json.JSONDecodeError) as exc:
+        except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
             results.append(_result("Imported model integrity", "FAIL",
                                    f"{relative} manifest unreadable ({type(exc).__name__})"))
             continue
