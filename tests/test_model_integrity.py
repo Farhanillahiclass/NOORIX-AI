@@ -314,3 +314,18 @@ def test_rejects_model_file_changed_during_hashing(tmp_path, monkeypatch):
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert "changed during verification" in result[0]["detail"]
+
+def test_rejects_manifest_with_mixed_nested_and_flat_checksum_fields(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(json.dumps({
+        "algorithm": "sha256",
+        "files": [{"path": "flat.onnx", "sha256": "0" * 64}],
+        "integrity": {
+            "algorithm": "sha256",
+            "files": [{"path": "nested.onnx", "sha256": "0" * 64}],
+        },
+    }), encoding="utf-8")
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "either nested integrity or flat checksum fields" in result[0]["detail"]
