@@ -257,33 +257,50 @@ def _config_check(root: Path) -> dict[str, str]:
     return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) and configured YOLO label maps validated")
 
 
+MAX_IMPORTED_MANIFEST_BYTES = 16 * 1024 * 1024
+
+
 def _model_integrity_check(root: Path) -> list[dict[str, str]]:
     imported = root / "models" / "imported"
-    if imported.is_symlink():
-        return [_result("Imported model integrity", "FAIL", "models/imported is a symlink; refusing to inspect external content")]
+    if _has_symlink_component(imported, root):
+        return [_result("Imported model integrity", "FAIL",
+                        "models/imported has a symlinked path component; refusing external content")]
     manifests = sorted(imported.rglob("import_manifest.json")) if imported.is_dir() else []
     if not manifests:
         return [_result("Imported model integrity", "WARN", "no imported model manifests found")]
     results = []
     verifier = root / "scripts" / "verify_model_integrity.py"
     for manifest in manifests:
+        relative = manifest.parent.relative_to(root)
         if _has_symlink_component(manifest, root):
             results.append(_result("Imported model integrity", "FAIL",
-                                   f"{manifest.parent.relative_to(root)} contains a symlinked path component"))
+                                   f"{relative} contains a symlinked path component"))
             continue
         try:
-            document = json.loads(manifest.read_text(encoding="utf-8"))
+            if not manifest.is_file():
+                raise OSError("manifest is not a regular file")
+            if manifest.stat().st_size > MAX_IMPORTED_MANIFEST_BYTES:
+                results.append(_result("Imported model integrity", "FAIL",
+                                       f"{relative} manifest exceeds the 16 MiB inspection limit"))
+                continue
+            with manifest.open("rb") as stream:
+                raw = stream.read(MAX_IMPORTED_MANIFEST_BYTES + 1)
+            if len(raw) > MAX_IMPORTED_MANIFEST_BYTES:
+                results.append(_result("Imported model integrity", "FAIL",
+                                       f"{relative} manifest exceeds the 16 MiB inspection limit"))
+                continue
+            document = json.loads(raw.decode("utf-8"))
             integrity = document.get("integrity", {}) if isinstance(document, dict) else {}
             if not isinstance(integrity, dict) or not integrity.get("files"):
                 results.append(_result("Imported model integrity", "WARN",
-                                       f"{manifest.parent.relative_to(root)} has no SHA-256 inventory"))
+                                       f"{relative} has no SHA-256 inventory"))
                 continue
         except (OSError, UnicodeError, json.JSONDecodeError) as exc:
             results.append(_result("Imported model integrity", "FAIL",
-                                   f"{manifest.parent.relative_to(root)} manifest unreadable ({type(exc).__name__})"))
+                                   f"{relative} manifest unreadable ({type(exc).__name__})"))
             continue
         results.append(_run(
-            f"Model SHA-256: {manifest.parent.relative_to(root)}",
+            f"Model SHA-256: {relative}",
             [sys.executable, str(verifier), "--root", str(manifest.parent), "--manifest", str(manifest)],
             root,
         ))
