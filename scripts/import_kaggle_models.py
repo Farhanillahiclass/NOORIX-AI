@@ -226,11 +226,16 @@ def prepare_staging_directory(staging: Path, destination: Path) -> bool:
 
 
 def publish_staging_directory(staging: Path, destination: Path) -> None:
-    """Rename a completed staging tree without shutil.move's nested-dir fallback."""
+    """Rename a completed staging tree without following symlinked parents."""
+    if has_symlink_component(staging) or has_symlink_component(destination.parent):
+        raise ValueError("staging or destination path contains a symlinked component")
+    if staging.is_symlink() or not staging.is_dir():
+        raise ValueError("staging path must be an existing regular directory")
     if destination.exists() or destination.is_symlink():
         raise FileExistsError(f"Import destination already exists: {destination.name}")
     # Both paths live under the repository's models directory, so this is an
-    # atomic same-filesystem rename in the normal importer layout.
+    # atomic same-filesystem rename in the normal importer layout. The checks
+    # are defense in depth, not a cross-process lock against concurrent mutation.
     os.rename(staging, destination)
 
 
