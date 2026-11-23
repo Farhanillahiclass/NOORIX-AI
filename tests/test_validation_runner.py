@@ -464,3 +464,18 @@ def test_validation_report_pair_cleans_partial_json_on_markdown_failure(tmp_path
 
     assert not json_path.exists()
     assert not markdown_path.exists()
+
+
+def test_config_discovery_reports_directory_scan_errors(tmp_path, monkeypatch):
+    from scripts.run_full_validation import _config_check
+
+    def broken_glob(_path, pattern):
+        assert pattern == "config.example*.json"
+        raise PermissionError("private filesystem diagnostic")
+
+    monkeypatch.setattr(Path, "glob", broken_glob)
+    result = _config_check(tmp_path)
+
+    assert result["status"] == "FAIL"
+    assert "PermissionError" in result["summary"]
+    assert "private filesystem diagnostic" not in result["output"]
