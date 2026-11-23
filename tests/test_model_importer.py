@@ -17,6 +17,7 @@ from import_kaggle_models import (
     publish_staging_directory,
     safe_display_filename,
     safe_extract_member,
+    ensure_directory_without_symlinks,
     main,
 )
 
@@ -455,3 +456,36 @@ def test_importer_returns_nonzero_when_archive_import_fails(tmp_path, monkeypatc
     assert main() == 1
     assert (incoming / "NOORIX_broken.zip").read_bytes() == b"not-a-zip"
     assert list(destination.iterdir()) == []
+
+
+
+def test_ensure_directory_refuses_symlinked_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        ensure_directory_without_symlinks(linked_parent / "incoming")
+    assert list(real_parent.iterdir()) == []
+
+
+def test_ensure_directory_refuses_symlink_target(tmp_path):
+    import pytest
+
+    real_target = tmp_path / "real-target"
+    real_target.mkdir()
+    linked_target = tmp_path / "linked-target"
+    try:
+        linked_target.symlink_to(real_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        ensure_directory_without_symlinks(linked_target)
+    assert list(real_target.iterdir()) == []
