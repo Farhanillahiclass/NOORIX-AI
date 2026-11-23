@@ -86,3 +86,6 @@ reported as warnings; re-import them if integrity evidence is required.
 
 The importer and verifier regression tests must be run in the planned final local
 validation batch. A comprehensive adversarial ZIP corpus is still outstanding.
+
+
+The importer now exits with a non-zero status if any discovered model archive fails import or an existing staging/destination path causes an import to be refused. This prevents automation from interpreting a partially failed batch as a successful import. Archives that contain no recognized model/config artifacts remain a non-destructive skip, and the original ZIP is preserved.
