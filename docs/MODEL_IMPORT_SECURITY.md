@@ -70,7 +70,9 @@ python scripts/verify_model_integrity.py --root models/imported/ARCHIVE_FOLDER -
 
 Replace `ARCHIVE_FOLDER` with the generated folder name. The offline verifier
 requires the supplied trusted model root itself to be an existing non-symlink
-directory. It rejects unsafe paths (including Windows reserved device names,
+directory. It also caps the manifest at 16 MiB, 20,000 file entries and 4,096
+characters per relative path before hashing artifacts, limiting resource use
+from malformed or unexpectedly large inventory files. It rejects unsafe paths (including Windows reserved device names,
 NUL bytes, empty/dot components and trailing spaces/dots), duplicate
 case-insensitive entries, symlinks in manifest/file path components, missing
 files and checksum mismatches. The combined local validation command automatically checks
