@@ -19,6 +19,7 @@ from import_kaggle_models import (
     safe_extract_member,
     ensure_directory_without_symlinks,
     main,
+    list_zip_files,
 )
 
 
@@ -567,3 +568,20 @@ def test_publish_staging_rejects_symlinked_staging_directory(tmp_path):
     with pytest.raises(ValueError, match="symlinked component"):
         publish_staging_directory(linked_staging, tmp_path / "destination")
     assert (real_staging / "model.onnx").read_bytes() == b"model"
+
+
+def test_zip_discovery_reports_directory_iteration_errors(tmp_path, monkeypatch):
+    def broken_glob(_path, pattern):
+        assert pattern == "*.zip"
+
+        def entries():
+            yield tmp_path / "first.zip"
+            raise PermissionError("private directory diagnostic")
+
+        return entries()
+
+    monkeypatch.setattr(Path, "glob", broken_glob)
+    files, error = list_zip_files(tmp_path)
+
+    assert files == []
+    assert isinstance(error, PermissionError)
