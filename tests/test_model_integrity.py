@@ -373,3 +373,17 @@ def test_rejects_excessively_nested_json_manifest_without_crashing(tmp_path):
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert result[0]["detail"] == "manifest unreadable"
+
+
+def test_manifest_errors_do_not_disclose_local_parent_paths_or_control_chars(tmp_path):
+    from scripts.verify_model_integrity import verify_manifest
+
+    manifest = tmp_path / "private-area" / "bad\\x1b[31mname.json"
+    manifest.parent.mkdir()
+    manifest.write_text("not-json", encoding="utf-8")
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert str(tmp_path) not in result[0]["path"]
+    assert "\\x1b" not in result[0]["path"]
+    assert result[0]["path"] == "bad?[31mname.json"
