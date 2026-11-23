@@ -232,3 +232,29 @@ def test_rejects_excessively_long_manifest_path(tmp_path):
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert "bounded relative path" in result[0]["detail"]
+
+
+def test_rejects_duplicate_json_object_keys(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        '{"algorithm":"sha256","algorithm":"sha1","files":['
+        '{"path":"model.onnx","sha256":"'+("0" * 64)+'"}]}',
+        encoding="utf-8",
+    )
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert result[0]["detail"] == "manifest unreadable"
+
+
+def test_rejects_duplicate_keys_inside_file_entry(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        '{"algorithm":"sha256","files":['
+        '{"path":"missing.onnx","path":"other.onnx","sha256":"'+("0" * 64)+'"}]}',
+        encoding="utf-8",
+    )
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert result[0]["detail"] == "manifest unreadable"
