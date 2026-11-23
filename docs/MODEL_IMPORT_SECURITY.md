@@ -72,7 +72,7 @@ Replace `ARCHIVE_FOLDER` with the generated folder name. The offline verifier
 requires the supplied trusted model root itself to be an existing non-symlink
 directory. Manifest reads are bounded to 16 MiB even if the file grows after its
 initial size check, and duplicate JSON object keys are rejected throughout the
-manifest to prevent ambiguous algorithm or file-entry fields. It also caps the manifest at 16 MiB, 20,000 file entries and 4,096
+manifest to prevent ambiguous algorithm or file-entry fields. A manifest cannot mix the legacy flat checksum fields with the newer nested `integrity` object. The verifier also rechecks that the hashed path still names a regular file after reading. It also caps the manifest at 16 MiB, 20,000 file entries and 4,096
 characters per relative path before hashing artifacts, limiting resource use
 from malformed or unexpectedly large inventory files. It rejects unsafe paths (including Windows reserved device names,
 NUL bytes, empty/dot components and trailing spaces/dots), duplicate
