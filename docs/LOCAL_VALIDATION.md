@@ -42,7 +42,7 @@ reports/validation/:
 - validation-report.md — readable summary and command output.
 - validation-report.json — machine-readable result details.
 
-Existing reports are not overwritten. Validation report creation rejects symlinked components in the reports/validation output path before writing. This reduces unintended writes through linked directories but cannot eliminate concurrent filesystem mutation races. Captured subprocess output redacts the project-root and home-directory prefixes before saving, and command-start failures report only the exception type. Reports can still contain other diagnostic details; review them before sharing. The script excludes report folders,
+Existing reports are not overwritten. Timestamp collisions create a fresh suffixed report directory, and report files are opened exclusively rather than overwritten. The output directory is rechecked for symlink components before directory creation. These checks reduce accidental overwrites but cannot eliminate every concurrent filesystem race. Validation report creation rejects symlinked components in the reports/validation output path before writing. This reduces unintended writes through linked directories but cannot eliminate concurrent filesystem mutation races. Captured subprocess output redacts the project-root and home-directory prefixes before saving, and command-start failures report only the exception type. Reports can still contain other diagnostic details; review them before sharing. The script excludes report folders,
 virtual environments, Git metadata, caches and build output when searching for
 notebooks. It only parses example configuration files; it does not read the
 user's local config.json.
