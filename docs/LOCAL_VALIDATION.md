@@ -26,7 +26,7 @@ download datasets, access a camera, or send local images or OCR text anywhere.
 6. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
 7. JSON syntax and supported semantic constraints in root config.example*.json files; symlinked config files and label-map path components are rejected.
 8. Basic nbformat-4 JSON structure for project Jupyter notebooks.
-9. SHA-256 verification for every imported model package with an integrity manifest. Missing inventories on older imports are reported as warnings.
+9. SHA-256 verification for every imported model package with an integrity manifest. The validation runner rejects symlinked components in the imported-model path and caps its preliminary manifest inspection at 16 MiB before invoking the separately bounded verifier. Missing inventories on older imports are reported as warnings.
 10. Optional Tesseract executable and installed language inventory.
 11. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
 
