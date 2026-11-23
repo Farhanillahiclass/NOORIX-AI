@@ -13,6 +13,16 @@ MAX_MANIFEST_ENTRIES = 20_000
 MAX_MANIFEST_PATH_LENGTH = 4_096
 
 
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Build a JSON object while rejecting ambiguous duplicate keys."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("duplicate JSON object key")
+        result[key] = value
+    return result
+
+
 def _has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the path or any existing ancestor."""
     candidate = Path(path).absolute()
@@ -58,8 +68,11 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
         if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
             return [{"path": str(manifest_path), "status": "ERROR",
                      "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
-        document: Any = json.loads(manifest_path.read_text(encoding="utf-8"))
-    except (OSError, UnicodeError, json.JSONDecodeError):
+        document: Any = json.loads(
+            manifest_path.read_text(encoding="utf-8"),
+            object_pairs_hook=_unique_json_object,
+        )
+    except (OSError, UnicodeError, ValueError):
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest unreadable"}]
 
     if not isinstance(document, dict):
