@@ -92,3 +92,6 @@ The importer now exits with a non-zero status if any discovered model archive fa
 
 
 Before scanning or importing, the importer now creates its configured incoming, imported, dataset-inbox and staging directories only after rejecting symlinks in any existing path component, then rechecks the resulting directory. Archive modification-time ordering is also guarded: files that disappear, become non-regular, or acquire a symlinked path before processing are skipped and counted as failures instead of crashing the whole batch. These checks reduce path-redirection and filesystem-race exposure but do not provide a cross-process lock.
+
+
+When `--scan-downloads` is requested, a missing or symlinked Downloads path is treated as a failed scan. Unsafe model archives and failed dataset-copy attempts are also reflected in the process exit status, including when no model ZIP remains eligible for import. This makes batch automation distinguish a clean no-op from a refused or partially failed operation.
