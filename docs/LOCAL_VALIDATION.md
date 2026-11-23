@@ -144,3 +144,10 @@ Run the offline metadata report independently with `python scripts/dependency_au
 
 
 Notebook discovery does not follow symlinked directories. Inaccessible scan locations are reported as failures instead of silently producing a partial inventory.
+
+
+Validation and benchmark report pairs are written transactionally at the file level:
+if the second (Markdown) report cannot be created or written, the script removes
+only the first report file it created in that invocation. Exclusive creation
+continues to protect any pre-existing files. This does not make the containing
+directory creation or concurrent filesystem operations fully transactional.
