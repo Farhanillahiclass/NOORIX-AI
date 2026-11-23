@@ -87,112 +87,10 @@ def create_unique_report_directory(output_dir: Path, stamp: str) -> Path:
             suffix += 1
 
 
-def build_parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(
-        description="Measure local object-detection latency on a supplied image."
-    )
-    parser.add_argument("--config", default="config.json", help="Configuration JSON path (default: config.json)")
-    parser.add_argument("--image", required=True, help="Local image path used for every inference")
-    parser.add_argument("--iterations", type=int, default=30, help="Measured runs (1-1000; default: 30)")
-    parser.add_argument("--warmup", type=int, default=5, help="Additional unmeasured warm-up runs (0-100; default: 5)")
-    parser.add_argument("--output-dir", default="reports/benchmarks", help="Report directory")
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = build_parser().parse_args(argv)
-    if not 1 <= args.iterations <= 1000:
-        print("--iterations must be between 1 and 1000", file=sys.stderr)
-        return 2
-    if not 0 <= args.warmup <= 100:
-        print("--warmup must be between 0 and 100", file=sys.stderr)
-        return 2
-
-    root = Path(__file__).resolve().parents[1]
-    config_path = Path(args.config).expanduser()
-    if not config_path.is_absolute():
-        config_path = root / config_path
-    image_path = Path(args.image).expanduser()
-    if not image_path.is_absolute():
-        image_path = root / image_path
-
+def write_report_pair(json_path: Path, md_path: Path, payload: dict, markdown: str) -> None:
+    """Write JSON and Markdown exclusively, cleaning only this call's partial output."""
+    created_files: list[Path] = []
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        if not isinstance(config, dict):
-            raise ValueError("configuration root must be a JSON object")
-        detector_config = config.get("object_detection")
-        if not isinstance(detector_config, dict):
-            raise ValueError("config must contain an object_detection object")
-
-        import cv2
-        from noorix.objects import create_object_detector
-
-        frame = cv2.imread(str(image_path), cv2.IMREAD_COLOR)
-        if frame is None:
-            raise ValueError("image could not be decoded by OpenCV")
-
-        detector = create_object_detector(detector_config, config_path=config_path)
-        started = time.perf_counter()
-        first_results = detector.detect(frame)
-        cold_start_ms = (time.perf_counter() - started) * 1000.0
-        cold_start_ms = validate_positive_latency(cold_start_ms, "cold-start timing")
-
-        for _ in range(args.warmup):
-            detector.detect(frame)
-
-        samples = []
-        final_results = first_results
-        for _ in range(args.iterations):
-            started = time.perf_counter()
-            final_results = detector.detect(frame)
-            samples.append((time.perf_counter() - started) * 1000.0)
-
-        stats = summarize_latencies(samples)
-        generated = datetime.now().astimezone().isoformat(timespec="seconds")
-        output_dir = Path(args.output_dir).expanduser()
-        if not output_dir.is_absolute():
-            output_dir = root / output_dir
-        stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
-        report_dir = create_unique_report_directory(output_dir, stamp)
-
-        def package_version(distribution: str) -> str | None:
-            try:
-                return importlib.metadata.version(distribution)
-            except importlib.metadata.PackageNotFoundError:
-                return None
-
-        payload = {
-            "project": "NOORIX-AI",
-            "generated_at": generated,
-            "python": sys.version.split()[0],
-            "platform": platform.platform(),
-            "processor": platform.processor() or platform.uname().processor or "unknown",
-            "runtime_versions": {
-                "opencv": getattr(cv2, "__version__", None),
-                "numpy": package_version("numpy"),
-                "onnxruntime": package_version("onnxruntime"),
-            },
-            "backend": str(detector_config.get("backend", "opencv_dnn")),
-            "confidence_threshold": detector_config.get("confidence_threshold"),
-            "input_size": detector_config.get("input_size"),
-            "model_filename": Path(str(detector_config.get("model_path", ""))).name,
-            "image_filename": image_path.name,
-            "image_dimensions": {"width": int(frame.shape[1]), "height": int(frame.shape[0])},
-            "cold_start_ms": cold_start_ms,
-            "warmup_runs": args.warmup,
-            "latency": stats,
-            "detections_last_run": len(final_results),
-            "limitations": [
-                "This is a repeatability aid, not a representative accuracy or safety evaluation.",
-                "Repeated runs use one image and do not measure camera capture, speech, OCR, or end-to-end agent latency.",
-                "Memory use and thermal throttling are not measured.",
-                "Compare results only when hardware, model, image, config, power mode, and software versions are recorded consistently.",
-            ],
-        }
-        json_path = report_dir / "benchmark-report.json"
-        md_path = report_dir / "benchmark-report.md"
-        with json_path.open("x", encoding="utf-8") as stream:
-            stream.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
         lines = [
             "# NOORIX-AI CPU Object Detection Benchmark", "",
             f"- Generated: {generated}",
@@ -220,8 +118,7 @@ def main(argv: list[str] | None = None) -> int:
         ]
         lines.extend(f"- {item}" for item in payload["limitations"])
         lines.append("")
-        with md_path.open("x", encoding="utf-8") as stream:
-            stream.write("\n".join(lines))
+        write_report_pair(json_path, md_path, payload, "\n".join(lines))
         print(f"Cold first inference: {cold_start_ms:.2f} ms")
         print(f"Mean: {stats['mean_ms']:.2f} ms | P95: {stats['p95_ms']:.2f} ms | FPS: {stats['throughput_fps']:.2f}")
         print(f"JSON report: {json_path.relative_to(root) if json_path.is_relative_to(root) else json_path}")
