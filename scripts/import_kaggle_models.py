@@ -247,19 +247,25 @@ def main():
     except (OSError, ValueError) as exc:
         print(f"Unsafe importer directory ({type(exc).__name__}); refusing to continue.")
         return 1
+    failures = 0
     archives = {}
     for candidate in INCOMING.glob("*.zip"):
         if has_symlink_component(candidate) or not candidate.is_file():
             print(f"Skipping non-regular or symlinked model ZIP: {safe_display_filename(candidate.name)}")
+            failures += 1
             continue
         try:
             archives[candidate.resolve()]=candidate
         except (OSError, RuntimeError):
             print(f"Skipping inaccessible model ZIP: {safe_display_filename(candidate.name)}")
+            failures += 1
     if args.scan_downloads:
         downloads=Path(args.downloads_dir).expanduser()
         cutoff=datetime.now().timestamp()-max(0,args.since_hours)*3600
-        if downloads.is_dir():
+        if has_symlink_component(downloads):
+            print("Downloads path contains a symlinked component; refusing to scan.")
+            failures += 1
+        elif downloads.is_dir():
             recent=[]
             for p in downloads.glob("*.zip"):
                 try:
@@ -275,11 +281,13 @@ def main():
                 if p.name.upper().startswith("NOORIX_") or p.name.upper().startswith("NOORIX-"):
                     if has_symlink_component(p):
                         print(f"Skipping symlinked model ZIP path: {safe_display_filename(p.name)}")
+                        failures += 1
                         continue
                     try:
                         archives[p.resolve()]=p
                     except (OSError, RuntimeError):
                         print(f"Skipping inaccessible model ZIP: {safe_display_filename(p.name)}")
+                        failures += 1
                 else:
                     try:
                         copied = copy_dataset_archive(p, DATA_INCOMING)
@@ -292,11 +300,13 @@ def main():
                             f"Dataset ZIP copy skipped: {safe_display_filename(p.name)} "
                             f"({type(copy_error).__name__})"
                         )
-        else: print(f"Downloads folder not found: {downloads}")
+                        failures += 1
+        else:
+            print(f"Downloads folder not found: {safe_display_filename(str(downloads))}")
+            failures += 1
     if not archives:
         print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
-        return 0
-    failures = 0
+        return 1 if failures else 0
     archive_order = []
     for candidate in archives.values():
         try:
