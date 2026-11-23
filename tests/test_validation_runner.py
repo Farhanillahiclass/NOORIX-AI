@@ -383,3 +383,62 @@ def test_config_check_rejects_oversized_label_map(tmp_path):
     result = _config_check(root)
     assert result["status"] == "FAIL"
     assert "labels_path exceeds the 1 MiB inspection limit" in result["output"]
+
+
+
+def test_deeply_nested_notebook_json_is_reported_without_crashing(tmp_path):
+    from scripts.run_full_validation import _notebook_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    nested = "[" * 2000 + "0" + "]" * 2000
+    (root / "deep.ipynb").write_text(nested, encoding="utf-8")
+
+    result = _notebook_check(root)
+    assert result["status"] == "FAIL"
+    assert "RecursionError" in result["output"]
+
+
+def test_deeply_nested_example_config_is_reported_without_crashing(tmp_path):
+    from scripts.run_full_validation import _config_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    nested = "[" * 2000 + "0" + "]" * 2000
+    (root / "config.example.json").write_text(nested, encoding="utf-8")
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "RecursionError" in result["output"]
+
+
+def test_deeply_nested_label_map_is_reported_without_crashing(tmp_path):
+    import json
+    from scripts.run_full_validation import _config_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "config.example.json").write_text(json.dumps({
+        "object_detection": {"backend": "yolov8_onnx", "labels_path": "labels.json"}
+    }), encoding="utf-8")
+    nested = "[" * 2000 + "0" + "]" * 2000
+    (root / "labels.json").write_text(nested, encoding="utf-8")
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "RecursionError" in result["output"]
+
+
+def test_deeply_nested_import_manifest_is_reported_without_crashing(tmp_path):
+    from scripts.run_full_validation import _model_integrity_check
+
+    root = tmp_path / "project"
+    imported = root / "models" / "imported" / "sample"
+    imported.mkdir(parents=True)
+    nested = "[" * 2000 + "0" + "]" * 2000
+    (imported / "import_manifest.json").write_text(nested, encoding="utf-8")
+
+    results = _model_integrity_check(root)
+    assert len(results) == 1
+    assert results[0]["status"] == "FAIL"
+    assert "RecursionError" in results[0]["summary"]
