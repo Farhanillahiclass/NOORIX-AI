@@ -127,7 +127,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             raw_manifest.decode("utf-8"),
             object_pairs_hook=_unique_json_object,
         )
-    except (OSError, UnicodeError, ValueError):
+    except (OSError, UnicodeError, ValueError, RecursionError):
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest unreadable"}]
 
     if not isinstance(document, dict):
