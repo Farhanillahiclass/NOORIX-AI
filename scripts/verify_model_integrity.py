@@ -8,6 +8,10 @@ from pathlib import Path, PurePosixPath
 import re
 from typing import Any
 
+MAX_MANIFEST_BYTES = 16 * 1024 * 1024
+MAX_MANIFEST_ENTRIES = 20_000
+MAX_MANIFEST_PATH_LENGTH = 4_096
+
 
 def _has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the path or any existing ancestor."""
@@ -51,6 +55,9 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
                  "detail": "manifest must be a regular non-symlink file inside the trusted model root"}]
     manifest_path = manifest_path.absolute()
     try:
+        if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
+            return [{"path": str(manifest_path), "status": "ERROR",
+                     "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
         document: Any = json.loads(manifest_path.read_text(encoding="utf-8"))
     except (OSError, UnicodeError, json.JSONDecodeError):
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest unreadable"}]
@@ -63,6 +70,9 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
     entries = integrity.get("files")
     if not isinstance(entries, list) or not entries:
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest files must be a non-empty list"}]
+    if len(entries) > MAX_MANIFEST_ENTRIES:
+        return [{"path": str(manifest_path), "status": "ERROR",
+                 "detail": f"manifest exceeds the {MAX_MANIFEST_ENTRIES}-entry limit"}]
 
     results: list[dict[str, str]] = []
     seen: set[str] = set()
@@ -72,8 +82,13 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             continue
         relative = entry.get("path")
         expected = entry.get("sha256")
-        if not isinstance(relative, str) or not relative or not isinstance(expected, str) or not re.fullmatch(r"[0-9a-fA-F]{64}", expected):
-            results.append({"path": str(relative), "status": "ERROR", "detail": "path and 64-character SHA-256 are required"})
+        if (not isinstance(relative, str) or not relative
+                or len(relative) > MAX_MANIFEST_PATH_LENGTH
+                or not isinstance(expected, str)
+                or not re.fullmatch(r"[0-9a-fA-F]{64}", expected)):
+            results.append({"path": str(relative)[:MAX_MANIFEST_PATH_LENGTH],
+                            "status": "ERROR",
+                            "detail": "a bounded relative path and 64-character SHA-256 are required"})
             continue
         normalized = relative.replace("\\", "/")
         raw_parts = normalized.split("/")
