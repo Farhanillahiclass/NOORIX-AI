@@ -45,3 +45,7 @@ a tested compatibility window and update it through a reviewed release process.
 
 
 Report output uses a collision-safe timestamp directory: if the selected timestamp already exists, a numbered suffix is tried instead of overwriting it. JSON and Markdown files are opened in exclusive-create mode. Symlink components are rejected and rechecked before each report directory is created; as with other filesystem checks, concurrent path mutation cannot be eliminated completely.
+
+
+If either dependency report cannot be written, the audit removes only files it
+created during that invocation, avoiding a misleading JSON-only partial report.
