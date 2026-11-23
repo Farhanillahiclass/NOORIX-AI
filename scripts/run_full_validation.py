@@ -342,7 +342,8 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
     payload = {"project": "NOORIX-AI", "generated_at": generated, "python": sys.version,
                "platform": platform.platform(), "results": results, "summary": counts}
     json_path, md_path = target / "validation-report.json", target / "validation-report.md"
-    json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    with json_path.open("x", encoding="utf-8") as stream:
+        stream.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     lines = ["# NOORIX-AI Local Validation", "", f"- Generated: {generated}",
              f"- Python: {sys.version.split()[0]}", f"- Platform: {platform.platform()}", "",
              "| Check | Status | Result |", "|---|---|---|"]
@@ -355,7 +356,8 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
     for item in results:
         if item["output"].strip():
             lines += [f"## {item['name']} output", "", "```text", item["output"].rstrip(), "```", ""]
-    md_path.write_text("\n".join(lines), encoding="utf-8")
+    with md_path.open("x", encoding="utf-8") as stream:
+        stream.write("\n".join(lines))
     return json_path, md_path
 
 
