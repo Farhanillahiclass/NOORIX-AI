@@ -128,3 +128,32 @@ def test_dependency_report_timestamp_collision_uses_suffix_and_preserves_existin
     assert marker.read_text(encoding="utf-8") == "preserve"
     assert json_path.is_file()
     assert md_path.is_file()
+
+
+def test_dependency_report_removes_own_partial_json_when_markdown_write_fails(tmp_path, monkeypatch):
+    import pytest
+    from pathlib import Path
+    from dependency_audit import write_report
+
+    report = {
+        "project": "NOORIX-AI",
+        "project_version": "0.2.0",
+        "requires_python": ">=3.11",
+        "generated_at": "2026-11-23T12:00:00+05:00",
+        "dependencies": [],
+        "limitations": [],
+    }
+    original_open = Path.open
+
+    def failing_open(path, *args, **kwargs):
+        if path.name == "dependency-audit.md":
+            raise OSError("simulated report write failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    with pytest.raises(OSError, match="simulated report write failure"):
+        write_report(report, tmp_path)
+
+    report_dirs = [path for path in tmp_path.iterdir() if path.is_dir()]
+    assert len(report_dirs) == 1
+    assert list(report_dirs[0].iterdir()) == []
