@@ -55,7 +55,6 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
         return False
 
 
-
 def _hash_file_stably(path: Path) -> str | None:
     """Hash one regular file and reject observable changes during the read."""
     try:
@@ -96,10 +95,11 @@ def _hash_file_stably(path: Path) -> str | None:
             or identity_after != path_identity_after
             or bytes_read != before.st_size
             or not stat.S_ISREG(after.st_mode)
+            or not stat.S_ISREG(after_path.st_mode)
         ):
             return None
         return digest.hexdigest()
-    except OSError:
+    except (OSError, ValueError):
         return None
 
 
@@ -132,6 +132,9 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
 
     if not isinstance(document, dict):
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest root must be an object"}]
+    if "integrity" in document and ("algorithm" in document or "files" in document):
+        return [{"path": str(manifest_path), "status": "ERROR",
+                 "detail": "manifest must use either nested integrity or flat checksum fields, not both"}]
     integrity = document.get("integrity", document)
     if not isinstance(integrity, dict) or integrity.get("algorithm") != "sha256":
         return [{"path": str(manifest_path), "status": "ERROR", "detail": "manifest algorithm must be sha256"}]
