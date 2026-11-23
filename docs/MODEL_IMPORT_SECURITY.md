@@ -95,3 +95,6 @@ Before scanning or importing, the importer now creates its configured incoming, 
 
 
 When `--scan-downloads` is requested, a missing or symlinked Downloads path is treated as a failed scan. Unsafe model archives and failed dataset-copy attempts are also reflected in the process exit status, including when no model ZIP remains eligible for import. This makes batch automation distinguish a clean no-op from a refused or partially failed operation.
+
+
+The optional `--since-hours` argument must be finite and non-negative; NaN, infinity and negative values are rejected before any importer directories are created. ZIP entries discovered through symlinked Downloads path components are skipped and counted as a failed scan.
