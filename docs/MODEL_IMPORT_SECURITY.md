@@ -98,3 +98,6 @@ When `--scan-downloads` is requested, a missing or symlinked Downloads path is t
 
 
 The optional `--since-hours` argument must be finite and non-negative; NaN, infinity and negative values are rejected before any importer directories are created. ZIP entries discovered through symlinked Downloads path components are skipped and counted as a failed scan.
+
+
+The final staging-publication helper independently rechecks the staging path and destination parent for symlink components, requires staging to be an existing regular directory, and refuses an existing destination before performing the same-filesystem rename. This is defense in depth; concurrent filesystem mutation can still create TOCTOU races because the importer does not hold a cross-process directory lock.
