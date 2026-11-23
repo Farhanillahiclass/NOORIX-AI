@@ -67,6 +67,26 @@ def _has_symlink_component(path: Path) -> bool:
     return any(component.is_symlink() for component in (candidate, *candidate.parents))
 
 
+
+
+def create_unique_report_directory(output_dir: Path, stamp: str) -> Path:
+    """Create a collision-safe report directory without following symlinks."""
+    if _has_symlink_component(output_dir):
+        raise ValueError("benchmark report output path contains a symbolic link")
+    output_dir.mkdir(parents=True, exist_ok=True)
+    suffix = 0
+    while True:
+        name = stamp if suffix == 0 else f"{stamp}-{suffix}"
+        candidate = output_dir / name
+        if _has_symlink_component(candidate):
+            raise ValueError("benchmark report directory contains a symbolic link")
+        try:
+            candidate.mkdir()
+            return candidate
+        except FileExistsError:
+            suffix += 1
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Measure local object-detection latency on a supplied image."
@@ -132,16 +152,8 @@ def main(argv: list[str] | None = None) -> int:
         output_dir = Path(args.output_dir).expanduser()
         if not output_dir.is_absolute():
             output_dir = root / output_dir
-        if _has_symlink_component(output_dir):
-            raise ValueError("benchmark report output path contains a symbolic link")
-        output_dir.mkdir(parents=True, exist_ok=True)
         stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
-        report_dir = output_dir / stamp
-        suffix = 1
-        while report_dir.exists():
-            report_dir = output_dir / f"{stamp}-{suffix}"
-            suffix += 1
-        report_dir.mkdir(parents=True)
+        report_dir = create_unique_report_directory(output_dir, stamp)
 
         def package_version(distribution: str) -> str | None:
             try:
@@ -179,7 +191,8 @@ def main(argv: list[str] | None = None) -> int:
         }
         json_path = report_dir / "benchmark-report.json"
         md_path = report_dir / "benchmark-report.md"
-        json_path.write_text(json.dumps(payload, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+        with json_path.open("x", encoding="utf-8") as stream:
+            stream.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
         lines = [
             "# NOORIX-AI CPU Object Detection Benchmark", "",
             f"- Generated: {generated}",
@@ -207,7 +220,8 @@ def main(argv: list[str] | None = None) -> int:
         ]
         lines.extend(f"- {item}" for item in payload["limitations"])
         lines.append("")
-        md_path.write_text("\n".join(lines), encoding="utf-8")
+        with md_path.open("x", encoding="utf-8") as stream:
+            stream.write("\n".join(lines))
         print(f"Cold first inference: {cold_start_ms:.2f} ms")
         print(f"Mean: {stats['mean_ms']:.2f} ms | P95: {stats['p95_ms']:.2f} ms | FPS: {stats['throughput_fps']:.2f}")
         print(f"JSON report: {json_path.relative_to(root) if json_path.is_relative_to(root) else json_path}")
