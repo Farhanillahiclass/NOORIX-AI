@@ -97,3 +97,34 @@ def test_dependency_report_rejects_symlinked_output_directory(tmp_path: Path):
     with pytest.raises(ValueError, match="symbolic link"):
         write_report(report, linked)
     assert list(target.iterdir()) == []
+
+
+
+def test_dependency_report_timestamp_collision_uses_suffix_and_preserves_existing(tmp_path: Path, monkeypatch):
+    import datetime as datetime_module
+    import scripts.dependency_audit as audit_module
+
+    class FixedDateTime:
+        @classmethod
+        def now(cls):
+            return datetime_module.datetime(2026, 11, 23, 12, 34, 56).astimezone()
+
+    monkeypatch.setattr(audit_module, "datetime", FixedDateTime)
+    output = tmp_path / "reports"
+    stamp = "20261123-123456"
+    existing = output / stamp
+    existing.mkdir(parents=True)
+    marker = existing / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+    report = audit_project({
+        "name": "demo", "version": "1.0", "requires_python": ">=3.11",
+        "dependencies": [], "optional": {},
+    })
+
+    json_path, md_path = audit_module.write_report(report, output)
+
+    assert json_path.parent.name == f"{stamp}-1"
+    assert md_path.parent == json_path.parent
+    assert marker.read_text(encoding="utf-8") == "preserve"
+    assert json_path.is_file()
+    assert md_path.is_file()
