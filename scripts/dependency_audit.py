@@ -168,9 +168,12 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
             suffix += 1
     json_path = target / "dependency-audit.json"
     md_path = target / "dependency-audit.md"
-    with json_path.open("x", encoding="utf-8", newline="\n") as stream:
-        stream.write(json.dumps(report, indent=2) + "\n")
-    lines = [
+    created_files: list[Path] = []
+    try:
+        with json_path.open("x", encoding="utf-8", newline="\n") as stream:
+            created_files.append(json_path)
+            stream.write(json.dumps(report, indent=2) + "\n")
+        lines = [
         "# NOORIX-AI Dependency Audit", "",
         f"- Project: {report['project']} {report['project_version']}",
         f"- Python requirement: {report['requires_python']}",
@@ -186,8 +189,18 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
-    with md_path.open("x", encoding="utf-8", newline="\n") as stream:
-        stream.write("\n".join(lines) + "\n")
+        with md_path.open("x", encoding="utf-8", newline="\n") as stream:
+            created_files.append(md_path)
+            stream.write("\n".join(lines) + "\n")
+    except Exception:
+        # Exclusive creation proves these paths belong to this invocation.
+        # Remove only our own partial outputs; never touch pre-existing files.
+        for created in created_files:
+            try:
+                created.unlink()
+            except OSError:
+                pass
+        raise
     return json_path, md_path
 
 
