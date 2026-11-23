@@ -274,3 +274,34 @@ def test_config_check_rejects_symlinked_label_map(tmp_path):
     result = _config_check(root)
     assert result["status"] == "FAIL"
     assert "labels_path has a symlinked path component" in result["output"]
+
+
+def test_validation_report_uses_new_directory_when_timestamp_already_exists(tmp_path):
+    from datetime import datetime
+    from scripts.run_full_validation import _write_reports
+
+    root = tmp_path / "project"
+    parent = root / "reports" / "validation"
+    parent.mkdir(parents=True)
+    stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
+    existing = parent / stamp
+    existing.mkdir()
+    marker = existing / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    json_path, markdown_path = _write_reports(root, [])
+
+    assert json_path.parent == parent / f"{stamp}-1"
+    assert markdown_path.exists()
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_validation_report_files_are_created_exclusively(tmp_path):
+    from scripts.run_full_validation import _write_reports
+
+    root = tmp_path / "project"
+    root.mkdir()
+    json_path, markdown_path = _write_reports(root, [])
+
+    assert json_path.is_file()
+    assert markdown_path.is_file()
