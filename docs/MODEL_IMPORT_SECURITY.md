@@ -89,3 +89,6 @@ validation batch. A comprehensive adversarial ZIP corpus is still outstanding.
 
 
 The importer now exits with a non-zero status if any discovered model archive fails import or an existing staging/destination path causes an import to be refused. This prevents automation from interpreting a partially failed batch as a successful import. Archives that contain no recognized model/config artifacts remain a non-destructive skip, and the original ZIP is preserved.
+
+
+Before scanning or importing, the importer now creates its configured incoming, imported, dataset-inbox and staging directories only after rejecting symlinks in any existing path component, then rechecks the resulting directory. Archive modification-time ordering is also guarded: files that disappear, become non-regular, or acquire a symlinked path before processing are skipped and counted as failures instead of crashing the whole batch. These checks reduce path-redirection and filesystem-race exposure but do not provide a cross-process lock.
