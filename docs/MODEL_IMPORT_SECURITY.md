@@ -77,8 +77,10 @@ characters per relative path before hashing artifacts, limiting resource use
 from malformed or unexpectedly large inventory files. It rejects unsafe paths (including Windows reserved device names,
 NUL bytes, empty/dot components and trailing spaces/dots), duplicate
 case-insensitive entries, symlinks in manifest/file path components, missing
-files and checksum mismatches. Model files are checked for observable identity, size
-and timestamp changes during hashing; a file that changes while being read is an error. The combined local validation command automatically checks
+files and checksum mismatches. The verifier compares file identity, size and
+high-resolution timestamps before and after hashing, and checks the number of bytes
+read. Observable changes during hashing are reported as errors; this does not eliminate
+all filesystem races or defend against a concurrent writer that can evade metadata checks. The combined local validation command automatically checks
 imported packages containing this inventory. Older imports without checksums are
 reported as warnings; re-import them if integrity evidence is required.
 
