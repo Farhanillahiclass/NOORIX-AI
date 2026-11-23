@@ -527,3 +527,43 @@ def test_importer_rejects_non_finite_download_window(tmp_path, monkeypatch):
 
     assert main() == 2
     assert not (tmp_path / "incoming").exists()
+
+
+
+def test_publish_staging_rejects_symlinked_destination_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    (staging / "model.onnx").write_bytes(b"model")
+    destination = linked_parent / "destination"
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        publish_staging_directory(staging, destination)
+    assert (staging / "model.onnx").read_bytes() == b"model"
+    assert list(real_parent.iterdir()) == []
+
+
+def test_publish_staging_rejects_symlinked_staging_directory(tmp_path):
+    import pytest
+
+    real_staging = tmp_path / "real-staging"
+    real_staging.mkdir()
+    (real_staging / "model.onnx").write_bytes(b"model")
+    linked_staging = tmp_path / "linked-staging"
+    try:
+        linked_staging.symlink_to(real_staging, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        publish_staging_directory(linked_staging, tmp_path / "destination")
+    assert (real_staging / "model.onnx").read_bytes() == b"model"
