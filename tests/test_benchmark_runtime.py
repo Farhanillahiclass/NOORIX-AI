@@ -124,3 +124,25 @@ def test_benchmark_report_files_are_created_exclusively(tmp_path):
             pass
 
     assert target.read_text(encoding="utf-8") == "keep"
+
+
+def test_benchmark_report_pair_cleans_partial_json_on_markdown_failure(tmp_path, monkeypatch):
+    from pathlib import Path
+    import pytest
+    from scripts.benchmark_runtime import write_report_pair
+
+    json_path = tmp_path / "benchmark.json"
+    markdown_path = tmp_path / "benchmark.md"
+    original_open = Path.open
+
+    def failing_open(path, *args, **kwargs):
+        if path == markdown_path:
+            raise OSError("simulated markdown write failure")
+        return original_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "open", failing_open)
+    with pytest.raises(OSError, match="simulated markdown write failure"):
+        write_report_pair(json_path, markdown_path, {"ok": True}, "# benchmark")
+
+    assert not json_path.exists()
+    assert not markdown_path.exists()
