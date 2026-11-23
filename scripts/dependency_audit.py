@@ -168,8 +168,8 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
             suffix += 1
     json_path = target / "dependency-audit.json"
     md_path = target / "dependency-audit.md"
-    with json_path.open("x", encoding="utf-8", newline="\\n") as stream:
-        stream.write(json.dumps(report, indent=2) + "\\n")
+    with json_path.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write(json.dumps(report, indent=2) + "\n")
     lines = [
         "# NOORIX-AI Dependency Audit", "",
         f"- Project: {report['project']} {report['project_version']}",
@@ -186,8 +186,8 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
-    with md_path.open("x", encoding="utf-8", newline="\\n") as stream:
-        stream.write("\\n".join(lines) + "\\n")
+    with md_path.open("x", encoding="utf-8", newline="\n") as stream:
+        stream.write("\n".join(lines) + "\n")
     return json_path, md_path
 
 
