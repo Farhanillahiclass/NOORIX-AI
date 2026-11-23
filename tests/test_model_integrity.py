@@ -359,3 +359,17 @@ def test_stable_hash_rejects_path_replaced_by_symlink_after_read(tmp_path, monke
 
     monkeypatch.setattr(Path, "lstat", replaced_path_lstat)
     assert _hash_file_stably(model) is None
+
+def test_rejects_excessively_nested_json_manifest_without_crashing(tmp_path):
+    manifest = tmp_path / "manifest.json"
+    nested = "[" * 2_000 + "0" + "]" * 2_000
+    manifest.write_text(
+        '{"metadata":' + nested
+        + ',"algorithm":"sha256","files":['
+        + '{"path":"missing.onnx","sha256":"' + ("0" * 64) + '"}]}',
+        encoding="utf-8",
+    )
+
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert result[0]["detail"] == "manifest unreadable"
