@@ -277,3 +277,48 @@ def test_bounds_manifest_read_if_file_grows_after_size_check(tmp_path, monkeypat
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert "size limit" in result[0]["detail"]
+
+
+def test_rejects_model_file_changed_during_hashing(tmp_path, monkeypatch):
+    model = tmp_path / "model.onnx"
+    original_bytes = b"original-model-bytes"
+    model.write_bytes(original_bytes)
+    manifest = _write_manifest(tmp_path, [{
+        "path": "model.onnx",
+        "sha256": hashlib.sha256(original_bytes).hexdigest(),
+    }])
+
+    original_open = type(model).open
+
+    class MutatingReader:
+        def __init__(self, stream):
+            self.stream = stream
+            self.mutated = False
+
+        def __enter__(self):
+            self.stream.__enter__()
+            return self
+
+        def __exit__(self, *args):
+            return self.stream.__exit__(*args)
+
+        def fileno(self):
+            return self.stream.fileno()
+
+        def read(self, size=-1):
+            data = self.stream.read(size)
+            if not self.mutated:
+                self.mutated = True
+                model.write_bytes(b"changed-model-content")
+            return data
+
+    def open_with_mutation(path, mode="r", *args, **kwargs):
+        stream = original_open(path, mode, *args, **kwargs)
+        if path == model and mode == "rb":
+            return MutatingReader(stream)
+        return stream
+
+    monkeypatch.setattr(type(model), "open", open_with_mutation)
+    result = verify_manifest(tmp_path, manifest)
+    assert result[0]["status"] == "ERROR"
+    assert "changed during verification" in result[0]["detail"]
