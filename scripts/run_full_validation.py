@@ -14,6 +14,7 @@ from typing import Any
 
 EXCLUDED_DIRS = {".git", ".venv", "venv", "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".tox", "node_modules", "build", "dist", "reports", ".noorix", ".idea", ".vscode"}
 MAX_OUTPUT_CHARS = 12000
+MAX_NOTEBOOK_BYTES = 64 * 1024 * 1024
 TIMEOUT_SECONDS = 1800
 
 
@@ -147,7 +148,15 @@ def _notebook_check(root: Path) -> dict[str, str]:
     failures = list(scan_errors)
     for path in paths:
         try:
-            data = json.loads(path.read_text(encoding="utf-8"))
+            if path.stat().st_size > MAX_NOTEBOOK_BYTES:
+                failures.append(f"{path.relative_to(root)}: notebook exceeds the 64 MiB inspection limit")
+                continue
+            with path.open("rb") as stream:
+                raw = stream.read(MAX_NOTEBOOK_BYTES + 1)
+            if len(raw) > MAX_NOTEBOOK_BYTES:
+                failures.append(f"{path.relative_to(root)}: notebook exceeds the 64 MiB inspection limit")
+                continue
+            data = json.loads(raw.decode("utf-8"))
             error = validate_notebook_document(data)
             if error:
                 failures.append(f"{path.relative_to(root)}: {error}")
