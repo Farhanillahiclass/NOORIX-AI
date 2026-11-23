@@ -1,5 +1,5 @@
 from __future__ import annotations
-import argparse, hashlib, json, os, re, shutil, zipfile
+import argparse, hashlib, json, math, os, re, shutil, zipfile
 from datetime import datetime, timedelta
 from pathlib import Path, PurePosixPath
 import stat
@@ -241,6 +241,9 @@ def main():
     parser.add_argument("--since-hours",type=float,default=2.0,help="Only include Downloads ZIPs modified within this many hours.")
     parser.add_argument("--delete-zips",action="store_true",help="Delete source ZIPs after successful import (not recommended).")
     args=parser.parse_args()
+    if not math.isfinite(args.since_hours) or args.since_hours < 0:
+        print("--since-hours must be a finite, non-negative number.")
+        return 2
     try:
         for directory in (INCOMING, DEST, DATA_INCOMING, TEMP):
             ensure_directory_without_symlinks(directory)
@@ -261,7 +264,7 @@ def main():
             failures += 1
     if args.scan_downloads:
         downloads=Path(args.downloads_dir).expanduser()
-        cutoff=datetime.now().timestamp()-max(0,args.since_hours)*3600
+        cutoff=datetime.now().timestamp()-args.since_hours*3600
         if has_symlink_component(downloads):
             print("Downloads path contains a symlinked component; refusing to scan.")
             failures += 1
@@ -269,10 +272,18 @@ def main():
             recent=[]
             for p in downloads.glob("*.zip"):
                 try:
-                    if not p.is_symlink() and p.is_file() and p.stat().st_mtime>=cutoff:
+                    if has_symlink_component(p):
+                        print(f"Skipping ZIP with symlinked path: {safe_display_filename(p.name)}")
+                        failures += 1
+                        continue
+                    if p.is_file() and p.stat().st_mtime>=cutoff:
                         recent.append(p)
-                except OSError:
-                    pass
+                except OSError as scan_error:
+                    print(
+                        f"Skipping unavailable ZIP: {safe_display_filename(p.name)} "
+                        f"({type(scan_error).__name__})"
+                    )
+                    failures += 1
             print(f"Scanning recent ZIP downloads in: {downloads}")
             print(f"Time window: last {args.since_hours:g} hour(s)")
             for p in recent:
