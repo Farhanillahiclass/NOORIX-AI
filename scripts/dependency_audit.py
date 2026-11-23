@@ -157,13 +157,19 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
     stamp = datetime.now().astimezone().strftime("%Y%m%d-%H%M%S")
     target = output_dir / stamp
     suffix = 1
-    while target.exists():
-        target = output_dir / f"{stamp}-{suffix}"
-        suffix += 1
-    target.mkdir()
+    while True:
+        if _has_symlink_component(target):
+            raise ValueError("report directory path contains a symbolic link")
+        try:
+            target.mkdir(exist_ok=False)
+            break
+        except FileExistsError:
+            target = output_dir / f"{stamp}-{suffix}"
+            suffix += 1
     json_path = target / "dependency-audit.json"
     md_path = target / "dependency-audit.md"
-    json_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
+    with json_path.open("x", encoding="utf-8", newline="\\n") as stream:
+        stream.write(json.dumps(report, indent=2) + "\\n")
     lines = [
         "# NOORIX-AI Dependency Audit", "",
         f"- Project: {report['project']} {report['project_version']}",
@@ -180,7 +186,8 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
     lines += ["", "## Scope and limitations", ""]
     lines.extend(f"- {line}" for line in report["limitations"])
-    md_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    with md_path.open("x", encoding="utf-8", newline="\\n") as stream:
+        stream.write("\\n".join(lines) + "\\n")
     return json_path, md_path
 
 
