@@ -77,7 +77,7 @@ characters per relative path before hashing artifacts, limiting resource use
 from malformed or unexpectedly large inventory files. It rejects unsafe paths (including Windows reserved device names,
 NUL bytes, empty/dot components and trailing spaces/dots), duplicate
 case-insensitive entries, symlinks in manifest/file path components, missing
-files and checksum mismatches. The verifier compares file identity, size and
+files and checksum mismatches. Verifier error output displays only a bounded, terminal-safe manifest filename; it omits local parent directories and replaces control characters. The verifier compares file identity, size and
 high-resolution timestamps before and after hashing, and checks the number of bytes
 read. Observable changes during hashing are reported as errors; this does not eliminate
 all filesystem races or defend against a concurrent writer that can evade metadata checks. The combined local validation command automatically checks
