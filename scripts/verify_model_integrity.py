@@ -68,8 +68,13 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
         if manifest_path.stat().st_size > MAX_MANIFEST_BYTES:
             return [{"path": str(manifest_path), "status": "ERROR",
                      "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
+        with manifest_path.open("rb") as stream:
+            raw_manifest = stream.read(MAX_MANIFEST_BYTES + 1)
+        if len(raw_manifest) > MAX_MANIFEST_BYTES:
+            return [{"path": str(manifest_path), "status": "ERROR",
+                     "detail": f"manifest exceeds the {MAX_MANIFEST_BYTES}-byte size limit"}]
         document: Any = json.loads(
-            manifest_path.read_text(encoding="utf-8"),
+            raw_manifest.decode("utf-8"),
             object_pairs_hook=_unique_json_object,
         )
     except (OSError, UnicodeError, ValueError):
