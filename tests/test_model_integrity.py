@@ -329,3 +329,33 @@ def test_rejects_manifest_with_mixed_nested_and_flat_checksum_fields(tmp_path):
     result = verify_manifest(tmp_path, manifest)
     assert result[0]["status"] == "ERROR"
     assert "either nested integrity or flat checksum fields" in result[0]["detail"]
+
+def test_stable_hash_rejects_path_replaced_by_symlink_after_read(tmp_path, monkeypatch):
+    from pathlib import Path
+    import stat
+    from types import SimpleNamespace
+    from scripts.verify_model_integrity import _hash_file_stably
+
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"model")
+    original_lstat = Path.lstat
+    calls = 0
+
+    def replaced_path_lstat(path):
+        nonlocal calls
+        metadata = original_lstat(path)
+        if path == model:
+            calls += 1
+            if calls == 2:
+                return SimpleNamespace(
+                    st_dev=metadata.st_dev,
+                    st_ino=metadata.st_ino,
+                    st_size=metadata.st_size,
+                    st_mtime_ns=metadata.st_mtime_ns,
+                    st_ctime_ns=metadata.st_ctime_ns,
+                    st_mode=stat.S_IFLNK,
+                )
+        return metadata
+
+    monkeypatch.setattr(Path, "lstat", replaced_path_lstat)
+    assert _hash_file_stably(model) is None
