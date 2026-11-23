@@ -350,3 +350,36 @@ def test_notebook_check_rejects_oversized_notebook_before_json_parse(tmp_path):
     result = _notebook_check(root)
     assert result["status"] == "FAIL"
     assert "64 MiB inspection limit" in result["output"]
+
+
+def test_config_check_rejects_oversized_example_config(tmp_path):
+    from scripts.run_full_validation import MAX_CONFIG_BYTES, _config_check
+
+    root = tmp_path / "project"
+    root.mkdir()
+    (root / "config.example.json").write_bytes(b" " * (MAX_CONFIG_BYTES + 1))
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "1 MiB inspection limit" in result["output"]
+
+
+def test_config_check_rejects_oversized_label_map(tmp_path):
+    import json
+    from scripts.run_full_validation import MAX_CONFIG_BYTES, _config_check
+
+    root = tmp_path / "project"
+    models = root / "models"
+    models.mkdir(parents=True)
+    labels = models / "labels.json"
+    labels.write_bytes(b" " * (MAX_CONFIG_BYTES + 1))
+    (root / "config.example.json").write_text(json.dumps({
+        "object_detection": {
+            "backend": "yolov8_onnx",
+            "labels_path": "models/labels.json",
+        }
+    }), encoding="utf-8")
+
+    result = _config_check(root)
+    assert result["status"] == "FAIL"
+    assert "labels_path exceeds the 1 MiB inspection limit" in result["output"]
