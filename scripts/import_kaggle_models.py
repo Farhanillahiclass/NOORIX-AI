@@ -194,6 +194,16 @@ def has_symlink_component(path: Path) -> bool:
     return any(component.is_symlink() for component in (candidate, *candidate.parents))
 
 
+def ensure_directory_without_symlinks(path: Path) -> None:
+    """Create a directory only when its existing path components are not symlinks."""
+    candidate = Path(path)
+    if has_symlink_component(candidate):
+        raise ValueError("directory path contains a symlinked component")
+    candidate.mkdir(parents=True, exist_ok=True)
+    if has_symlink_component(candidate) or not candidate.is_dir():
+        raise ValueError("directory path is not a safe regular directory")
+
+
 def safe_display_filename(filename: str) -> str:
     """Keep untrusted filenames from injecting terminal control characters."""
     cleaned = "".join(
@@ -231,7 +241,12 @@ def main():
     parser.add_argument("--since-hours",type=float,default=2.0,help="Only include Downloads ZIPs modified within this many hours.")
     parser.add_argument("--delete-zips",action="store_true",help="Delete source ZIPs after successful import (not recommended).")
     args=parser.parse_args()
-    INCOMING.mkdir(parents=True,exist_ok=True); DEST.mkdir(parents=True,exist_ok=True); DATA_INCOMING.mkdir(parents=True,exist_ok=True); TEMP.mkdir(parents=True,exist_ok=True)
+    try:
+        for directory in (INCOMING, DEST, DATA_INCOMING, TEMP):
+            ensure_directory_without_symlinks(directory)
+    except (OSError, ValueError) as exc:
+        print(f"Unsafe importer directory ({type(exc).__name__}); refusing to continue.")
+        return 1
     archives = {}
     for candidate in INCOMING.glob("*.zip"):
         if has_symlink_component(candidate) or not candidate.is_file():
@@ -282,7 +297,19 @@ def main():
         print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
         return 0
     failures = 0
-    for archive in sorted(archives.values(),key=lambda p:p.stat().st_mtime):
+    archive_order = []
+    for candidate in archives.values():
+        try:
+            if has_symlink_component(candidate) or not candidate.is_file():
+                raise OSError("archive is no longer a regular file")
+            archive_order.append((candidate.stat().st_mtime, candidate))
+        except OSError as exc:
+            print(
+                f"Skipping unavailable model ZIP: {safe_display_filename(candidate.name)} "
+                f"({type(exc).__name__})"
+            )
+            failures += 1
+    for _, archive in sorted(archive_order, key=lambda item: item[0]):
         slug=archive_slug(archive.name)
         staging=TEMP/slug; destination=DEST/slug
         if not prepare_staging_directory(staging, destination):
