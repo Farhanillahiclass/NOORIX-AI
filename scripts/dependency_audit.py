@@ -166,6 +166,7 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         except FileExistsError:
             target = output_dir / f"{stamp}-{suffix}"
             suffix += 1
+
     json_path = target / "dependency-audit.json"
     md_path = target / "dependency-audit.md"
     created_files: list[Path] = []
@@ -173,22 +174,31 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
         with json_path.open("x", encoding="utf-8", newline="\n") as stream:
             created_files.append(json_path)
             stream.write(json.dumps(report, indent=2) + "\n")
+
         lines = [
-        "# NOORIX-AI Dependency Audit", "",
-        f"- Project: {report['project']} {report['project_version']}",
-        f"- Python requirement: {report['requires_python']}",
-        f"- Generated: {report['generated_at']}", "",
-        "| Group | Requirement | Installed version | Satisfies specifier | Upper bound | Review |",
-        "|---|---|---|---|---|",
-    ]
-    for item in report["dependencies"]:
-        installed = item["installed_version"] or "not installed here"
-        upper = "yes" if item["has_upper_bound"] or item["is_exact"] else "no"
-        satisfies = "yes" if item["installed_satisfies_specifier"] is True else "no" if item["installed_satisfies_specifier"] is False else "unknown"
-        cells = (item["group"], item["requirement"], installed, satisfies, upper, item["review"])
-        lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
-    lines += ["", "## Scope and limitations", ""]
-    lines.extend(f"- {line}" for line in report["limitations"])
+            "# NOORIX-AI Dependency Audit", "",
+            f"- Project: {report['project']} {report['project_version']}",
+            f"- Python requirement: {report['requires_python']}",
+            f"- Generated: {report['generated_at']}", "",
+            "| Group | Requirement | Installed version | Satisfies specifier | Upper bound | Review |",
+            "|---|---|---|---|---|---",
+        ]
+        for item in report["dependencies"]:
+            installed = item["installed_version"] or "not installed here"
+            upper = "yes" if item["has_upper_bound"] or item["is_exact"] else "no"
+            satisfies = (
+                "yes" if item["installed_satisfies_specifier"] is True
+                else "no" if item["installed_satisfies_specifier"] is False
+                else "unknown"
+            )
+            cells = (
+                item["group"], item["requirement"], installed,
+                satisfies, upper, item["review"],
+            )
+            lines.append("| " + " | ".join(_markdown_cell(cell) for cell in cells) + " |")
+        lines += ["", "## Scope and limitations", ""]
+        lines.extend(f"- {line}" for line in report["limitations"])
+
         with md_path.open("x", encoding="utf-8", newline="\n") as stream:
             created_files.append(md_path)
             stream.write("\n".join(lines) + "\n")
@@ -202,7 +212,6 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
                 pass
         raise
     return json_path, md_path
-
 
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Report declared dependencies and local installed versions; no network.")
