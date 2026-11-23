@@ -362,6 +362,25 @@ def _tesseract_check() -> dict[str, str]:
     return _result("Optional Tesseract", "INFO", "languages: " + (", ".join(langs) if langs else "none reported"))
 
 
+def _write_report_pair(json_path: Path, md_path: Path, payload: dict[str, Any], markdown: str) -> None:
+    """Write a report pair exclusively; roll back only files created here."""
+    created_files: list[Path] = []
+    try:
+        with json_path.open("x", encoding="utf-8") as stream:
+            created_files.append(json_path)
+            stream.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
+        with md_path.open("x", encoding="utf-8") as stream:
+            created_files.append(md_path)
+            stream.write(markdown)
+    except Exception:
+        for created in created_files:
+            try:
+                created.unlink()
+            except OSError:
+                pass
+        raise
+
+
 def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Path]:
     report_parent = root / "reports" / "validation"
     if _has_symlink_component(report_parent, root):
@@ -385,8 +404,6 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
     payload = {"project": "NOORIX-AI", "generated_at": generated, "python": sys.version,
                "platform": platform.platform(), "results": results, "summary": counts}
     json_path, md_path = target / "validation-report.json", target / "validation-report.md"
-    with json_path.open("x", encoding="utf-8") as stream:
-        stream.write(json.dumps(payload, indent=2, ensure_ascii=False) + "\n")
     lines = ["# NOORIX-AI Local Validation", "", f"- Generated: {generated}",
              f"- Python: {sys.version.split()[0]}", f"- Platform: {platform.platform()}", "",
              "| Check | Status | Result |", "|---|---|---|"]
@@ -399,8 +416,7 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
     for item in results:
         if item["output"].strip():
             lines += [f"## {item['name']} output", "", "```text", item["output"].rstrip(), "```", ""]
-    with md_path.open("x", encoding="utf-8") as stream:
-        stream.write("\n".join(lines))
+    _write_report_pair(json_path, md_path, payload, "\n".join(lines))
     return json_path, md_path
 
 
