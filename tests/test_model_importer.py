@@ -17,6 +17,7 @@ from import_kaggle_models import (
     publish_staging_directory,
     safe_display_filename,
     safe_extract_member,
+    main,
 )
 
 
@@ -432,3 +433,25 @@ def test_safe_display_filename_removes_terminal_control_characters():
     assert safe_display_filename("data" + chr(10) + ".zip") == "data.zip"
     assert safe_display_filename("bad" + chr(27) + "[31m.zip") == "bad[31m.zip"
     assert safe_display_filename(chr(10) + chr(9)) == "<unnamed>"
+
+
+
+def test_importer_returns_nonzero_when_archive_import_fails(tmp_path, monkeypatch):
+    import import_kaggle_models as importer
+
+    incoming = tmp_path / "incoming"
+    destination = tmp_path / "imported"
+    data_incoming = tmp_path / "datasets" / "incoming"
+    staging = tmp_path / ".staging"
+    incoming.mkdir()
+    (incoming / "NOORIX_broken.zip").write_bytes(b"not-a-zip")
+
+    monkeypatch.setattr(importer, "INCOMING", incoming)
+    monkeypatch.setattr(importer, "DEST", destination)
+    monkeypatch.setattr(importer, "DATA_INCOMING", data_incoming)
+    monkeypatch.setattr(importer, "TEMP", staging)
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py"])
+
+    assert main() == 1
+    assert (incoming / "NOORIX_broken.zip").read_bytes() == b"not-a-zip"
+    assert not (destination / "NOORIX_broken").exists()
