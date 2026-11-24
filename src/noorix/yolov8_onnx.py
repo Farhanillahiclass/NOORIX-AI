@@ -17,7 +17,7 @@ class YOLOv8ONNXDetector:
     """Run a standard COCO-80 YOLOv8 ONNX detection model on CPU."""
 
     COCO_CLASS_COUNT = 80
-    MAX_CANDIDATES = 20_000
+    MAX_CANDIDATES = 10_000
     COCO_LABELS = (
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
         "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
