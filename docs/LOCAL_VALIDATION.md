@@ -142,7 +142,7 @@ licenses/integrity verified.
 Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra, checks local installed-version compatibility when packaging is installed, and reviews upper version bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
 
 
-Notebook discovery does not follow symlinked directories. Inaccessible scan locations and unexpected directory-walk exceptions are reported as failures instead of silently producing a partial inventory. Imported-model manifest discovery also avoids symlinked directories, distinguishes a missing optional import folder from an inaccessible or non-directory path, and records both directory-walk callback errors and unexpected walk exceptions as failures. Root example-config discovery errors are also reported as a controlled failure rather than aborting the validation runner.
+Notebook discovery does not follow symlinked directories. Inaccessible scan locations, unexpected directory-walk exceptions and notebook file-metadata access failures are reported as failures instead of silently producing a partial inventory. Imported-model manifest discovery also avoids symlinked directories, distinguishes a missing optional import folder from an inaccessible or non-directory path, and records both directory-walk callback errors and unexpected walk exceptions as failures. Root example-config discovery errors are also reported as a controlled failure rather than aborting the validation runner.
 
 
 Validation and benchmark report pairs are written transactionally at the file level:
