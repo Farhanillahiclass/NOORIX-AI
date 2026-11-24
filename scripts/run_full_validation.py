@@ -124,6 +124,18 @@ def _redact_local_paths(text: str, root: Path) -> str:
     return text
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode) or _is_symlink_or_junction(path):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def _has_symlink_component(path: Path, root: Path) -> bool:
     """Return true for symlinks in a project-relative path; fail closed."""
     try:
@@ -131,7 +143,7 @@ def _has_symlink_component(path: Path, root: Path) -> bool:
         current = root
         for part in relative.parts:
             current = current / part
-            if current.is_symlink():
+            if _is_symlink_or_junction(current):
                 return True
         return False
     except (OSError, RuntimeError, ValueError):
@@ -176,7 +188,7 @@ def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
                 name for name in directories
                 if name not in EXCLUDED_DIRS
                 and not (name.startswith(".") and name != ".github")
-                and not (current_path / name).is_symlink()
+                and not _is_symlink_or_junction(current_path / name)
             ]
             for name in files:
                 if not name.endswith(".ipynb"):
