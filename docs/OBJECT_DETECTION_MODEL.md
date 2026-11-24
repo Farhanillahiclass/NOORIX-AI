@@ -15,7 +15,7 @@ The adapter expects:
 - the canonical COCO-80 labels in their original class-index order (the runtime rejects reordered, duplicate, blank, or custom labels);
 - a standard detection export, not segmentation, pose, custom-class, or end-to-end/NMS-included output.
 
-Use the exact YOLOv8n COCO-80 ONNX model that was already exported and tested in the NOORIX model workspace. Do not rename a different model and assume compatibility. The runtime validates input and output metadata before the first inference, then validates the actual output tensor shape and caps candidate count at 20,000 to bound class-aware NMS work. It also checks that the supplied label map exactly matches the canonical COCO-80 class order, preventing silent class-name mismatches.
+Use the exact YOLOv8n COCO-80 ONNX model that was already exported and tested in the NOORIX model workspace. Do not rename a different model and assume compatibility. The runtime validates input and output metadata before the first inference, then validates the actual output tensor shape and caps candidate count at 10,000 to bound class-aware NMS work. It also checks that the supplied label map exactly matches the canonical COCO-80 class order, preventing silent class-name mismatches.
 
 ## Install and configure
 
