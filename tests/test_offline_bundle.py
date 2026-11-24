@@ -269,3 +269,8 @@ def test_pip_output_sanitizer_removes_terminal_csi_and_osc_sequences():
     assert chr(27) not in cleaned
     assert "private title" not in cleaned
     assert "beforeRED after\nnext" == cleaned
+
+
+def test_pip_output_sanitizer_removes_dcs_terminal_sequences():
+    value = "before\x1bP1;2|private payload\x1b\\after"
+    assert sanitize_terminal_output(value) == "beforeafter"
