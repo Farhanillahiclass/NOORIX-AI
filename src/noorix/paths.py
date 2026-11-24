@@ -28,6 +28,9 @@ def _has_symlink_component(path: Path) -> bool:
             continue
         if stat.S_ISLNK(metadata.st_mode):
             return True
+        is_junction = getattr(component, "is_junction", None)
+        if callable(is_junction) and is_junction():
+            return True
     return False
 
 
