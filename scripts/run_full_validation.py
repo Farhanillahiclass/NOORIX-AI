@@ -522,11 +522,13 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
             target = base.with_name(f"{base.name}-{suffix}")
     counts = {s.lower(): sum(r["status"] == s for r in results) for s in ("PASS", "FAIL", "WARN", "INFO")}
     generated = datetime.now().astimezone().isoformat(timespec="seconds")
-    payload = {"project": "NOORIX-AI", "generated_at": generated, "python": sys.version,
-               "platform": platform.platform(), "results": results, "summary": counts}
+    safe_python = _clean_diagnostic_text(sys.version, single_line=True)
+    safe_platform = _clean_diagnostic_text(platform.platform(), single_line=True)
+    payload = {"project": "NOORIX-AI", "generated_at": generated, "python": safe_python,
+               "platform": safe_platform, "results": results, "summary": counts}
     json_path, md_path = target / "validation-report.json", target / "validation-report.md"
     lines = ["# NOORIX-AI Local Validation", "", f"- Generated: {generated}",
-             f"- Python: {sys.version.split()[0]}", f"- Platform: {platform.platform()}", "",
+             f"- Python: {_markdown_label(safe_python.split()[0])}", f"- Platform: {_markdown_label(safe_platform)}", "",
              "| Check | Status | Result |", "|---|---|---|"]
     for item in results:
         name = _markdown_label(item["name"])
