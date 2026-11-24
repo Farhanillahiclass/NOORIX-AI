@@ -125,20 +125,23 @@ def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
             relative = "<unavailable path>"
         errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
 
-    for current, directories, files in os.walk(root, topdown=True, followlinks=False, onerror=onerror):
-        current_path = Path(current)
-        directories[:] = [
-            name for name in directories
-            if name not in EXCLUDED_DIRS
-            and not (name.startswith(".") and name != ".github")
-            and not (current_path / name).is_symlink()
-        ]
-        for name in files:
-            if not name.endswith(".ipynb"):
-                continue
-            path = current_path / name
-            if path.is_file() and not _has_symlink_component(path, root):
-                paths.append(path)
+    try:
+        for current, directories, files in os.walk(root, topdown=True, followlinks=False, onerror=onerror):
+            current_path = Path(current)
+            directories[:] = [
+                name for name in directories
+                if name not in EXCLUDED_DIRS
+                and not (name.startswith(".") and name != ".github")
+                and not (current_path / name).is_symlink()
+            ]
+            for name in files:
+                if not name.endswith(".ipynb"):
+                    continue
+                path = current_path / name
+                if path.is_file() and not _has_symlink_component(path, root):
+                    paths.append(path)
+    except OSError as exc:
+        onerror(exc)
     return sorted(paths), errors
 
 
@@ -506,7 +509,7 @@ def main() -> int:
     try:
         json_path, md_path = _write_reports(root, results)
     except OSError as exc:
-        print(f"Could not write reports: {exc}", file=sys.stderr)
+        print(f"Could not write validation reports ({type(exc).__name__}).", file=sys.stderr)
         return 2
     print("\nNOORIX-AI LOCAL VALIDATION")
     print("=" * 68)
