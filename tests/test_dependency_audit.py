@@ -239,3 +239,16 @@ def test_project_metadata_rejects_symlinked_parent_directory(tmp_path: Path):
 
     with pytest.raises(ValueError, match="symbolic link"):
         load_project(linked_dir / "pyproject.toml")
+
+
+
+def test_project_metadata_rejects_extra_name_with_trailing_separator(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n'
+        '[project.optional-dependencies]\n"dev-" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="valid extra names"):
+        load_project(path)
