@@ -151,3 +151,25 @@ def test_load_extras_rejects_invalid_extra_names(tmp_path: Path):
 
     with pytest.raises(ValueError, match="invalid extra name"):
         load_extras(path)
+
+
+
+def test_load_extras_rejects_symlinked_parent_directory(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    target = real_dir / "pyproject.toml"
+    target.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = []\n',
+        encoding="utf-8",
+    )
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_extras(linked_dir / "pyproject.toml")
