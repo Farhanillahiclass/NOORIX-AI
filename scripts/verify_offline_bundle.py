@@ -9,6 +9,18 @@ import subprocess
 import sys
 import tomllib
 
+_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
+
+
+def sanitize_terminal_output(text: str) -> str:
+    """Strip terminal control sequences from untrusted pip output."""
+    plain = _ANSI_ESCAPE.sub("", str(text))
+    return "".join(
+        character if character in "\n\t" or character.isprintable() else " "
+        for character in plain
+    )
+
+
 MAX_PYPROJECT_BYTES = 1024 * 1024
 _EXTRA_NAME = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
@@ -216,7 +228,9 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Offline dependency resolution could not complete ({type(exc).__name__}).", file=sys.stderr)
         return 2
     if result.stdout:
-        safe_output = redact_local_paths(result.stdout[-12000:], [root, Path.home(), wheelhouse])
+        safe_output = sanitize_terminal_output(
+            redact_local_paths(result.stdout[-12000:], [root, Path.home(), wheelhouse])
+        )
         print(safe_output)
     if result.returncode:
         print("FAIL: the wheelhouse cannot currently resolve this environment.", file=sys.stderr)
