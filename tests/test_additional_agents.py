@@ -70,3 +70,21 @@ def test_vision_pipeline_includes_quality_and_safety_review():
         "frame_quality", "object_detection", "currency", "safety"
     ]
     assert results[-1].data["reviewed"] == 3
+
+
+
+def test_frame_quality_redacts_untrusted_exception_details(monkeypatch):
+    np = pytest.importorskip("numpy")
+    cv2 = pytest.importorskip("cv2")
+    secret = "C:/Users/private/frame.png \x1b[31msecret"
+
+    def broken_cvt_color(*_args, **_kwargs):
+        raise ValueError(secret)
+
+    monkeypatch.setattr(cv2, "cvtColor", broken_cvt_color)
+    result = FrameQualityAgent().run(np.zeros((240, 320, 3), dtype=np.uint8))
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert result.summary == "Invalid camera frame (ValueError)."
+    assert secret not in result.summary
+    assert chr(27) not in result.summary
