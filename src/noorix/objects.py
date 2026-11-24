@@ -121,8 +121,6 @@ class ObjectDetector:
 
 def create_object_detector(config: dict, config_path: str | Path = "config.json"):
     """Create the configured object detector using paths relative to config."""
-    import json
-
     from noorix.paths import load_json_document, resolve_config_path
 
     backend = str(config.get("backend", "opencv_dnn")).lower()
