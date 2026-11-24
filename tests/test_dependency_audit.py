@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.dependency_audit import audit_project, load_project, parse_requirement
+from scripts.dependency_audit import audit_project, load_project, parse_requirement, _markdown_cell
 
 
 def test_requirement_parser_detects_lower_and_upper_bounds():
@@ -290,3 +290,14 @@ def test_dependency_report_guard_rejects_windows_junction(tmp_path, monkeypatch)
     )
 
     assert _has_symlink_component(junction / "reports") is True
+
+
+
+def test_dependency_report_markdown_cells_escape_markup_and_controls():
+    cell = _markdown_cell("bad | [link](x) <script> \x1b[31m *bold*")
+
+    assert "\\|" in cell
+    assert "\\[link\\]" in cell
+    assert "&lt;script&gt;" in cell
+    assert chr(27) not in cell
+    assert "\\*bold\\*" in cell
