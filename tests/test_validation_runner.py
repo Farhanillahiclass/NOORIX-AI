@@ -1,5 +1,6 @@
 from pathlib import Path
 from scripts.run_full_validation import (
+    discover_import_manifests,
     python_version_supported,
     validate_example_config,
     validate_notebook_document,
@@ -500,3 +501,43 @@ def test_imported_model_discovery_reports_directory_scan_errors(tmp_path, monkey
     assert results[0]["status"] == "FAIL"
     assert "PermissionError" in results[0]["output"]
     assert "private filesystem diagnostic" not in results[0]["output"]
+
+
+def test_import_manifest_discovery_reports_non_directory_path(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+    imported = root / "models" / "imported"
+    imported.parent.mkdir()
+    imported.write_text("not a directory", encoding="utf-8")
+
+    manifests, errors = discover_import_manifests(imported, root)
+
+    assert manifests == []
+    assert errors == ["models/imported: expected a directory"]
+
+
+def test_import_manifest_discovery_reports_unexpected_walk_exception(tmp_path, monkeypatch):
+    root = tmp_path / "project"
+    imported = root / "models" / "imported"
+    imported.mkdir(parents=True)
+
+    def broken_walk(*args, **kwargs):
+        raise PermissionError("private filesystem diagnostic")
+
+    monkeypatch.setattr("scripts.run_full_validation.os.walk", broken_walk)
+    manifests, errors = discover_import_manifests(imported, root)
+
+    assert manifests == []
+    assert len(errors) == 1
+    assert "PermissionError" in errors[0]
+    assert "private filesystem diagnostic" not in errors[0]
+
+
+def test_import_manifest_discovery_treats_missing_directory_as_empty(tmp_path):
+    root = tmp_path / "project"
+    root.mkdir()
+
+    manifests, errors = discover_import_manifests(root / "models" / "imported", root)
+
+    assert manifests == []
+    assert errors == []
