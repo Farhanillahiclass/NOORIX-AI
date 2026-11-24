@@ -22,6 +22,19 @@ WINDOWS_RESERVED_NAMES = {
     "COM¹", "COM²", "COM³", "LPT¹", "LPT²", "LPT³",
 }
 
+def is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    candidate = Path(path)
+    try:
+        metadata = candidate.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode):
+        return True
+    is_junction = getattr(candidate, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def list_zip_files(directory: Path) -> tuple[list[Path], OSError | None]:
     """Materialize a ZIP scan so directory iteration errors are reported safely."""
     try:
@@ -45,7 +58,7 @@ def _build_path_index(target_root: Path) -> dict[str, tuple[tuple[str, ...], str
     for existing in target_root.rglob("*"):
         parts = existing.relative_to(target_root).parts
         key = "/".join(part.casefold() for part in parts)
-        kind = "blocked" if existing.is_symlink() else "directory" if existing.is_dir() else "file"
+        kind = "blocked" if is_symlink_or_junction(existing) else "directory" if existing.is_dir() else "file"
         previous = index.get(key)
         if previous is not None and previous[0] != parts:
             index[key] = (previous[0], "blocked")
@@ -100,10 +113,10 @@ def safe_extract_member(zf, info, target, path_index=None):
     # Do not resolve first: doing so would silently accept a symlinked staging
     # root and redirect extraction outside the caller's intended directory.
     try:
-        if target_path.is_symlink() or not target_path.is_dir():
+        if is_symlink_or_junction(target_path) or not target_path.is_dir():
             return None
         for component in (target_path, *target_path.parents):
-            if component.is_symlink():
+            if is_symlink_or_junction(component):
                 return None
         target_root = target_path.resolve(strict=True)
     except (OSError, RuntimeError):
@@ -163,20 +176,20 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
     """Copy a downloaded dataset ZIP without following links or overwriting data."""
     source = Path(source)
     target_dir = Path(target_dir)
-    if source.is_symlink() or not source.is_file():
+    if is_symlink_or_junction(source) or not source.is_file():
         raise ValueError("source must be a regular, non-symlink file")
     # A regular-looking file can still be reached through a symlinked parent
     # (for example, Downloads itself may be redirected elsewhere).
     if has_symlink_component(source):
         raise ValueError("source path has a symlinked component")
-    if target_dir.is_symlink() or not target_dir.is_dir():
+    if is_symlink_or_junction(target_dir) or not target_dir.is_dir():
         raise ValueError("dataset inbox must be an existing, non-symlink directory")
     for component in (target_dir, *target_dir.parents):
         if component.is_symlink():
             raise ValueError("dataset inbox has a symlinked path component")
 
     target = target_dir / source.name
-    if target.exists() or target.is_symlink():
+    if target.exists() or is_symlink_or_junction(target):
         return False
 
     created = False
@@ -200,7 +213,7 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
 def has_symlink_component(path: Path) -> bool:
     """Detect a symlink at any existing component of a local path."""
     candidate = Path(path).absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+    return any(is_symlink_or_junction(component) for component in (candidate, *candidate.parents))
 
 
 def ensure_directory_without_symlinks(path: Path) -> None:
@@ -225,7 +238,7 @@ def safe_display_filename(filename: str) -> str:
 def prepare_staging_directory(staging: Path, destination: Path) -> bool:
     """Create a fresh staging directory without following symlinked parents."""
     for candidate in (staging, destination):
-        if candidate.exists() or candidate.is_symlink():
+        if candidate.exists() or is_symlink_or_junction(candidate):
             return False
         for component in candidate.parents:
             if component.is_symlink():
@@ -238,9 +251,9 @@ def publish_staging_directory(staging: Path, destination: Path) -> None:
     """Rename a completed staging tree without following symlinked parents."""
     if has_symlink_component(staging) or has_symlink_component(destination.parent):
         raise ValueError("staging or destination path contains a symlinked component")
-    if staging.is_symlink() or not staging.is_dir():
+    if is_symlink_or_junction(staging) or not staging.is_dir():
         raise ValueError("staging path must be an existing regular directory")
-    if destination.exists() or destination.is_symlink():
+    if destination.exists() or is_symlink_or_junction(destination):
         raise FileExistsError(f"Import destination already exists: {destination.name}")
     # Both paths live under the repository's models directory, so this is an
     # atomic same-filesystem rename in the normal importer layout. The checks
@@ -420,7 +433,7 @@ def main():
             else:
                 print("  Source ZIP preserved.")
         except Exception as exc:
-            if staging.is_dir() and not staging.is_symlink():
+            if staging.is_dir() and not is_symlink_or_junction(staging):
                 shutil.rmtree(staging,ignore_errors=True)
             print(
                 f"\nFAILED: {safe_display_filename(archive.name)} "
