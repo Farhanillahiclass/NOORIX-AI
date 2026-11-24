@@ -2,6 +2,8 @@ from pathlib import Path
 from scripts.run_full_validation import (
     discover_import_manifests,
     discover_notebooks,
+    _result,
+    _safe_path_label,
     python_version_supported,
     validate_example_config,
     validate_notebook_document,
@@ -601,3 +603,28 @@ def test_notebook_discovery_skips_symlinked_notebook_files(tmp_path):
 
     assert paths == [target]
     assert errors == []
+
+
+
+def test_validation_result_removes_terminal_sequences_from_all_fields():
+    result = _result(
+        "CHECK\x1b[31m",
+        "WARN",
+        "summary\x1b]0;private title\x07",
+        "line\x1b[32m\nnext\x1b[0m",
+    )
+
+    assert chr(27) not in result["name"]
+    assert chr(27) not in result["summary"]
+    assert "private title" not in result["summary"]
+    assert chr(27) not in result["output"]
+    assert "line\nnext" in result["output"]
+
+
+def test_safe_path_label_is_single_line_and_bounded(tmp_path: Path):
+    path = tmp_path / ("unsafe\x1b[31m" + "x" * 300 + ".ipynb")
+    label = _safe_path_label(path, tmp_path)
+
+    assert chr(27) not in label
+    assert "\n" not in label
+    assert len(label) <= 240
