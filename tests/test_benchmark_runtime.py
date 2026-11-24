@@ -180,3 +180,20 @@ def test_benchmark_metadata_text_is_single_line_and_bounded():
     assert "\n" not in cleaned
     assert "|" not in cleaned or "\\|" in cleaned
     assert len(cleaned) <= 12
+
+
+
+def test_benchmark_output_guard_rejects_windows_junction(tmp_path, monkeypatch):
+    from scripts.benchmark_runtime import _has_symlink_component
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert _has_symlink_component(junction / "reports") is True
