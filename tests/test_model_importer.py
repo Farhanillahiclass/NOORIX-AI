@@ -585,3 +585,18 @@ def test_zip_discovery_reports_directory_iteration_errors(tmp_path, monkeypatch)
 
     assert files == []
     assert isinstance(error, PermissionError)
+
+
+
+def test_model_import_paths_reject_windows_junction_components(tmp_path, monkeypatch):
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert has_symlink_component(junction / "model.zip") is True
