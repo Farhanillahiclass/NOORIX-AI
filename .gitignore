@@ -47,4 +47,6 @@ data/processed/
 models/incoming/
 models/imported/
 models/.staging/
-\n# Offline Python wheel bundles (platform-specific, generated locally)\nwheelhouse/\n
+
+# Offline Python wheel bundles (platform-specific, generated locally)
+wheelhouse/
