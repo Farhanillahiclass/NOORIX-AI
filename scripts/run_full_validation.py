@@ -8,6 +8,7 @@ from pathlib import Path
 import platform
 import re
 import shutil
+import stat
 import subprocess
 import sys
 from typing import Any
@@ -306,17 +307,33 @@ def discover_import_manifests(imported: Path, root: Path) -> tuple[list[Path], l
             relative = "<unavailable path>"
         errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
 
-    if not imported.is_dir():
+    try:
+        imported_info = imported.stat()
+    except FileNotFoundError:
         return manifests, errors
-    for current, directories, files in os.walk(imported, topdown=True, followlinks=False, onerror=onerror):
-        current_path = Path(current)
-        directories[:] = [name for name in directories if not (current_path / name).is_symlink()]
-        if "import_manifest.json" in files:
-            candidate = current_path / "import_manifest.json"
-            if not _has_symlink_component(candidate, root):
-                manifests.append(candidate)
-            else:
-                errors.append(f"{candidate.parent.relative_to(root)}: symlinked manifest path")
+    except OSError as exc:
+        errors.append(f"models/imported: directory access failed ({type(exc).__name__})")
+        return manifests, errors
+    if not stat.S_ISDIR(imported_info.st_mode):
+        errors.append("models/imported: expected a directory")
+        return manifests, errors
+
+    try:
+        for current, directories, files in os.walk(
+            imported, topdown=True, followlinks=False, onerror=onerror
+        ):
+            current_path = Path(current)
+            directories[:] = [
+                name for name in directories if not (current_path / name).is_symlink()
+            ]
+            if "import_manifest.json" in files:
+                candidate = current_path / "import_manifest.json"
+                if not _has_symlink_component(candidate, root):
+                    manifests.append(candidate)
+                else:
+                    errors.append(f"{candidate.parent.relative_to(root)}: symlinked manifest path")
+    except OSError as exc:
+        onerror(exc)
     return sorted(manifests), errors
 
 
