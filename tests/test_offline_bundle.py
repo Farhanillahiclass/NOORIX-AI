@@ -241,3 +241,20 @@ def test_selected_requirement_rejects_consecutive_extra_separators():
 def test_resolve_extras_rejects_consecutive_extra_separators():
     with pytest.raises(ValueError, match="invalid extra name"):
         resolve_extras(["bad__extra"], {"bad__extra"})
+
+
+
+def test_wheelhouse_path_guard_rejects_windows_junction(tmp_path: Path, monkeypatch):
+    from scripts.verify_offline_bundle import has_symlink_component
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert has_symlink_component(junction / "wheelhouse") is True
