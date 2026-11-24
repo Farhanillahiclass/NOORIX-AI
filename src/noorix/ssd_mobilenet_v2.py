@@ -48,6 +48,8 @@ class SSDMobileNetV2Detector:
             raise ValueError("confidence_threshold must be between 0 and 1")
 
     def load(self) -> None:
+        self._session = None
+        self._anchors = None
         from noorix.paths import require_regular_file
 
         self.model_path = require_regular_file(self.model_path, label="Object detection model")
