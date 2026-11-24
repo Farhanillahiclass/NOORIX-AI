@@ -92,3 +92,62 @@ def test_offline_bundle_cli_rejects_duplicate_and_invalid_extras(capsys):
     assert "Duplicate extras" in capsys.readouterr().err
     assert main(["--extras", "all,../dev"]) == 2
     assert "Invalid extra name" in capsys.readouterr().err
+
+
+
+def test_load_extras_rejects_oversized_pyproject(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    path = tmp_path / "pyproject.toml"
+    with path.open("wb") as stream:
+        stream.truncate(1024 * 1024 + 1)
+
+    with pytest.raises(ValueError, match="1 MiB"):
+        load_extras(path)
+
+
+def test_load_extras_rejects_symlinked_pyproject(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    target = tmp_path / "real.toml"
+    target.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = []\n',
+        encoding="utf-8",
+    )
+    linked = tmp_path / "pyproject.toml"
+    try:
+        linked.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_extras(linked)
+
+
+def test_load_extras_rejects_normalized_name_collisions(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\n"test_extra" = []\n"test-extra" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="collide after normalization"):
+        load_extras(path)
+
+
+def test_load_extras_rejects_invalid_extra_names(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\n"bad extra" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="invalid extra name"):
+        load_extras(path)
