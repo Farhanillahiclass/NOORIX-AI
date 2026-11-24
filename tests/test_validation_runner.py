@@ -674,3 +674,9 @@ def test_host_metadata_sanitizer_removes_terminal_controls_and_newlines():
     assert "\n" not in safe
     assert "private title" not in safe
     assert safe == "Windows Build"
+
+
+def test_validation_output_sanitizer_removes_dcs_terminal_sequences():
+    result = _result("check", "WARN", "summary", "before\x1bP1;2|private payload\x1b\\after")
+    assert "private payload" not in result["output"]
+    assert result["output"] == "beforeafter"
