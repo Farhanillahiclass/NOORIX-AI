@@ -121,8 +121,14 @@ MAX_CONFIG_BYTES = 1024 * 1024
 
 
 def load_benchmark_config(path: Path) -> dict:
-    """Read a bounded JSON config without loading an unbounded local file."""
-    if path.stat().st_size > MAX_CONFIG_BYTES:
+    """Read a bounded JSON config without following symlinked paths."""
+    path = Path(path).expanduser()
+    if _has_symlink_component(path):
+        raise ValueError("configuration path contains a symbolic link")
+    metadata = path.lstat()
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError("configuration path is not a regular file")
+    if metadata.st_size > MAX_CONFIG_BYTES:
         raise ValueError("configuration exceeds the 1 MiB inspection limit")
     with path.open("rb") as stream:
         raw = stream.read(MAX_CONFIG_BYTES + 1)
