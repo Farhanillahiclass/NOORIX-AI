@@ -76,7 +76,7 @@ sample:
 python scripts/benchmark_runtime.py --config config.json --image tests/assets/coco_sample.jpg --iterations 30 --warmup 5
 ```
 
-The script records cold first-inference time, warm-run mean/median/P95/min/max,
+The script reads the selected JSON config with a 1 MiB bounded-read limit and records cold first-inference time, warm-run mean/median/P95/min/max,
 approximate throughput, runtime/platform metadata, and the number of detections
 from the final run. It writes JSON and Markdown reports under
 `reports/benchmarks/`. The benchmark rejects symlinked components in its report
