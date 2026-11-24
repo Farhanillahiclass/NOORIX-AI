@@ -7,7 +7,7 @@ is performed together on the developer's Windows machine.
 
 ## Command
 
-From the repository root, using the project's activated Python environment:
+From the repository root, using the project's activated Python environment. Use Python 3.11, 3.12 or 3.13; Python 3.14 is outside the current package support range. On Windows, create a Python 3.12 environment explicitly with `py -3.12 -m venv .venv` (if that interpreter is not installed, install a supported Python version first), then activate it before running validation:
 
 ~~~bash
 python scripts/run_full_validation.py
