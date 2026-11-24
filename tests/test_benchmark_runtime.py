@@ -242,3 +242,15 @@ def test_benchmark_config_reader_rejects_non_regular_file(tmp_path):
     directory.mkdir()
     with pytest.raises(ValueError, match="regular file"):
         load_benchmark_config(directory)
+
+
+
+def test_benchmark_metadata_text_escapes_html_and_markdown():
+    from scripts.benchmark_runtime import safe_metadata_text
+
+    cleaned = safe_metadata_text("<script> | [click](x) *bold*")
+
+    assert "&lt;script&gt;" in cleaned
+    assert "\\|" in cleaned
+    assert "\\[click\\]" in cleaned
+    assert "\\*bold\\*" in cleaned
