@@ -8,6 +8,7 @@ from scripts.verify_offline_bundle import (
     redact_local_paths,
     resolve_extras,
     selected_requirement,
+    sanitize_terminal_output,
     validate_wheelhouse,
 )
 
@@ -258,3 +259,13 @@ def test_wheelhouse_path_guard_rejects_windows_junction(tmp_path: Path, monkeypa
     )
 
     assert has_symlink_component(junction / "wheelhouse") is True
+
+
+
+def test_pip_output_sanitizer_removes_terminal_csi_and_osc_sequences():
+    value = "before\x1b[31mRED\x1b[0m\x1b]0;private title\x07 after\nnext"
+    cleaned = sanitize_terminal_output(value)
+
+    assert chr(27) not in cleaned
+    assert "private title" not in cleaned
+    assert "beforeRED after\nnext" == cleaned
