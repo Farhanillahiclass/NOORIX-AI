@@ -17,6 +17,7 @@ class YOLOv8ONNXDetector:
     """Run a standard COCO-80 YOLOv8 ONNX detection model on CPU."""
 
     COCO_CLASS_COUNT = 80
+    MAX_CANDIDATES = 20_000
     COCO_LABELS = (
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
         "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
@@ -111,6 +112,8 @@ class YOLOv8ONNXDetector:
         candidate_axis = feature_axes[1] if feature_axes[0] == 84 else feature_axes[0]
         if isinstance(candidate_axis, int) and candidate_axis < 1:
             raise ValueError("YOLOv8 output must contain at least one candidate")
+        if isinstance(candidate_axis, int) and candidate_axis > self.MAX_CANDIDATES:
+            raise ValueError("YOLOv8 output exceeds the candidate safety limit")
         output_type = getattr(outputs[0], "type", None)
         if output_type is not None and output_type != "tensor(float)":
             raise ValueError(f"YOLOv8 output must be float32, got {output_type}")
@@ -151,6 +154,8 @@ class YOLOv8ONNXDetector:
             )
         if predictions.shape[1] != 84:
             raise ValueError(f"Unexpected YOLOv8 prediction shape: {predictions.shape}")
+        if predictions.shape[0] > YOLOv8ONNXDetector.MAX_CANDIDATES:
+            raise ValueError("YOLOv8 output exceeds the candidate safety limit")
         return predictions
 
     @staticmethod
