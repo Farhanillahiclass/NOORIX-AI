@@ -96,7 +96,8 @@ its FPS figure as a product claim.
 GUI error messages now show a short operation context and exception type only.
 Raw exception text is not copied into user-facing status, dialogs or error
 summaries, because library and driver messages can contain local paths or
-content. Detailed diagnostics are intentionally limited; use the local
+content. Context labels are bounded and terminal escape/control characters are
+removed before display. Detailed diagnostics are intentionally limited; use the local
 validation report and reproduce configuration problems without adding private
 images or OCR text to logs.
 
