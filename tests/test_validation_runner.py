@@ -3,6 +3,7 @@ from scripts.run_full_validation import (
     discover_import_manifests,
     discover_notebooks,
     _result,
+    _clean_diagnostic_text,
     _markdown_code_fence,
     _markdown_label,
     _safe_path_label,
@@ -662,3 +663,14 @@ def test_validation_path_guard_rejects_windows_junctions(tmp_path: Path, monkeyp
     )
 
     assert _has_symlink_component(junction / "config.json", tmp_path) is True
+
+
+
+def test_host_metadata_sanitizer_removes_terminal_controls_and_newlines():
+    value = "Windows\x1b]0;private title\x07\nBuild"
+    safe = _clean_diagnostic_text(value, single_line=True)
+
+    assert chr(27) not in safe
+    assert "\n" not in safe
+    assert "private title" not in safe
+    assert safe == "Windows Build"
