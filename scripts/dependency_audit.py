@@ -139,9 +139,9 @@ def audit_project(project: dict[str, Any]) -> dict[str, Any]:
 
 
 def _markdown_cell(value: Any) -> str:
-    """Keep dependency metadata on one Markdown table row."""
-    return str(value).replace("|", r"\|").replace("\r", " ").replace("\n", " ")
-
+    """Keep dependency metadata printable and on one Markdown table row."""
+    printable = "".join(character if character.isprintable() else " " for character in str(value))
+    return printable.replace("|", r"\|")
 
 def _has_symlink_component(path: Path) -> bool:
     """Reject symlinks in report output paths before creating files."""
