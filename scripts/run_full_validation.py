@@ -390,7 +390,7 @@ def discover_import_manifests(imported: Path, root: Path) -> tuple[list[Path], l
         ):
             current_path = Path(current)
             directories[:] = [
-                name for name in directories if not (current_path / name).is_symlink()
+                name for name in directories if not _is_symlink_or_junction(current_path / name)
             ]
             if "import_manifest.json" in files:
                 candidate = current_path / "import_manifest.json"
