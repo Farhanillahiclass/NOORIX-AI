@@ -92,7 +92,9 @@ def test_offline_bundle_cli_rejects_duplicate_and_invalid_extras(capsys):
     assert main(["--extras", "all,all"]) == 2
     assert "Duplicate extras" in capsys.readouterr().err
     assert main(["--extras", "all,../dev"]) == 2
-    assert "Invalid extra name" in capsys.readouterr().err
+    assert "invalid extra name" in capsys.readouterr().err.lower()
+    assert main(["--extras", "all,,dev"]) == 2
+    assert "non-empty extra" in capsys.readouterr().err
 
 
 
