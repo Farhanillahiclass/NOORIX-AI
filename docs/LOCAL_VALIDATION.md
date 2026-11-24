@@ -93,11 +93,12 @@ its FPS figure as a product claim.
 
 ## Privacy-safe GUI diagnostics
 
-GUI error messages now show a short operation context and exception type only.
+GUI and command-line camera/desktop startup error messages now show a short operation context and exception type only.
 Raw exception text is not copied into user-facing status, dialogs or error
 summaries, because library and driver messages can contain local paths or
 content. Context labels are bounded and terminal escape/control characters are
-removed before display. Detailed diagnostics are intentionally limited; use the local
+removed before display. Raw OpenCV/driver exception text is not printed by the
+camera-preview or GUI-startup CLI paths. Detailed diagnostics are intentionally limited; use the local
 validation report and reproduce configuration problems without adding private
 images or OCR text to logs.
 
