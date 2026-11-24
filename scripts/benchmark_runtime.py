@@ -140,9 +140,12 @@ def load_benchmark_config(path: Path) -> dict:
     return config
 
 def safe_metadata_text(value: object, limit: int = 160) -> str:
-    """Keep untrusted local metadata on one safe, bounded report line."""
-    text = "".join(character if character.isprintable() else "?" for character in str(value))
-    return text.replace("|", "\\|").replace("`", "\\`")[:limit]
+    """Escape untrusted metadata for Markdown and keep it on one bounded line."""
+    text = "".join(character if character.isprintable() else " " for character in str(value))
+    safe = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    for character in (chr(92), "|", "`", "*", "_", "[", "]", "!"):
+        safe = safe.replace(character, chr(92) + character)
+    return safe[:limit]
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
