@@ -105,6 +105,12 @@ def load_extras(pyproject: Path) -> set[str]:
     optional = project.get("optional-dependencies", {})
     if not isinstance(optional, dict):
         raise ValueError("pyproject optional-dependencies must be a table")
+    if any(
+        not isinstance(requirements, list)
+        or not all(isinstance(requirement, str) for requirement in requirements)
+        for requirements in optional.values()
+    ):
+        raise ValueError("pyproject extras must map names to lists of requirement strings")
     names = list(optional)
     if any(not isinstance(name, str) or not _EXTRA_NAME.fullmatch(name) for name in names):
         raise ValueError("pyproject contains an invalid extra name")
@@ -112,6 +118,22 @@ def load_extras(pyproject: Path) -> set[str]:
     if len(normalized) != len(set(normalized)):
         raise ValueError("pyproject extra names collide after normalization")
     return set(names)
+
+
+def resolve_extras(requested: list[str], available: set[str]) -> list[str]:
+    """Resolve CLI extras using PEP 685-style normalized names."""
+    if not requested or any(not item for item in requested):
+        raise ValueError("at least one non-empty extra name is required")
+    if any(not _EXTRA_NAME.fullmatch(item) for item in requested):
+        raise ValueError("invalid extra name supplied")
+    normalized_requested = [normalize_distribution(item) for item in requested]
+    if len(normalized_requested) != len(set(normalized_requested)):
+        raise ValueError("duplicate extras were supplied")
+    available_by_normalized = {normalize_distribution(item): item for item in available}
+    unknown = sorted(set(normalized_requested) - set(available_by_normalized))
+    if unknown:
+        raise ValueError("unknown extras: " + ", ".join(unknown))
+    return [available_by_normalized[item] for item in normalized_requested]
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -131,18 +153,11 @@ def main(argv: list[str] | None = None) -> int:
     wheelhouse = args.wheelhouse.expanduser()
     if not wheelhouse.is_absolute():
         wheelhouse = Path.cwd() / wheelhouse
-    extras = [item.strip() for item in args.extras.split(",") if item.strip()]
-    if len(extras) != len(set(extras)):
-        print("Duplicate extras were supplied.", file=sys.stderr)
-        return 2
-    if any(not _EXTRA_NAME.fullmatch(extra) for extra in extras):
-        print("Invalid extra name supplied.", file=sys.stderr)
-        return 2
+    raw_extras = args.extras.split(",")
+    extras = [item.strip() for item in raw_extras]
     try:
         available = load_extras(root / "pyproject.toml")
-        unknown = sorted(set(extras) - available)
-        if unknown:
-            raise ValueError("unknown extras: " + ", ".join(unknown))
+        extras = resolve_extras(extras, available)
         requirement = selected_requirement(args.package, extras)
         problem = validate_wheelhouse(wheelhouse, args.package)
         if problem:
