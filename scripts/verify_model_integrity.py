@@ -215,7 +215,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             has_symlink_component = False
             for part in pure.parts:
                 current = current / part
-                if current.is_symlink():
+                if _is_symlink_or_junction(current):
                     has_symlink_component = True
                     break
             if has_symlink_component or not candidate.is_file() or not candidate.resolve().is_relative_to(root):
