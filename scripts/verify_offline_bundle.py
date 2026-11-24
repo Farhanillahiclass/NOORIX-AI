@@ -10,7 +10,7 @@ import sys
 import tomllib
 
 MAX_PYPROJECT_BYTES = 1024 * 1024
-_EXTRA_NAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
+_EXTRA_NAME = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
 
 def redact_local_paths(text: str, paths: list[Path]) -> str:
@@ -36,7 +36,7 @@ def normalize_distribution(name: str) -> str:
 
 
 def selected_requirement(package: str, extras: list[str]) -> str:
-    if not package or not _EXTRA_NAME.fullmatch(package):
+    if not package or not re.fullmatch(r"[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?", package):
         raise ValueError("package must be a valid distribution name")
     if any(not _EXTRA_NAME.fullmatch(extra) for extra in extras):
         raise ValueError("extras must be valid distribution extra names")
