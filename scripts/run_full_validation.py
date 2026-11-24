@@ -386,7 +386,7 @@ def _model_integrity_check(root: Path) -> list[dict[str, str]]:
     manifests, scan_errors = discover_import_manifests(imported, root)
     if scan_errors:
         results = [_result("Imported model integrity", "FAIL",
-                           f"{len(scan_errors)} directory scan/path issue(s)", "\\n".join(scan_errors))]
+                           f"{len(scan_errors)} directory scan/path issue(s)", "\n".join(scan_errors))]
     else:
         results = []
     if not manifests and not scan_errors:
