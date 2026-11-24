@@ -25,10 +25,10 @@ def _clean_diagnostic_text(value: Any, *, single_line: bool = False) -> str:
     """Remove terminal control sequences from untrusted tool and file metadata."""
     text = _ANSI_ESCAPE.sub("", str(value))
     if single_line:
-        character if character in "\n\t" or character.isprintable() else " "
+        printable = "".join(character if character.isprintable() else " " for character in text)
         return " ".join(printable.split())[:300]
     return "".join(
-        character if character in "\\n\\t" or character.isprintable() else " "
+        character if character in "\n\t" or character.isprintable() else " "
         for character in text
     )
 
@@ -192,19 +192,19 @@ def _notebook_check(root: Path) -> dict[str, str]:
     for path in paths:
         try:
             if path.stat().st_size > MAX_NOTEBOOK_BYTES:
-                failures.append(f"{path.relative_to(root)}: notebook exceeds the 64 MiB inspection limit")
+                failures.append(f"{_safe_path_label(path, root)}: notebook exceeds the 64 MiB inspection limit")
                 continue
             with path.open("rb") as stream:
                 raw = stream.read(MAX_NOTEBOOK_BYTES + 1)
             if len(raw) > MAX_NOTEBOOK_BYTES:
-                failures.append(f"{path.relative_to(root)}: notebook exceeds the 64 MiB inspection limit")
+                failures.append(f"{_safe_path_label(path, root)}: notebook exceeds the 64 MiB inspection limit")
                 continue
             data = json.loads(raw.decode("utf-8"))
             error = validate_notebook_document(data)
             if error:
-                failures.append(f"{path.relative_to(root)}: {error}")
+                failures.append(f"{_safe_path_label(path, root)}: {error}")
         except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
-            failures.append(f"{path.relative_to(root)}: could not be read ({type(exc).__name__})")
+            failures.append(f"{_safe_path_label(path, root)}: could not be read ({type(exc).__name__})")
     if failures:
         return _result("Notebook JSON", "FAIL", f"{len(failures)} issue(s) across {len(paths)} notebook(s)", "\n".join(failures))
     return _result("Notebook JSON", "PASS", f"{len(paths)} valid nbformat-4 notebook(s)")
@@ -287,46 +287,46 @@ def _config_check(root: Path) -> dict[str, str]:
             continue
         try:
             if path.stat().st_size > MAX_CONFIG_BYTES:
-                errors.append(f"{path.name}: config exceeds the 1 MiB inspection limit")
+                errors.append(f"{_safe_path_label(path, root)}: config exceeds the 1 MiB inspection limit")
                 continue
             with path.open("rb") as stream:
                 raw = stream.read(MAX_CONFIG_BYTES + 1)
             if len(raw) > MAX_CONFIG_BYTES:
-                errors.append(f"{path.name}: config exceeds the 1 MiB inspection limit")
+                errors.append(f"{_safe_path_label(path, root)}: config exceeds the 1 MiB inspection limit")
                 continue
             document = json.loads(raw.decode("utf-8"))
             error = validate_example_config(document)
             if error:
-                errors.append(f"{path.name}: {error}")
+                errors.append(f"{_safe_path_label(path, root)}: {error}")
                 continue
             detection = document.get("object_detection", {})
             labels_path = detection.get("labels_path") if isinstance(detection, dict) else None
             if labels_path:
                 candidate = root / labels_path
                 if _has_symlink_component(candidate, root):
-                    errors.append(f"{path.name}: object_detection.labels_path has a symlinked path component")
+                    errors.append(f"{_safe_path_label(path, root)}: object_detection.labels_path has a symlinked path component")
                     continue
                 label_file = candidate.resolve()
                 if not label_file.is_relative_to(root.resolve()):
-                    errors.append(f"{path.name}: object_detection.labels_path escapes the project root")
+                    errors.append(f"{_safe_path_label(path, root)}: object_detection.labels_path escapes the project root")
                     continue
                 try:
                     if label_file.stat().st_size > MAX_CONFIG_BYTES:
-                        errors.append(f"{path.name}: object_detection.labels_path exceeds the 1 MiB inspection limit")
+                        errors.append(f"{_safe_path_label(path, root)}: object_detection.labels_path exceeds the 1 MiB inspection limit")
                         continue
                     with label_file.open("rb") as stream:
                         label_raw = stream.read(MAX_CONFIG_BYTES + 1)
                     if len(label_raw) > MAX_CONFIG_BYTES:
-                        errors.append(f"{path.name}: object_detection.labels_path exceeds the 1 MiB inspection limit")
+                        errors.append(f"{_safe_path_label(path, root)}: object_detection.labels_path exceeds the 1 MiB inspection limit")
                         continue
                     label_document = json.loads(label_raw.decode("utf-8"))
                     label_error = validate_label_map(label_document) if detection.get("backend") == "yolov8_onnx" else None
                     if label_error:
-                        errors.append(f"{path.name}: {label_error}")
+                        errors.append(f"{_safe_path_label(path, root)}: {label_error}")
                 except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
-                    errors.append(f"{path.name}: object_detection.labels_path could not be read ({type(exc).__name__})")
+                    errors.append(f"{_safe_path_label(path, root)}: object_detection.labels_path could not be read ({type(exc).__name__})")
         except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
-            errors.append(f"{path.name}: could not be read ({type(exc).__name__})")
+            errors.append(f"{_safe_path_label(path, root)}: could not be read ({type(exc).__name__})")
     if errors:
         return _result("Example config JSON", "FAIL", f"{len(errors)} invalid file(s)", "\n".join(errors))
     return _result("Example config JSON", "PASS", f"{len(files)} example config file(s) and configured YOLO label maps validated")
@@ -343,7 +343,7 @@ def discover_import_manifests(imported: Path, root: Path) -> tuple[list[Path], l
     def onerror(error: OSError) -> None:
         filename = getattr(error, "filename", None)
         try:
-            relative = Path(filename).relative_to(root).as_posix() if filename else "<unknown>"
+            relative = _safe_path_label(filename, root) if filename else "<unknown>"
         except (OSError, RuntimeError, ValueError, TypeError):
             relative = "<unavailable path>"
         errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
