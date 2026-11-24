@@ -28,11 +28,6 @@ MAX_PYPROJECT_BYTES = 1024 * 1024
 _EXTRA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
-def _has_symlink_component(path: Path) -> bool:
-    candidate = Path(path).expanduser().absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
-
-
 def _read_pyproject(path: Path) -> dict[str, Any]:
     """Read a bounded, regular, non-symlink project metadata file."""
     path = Path(path).expanduser()
