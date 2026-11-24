@@ -69,8 +69,9 @@ class YOLOv8ONNXDetector:
             raise ValueError("input_size must be >= 32 and max_detections must be positive")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"YOLOv8 ONNX model not found: {self.model_path}")
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="YOLOv8 ONNX model")
         try:
             import onnxruntime as ort
         except ImportError as exc:
