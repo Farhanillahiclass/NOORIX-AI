@@ -220,3 +220,22 @@ def test_project_metadata_rejects_invalid_extra_name(tmp_path: Path):
 
     with pytest.raises(ValueError, match="valid extra names"):
         load_project(path)
+
+
+
+def test_project_metadata_rejects_symlinked_parent_directory(tmp_path: Path):
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    target = real_dir / "pyproject.toml"
+    target.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n',
+        encoding="utf-8",
+    )
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_project(linked_dir / "pyproject.toml")
