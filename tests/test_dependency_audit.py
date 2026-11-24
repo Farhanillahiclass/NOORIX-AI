@@ -2,7 +2,7 @@ from pathlib import Path
 
 import pytest
 
-from scripts.dependency_audit import audit_project, parse_requirement
+from scripts.dependency_audit import audit_project, load_project, parse_requirement
 
 
 def test_requirement_parser_detects_lower_and_upper_bounds():
@@ -170,3 +170,53 @@ def test_dependency_audit_cli_does_not_print_local_path_on_read_error(tmp_path, 
     assert result == 2
     assert "IsADirectoryError" in captured.err
     assert str(tmp_path) not in captured.err
+
+
+
+def test_project_metadata_rejects_oversized_pyproject(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    with path.open("wb") as stream:
+        stream.truncate(1024 * 1024 + 1)
+
+    with pytest.raises(ValueError, match="1 MiB"):
+        load_project(path)
+
+
+def test_project_metadata_rejects_symlinked_pyproject(tmp_path: Path):
+    target = tmp_path / "real.toml"
+    target.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n',
+        encoding="utf-8",
+    )
+    linked = tmp_path / "pyproject.toml"
+    try:
+        linked.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_project(linked)
+
+
+def test_project_metadata_rejects_normalized_extra_name_collision(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n'
+        '[project.optional-dependencies]\n"test_extra" = []\n"test-extra" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="collide after normalization"):
+        load_project(path)
+
+
+def test_project_metadata_rejects_invalid_extra_name(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n'
+        '[project.optional-dependencies]\n"bad extra" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="valid extra names"):
+        load_project(path)
