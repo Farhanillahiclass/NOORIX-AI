@@ -9,7 +9,7 @@ import subprocess
 import sys
 import tomllib
 
-_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
+_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[PX^_].*?\x1b\\|[@-_])", re.DOTALL)
 
 
 def sanitize_terminal_output(text: str) -> str:
