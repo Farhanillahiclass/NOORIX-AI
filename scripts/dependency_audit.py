@@ -47,10 +47,14 @@ def _read_pyproject(path: Path) -> dict[str, Any]:
 
 def parse_requirement(value: str) -> dict[str, Any]:
     """Parse the deliberately simple PEP 508 requirements used by pyproject.toml."""
+    if not isinstance(value, str):
+        raise ValueError("dependency requirement must be a string")
     match = _REQUIREMENT.fullmatch(value)
     if not match:
         raise ValueError(f"unsupported dependency requirement: {value!r}")
     name, extras, specifier = match.groups()
+    if extras and any(not _EXTRA_NAME.fullmatch(item.strip()) for item in extras.split(",")):
+        raise ValueError("dependency requirement contains an invalid extra name")
     if ";" in specifier:
         raise ValueError("environment markers are not supported by this local audit")
     if "@" in specifier:
