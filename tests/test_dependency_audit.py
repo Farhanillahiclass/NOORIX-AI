@@ -273,3 +273,20 @@ def test_project_metadata_rejects_consecutive_extra_separators(tmp_path: Path):
 
     with pytest.raises(ValueError, match="valid extra names"):
         load_project(path)
+
+
+
+def test_dependency_report_guard_rejects_windows_junction(tmp_path, monkeypatch):
+    from scripts.dependency_audit import _has_symlink_component
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert _has_symlink_component(junction / "reports") is True
