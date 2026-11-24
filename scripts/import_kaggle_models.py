@@ -67,6 +67,7 @@ def safe_extract_member(zf, info, target, path_index=None):
         not part
         or part in {".", ".."}
         or part.endswith((" ", "."))
+        or any(not character.isprintable() for character in part)
         or part.split(".", 1)[0].rstrip(" .").upper() in reserved_names
         for part in windows_parts
     )
@@ -82,13 +83,13 @@ def safe_extract_member(zf, info, target, path_index=None):
     ):
         return None
     if info.file_size < 0 or info.file_size > MAX_MEMBER_BYTES:
-        print(f"  SKIP (member size limit): {info.filename}")
+        print(f"  SKIP (member size limit): {safe_display_filename(info.filename)}")
         return None
     if info.file_size and (
         info.compress_size == 0
         or info.file_size / info.compress_size > MAX_COMPRESSION_RATIO
     ):
-        print(f"  SKIP (suspicious compression ratio): {info.filename}")
+        print(f"  SKIP (suspicious compression ratio): {safe_display_filename(info.filename)}")
         return None
     if any(part.lower() in SKIP_PARTS for part in raw.parts):
         return None
@@ -356,7 +357,7 @@ def main():
         slug=archive_slug(archive.name)
         staging=TEMP/slug; destination=DEST/slug
         if not prepare_staging_directory(staging, destination):
-            print(f"\nExisting staging or destination path found; refusing to overwrite: {archive.name}")
+            print(f"\nExisting staging or destination path found; refusing to overwrite: {safe_display_filename(archive.name)}")
             failures += 1
             continue
         kept=[]
@@ -379,7 +380,7 @@ def main():
                     p=safe_extract_member(zf,info,staging,path_index)
                     if p: kept.append(p)
             if not kept:
-                print(f"\nNo recognized model/config files in {archive.name}; source ZIP kept.")
+                print(f"\nNo recognized model/config files in {safe_display_filename(archive.name)}; source ZIP kept.")
                 shutil.rmtree(staging,ignore_errors=True); continue
             files=[p for p in staging.rglob("*") if p.is_file()]
             imported_files=[str(p.relative_to(staging)).replace("\\","/") for p in files]
@@ -394,7 +395,7 @@ def main():
                     "sha256": digest.hexdigest(),
                 })
             manifest={
-                "source_zip":archive.name,
+                "source_zip":safe_display_filename(archive.name),
                 "project":"NOORIX-AI",
                 "imported_files":imported_files,
                 "integrity":{"algorithm":"sha256","files":checksums},
@@ -403,10 +404,10 @@ def main():
             (staging/"import_manifest.json").write_text(json.dumps(manifest,ensure_ascii=False,indent=2),encoding="utf-8")
             # Publish only after extraction, checksums and manifest are complete.
             publish_staging_directory(staging, destination)
-            print(f"\nIMPORTED: {archive.name}")
-            for name in imported_files: print("  +",name)
+            print(f"\nIMPORTED: {safe_display_filename(archive.name)}")
+            for name in imported_files: print("  +",safe_display_filename(name))
             print("  + import_manifest.json")
-            print("  Destination:",destination)
+            print("  Destination: <models/imported>")
             if args.delete_zips:
                 try:
                     archive.unlink()
