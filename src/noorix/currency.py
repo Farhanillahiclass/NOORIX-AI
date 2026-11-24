@@ -14,10 +14,10 @@ class CurrencyEstimator:
         self.labels = list(labels)
         self.input_size = input_size
         self._session = None
-        if not self.labels:
-            raise ValueError("labels must contain at least one denomination")
-        if input_size <= 0:
-            raise ValueError("input_size must be positive")
+        if not self.labels or not all(isinstance(label, str) and label.strip() for label in self.labels):
+            raise ValueError("labels must contain non-empty denomination strings")
+        if isinstance(input_size, bool) or not isinstance(input_size, int) or input_size <= 0:
+            raise ValueError("input_size must be a positive integer")
 
     def load(self) -> None:
         if not self.model_path.is_file():
@@ -36,16 +36,23 @@ class CurrencyEstimator:
         import cv2
         import numpy as np
 
-        input_meta = self._session.get_inputs()[0]
+        input_metadata = self._session.get_inputs()
+        if len(input_metadata) != 1:
+            raise RuntimeError("Currency model must expose exactly one input tensor")
+        input_meta = input_metadata[0]
         blob = cv2.dnn.blobFromImage(
             image, scalefactor=1.0 / 255.0,
             size=(self.input_size, self.input_size),
             mean=(0, 0, 0), swapRB=True, crop=False,
         )
         outputs = self._session.run(None, {input_meta.name: blob})
-        scores = np.asarray(outputs[0]).reshape(-1)
+        if not isinstance(outputs, (list, tuple)) or len(outputs) != 1:
+            raise RuntimeError("Currency model must return exactly one score tensor")
+        scores = np.asarray(outputs[0], dtype=np.float32).reshape(-1)
         if scores.size != len(self.labels):
             raise RuntimeError(f"Model returned {scores.size} scores for {len(self.labels)} labels")
+        if not np.isfinite(scores).all():
+            raise RuntimeError("Currency model returned non-finite scores")
         probabilities = np.exp(scores - scores.max())
         probabilities = probabilities / probabilities.sum()
         index = int(probabilities.argmax())
