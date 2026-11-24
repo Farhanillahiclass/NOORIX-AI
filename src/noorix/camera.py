@@ -33,7 +33,7 @@ class WebcamCapture:
     @property
     def capture_info(self) -> dict[str, int | bool | str]:
         """Return requested and actual capture properties where available."""
-        info: dict[str, int | bool] = {
+        info: dict[str, int | bool | str] = {
             "device_index": self.device_index,
             "requested_width": self.requested_width,
             "requested_height": self.requested_height,
