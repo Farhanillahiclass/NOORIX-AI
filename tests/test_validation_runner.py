@@ -583,3 +583,21 @@ def test_notebook_discovery_reports_file_metadata_errors(tmp_path, monkeypatch):
     assert len(errors) == 1
     assert "PermissionError" in errors[0]
     assert "private path detail" not in errors[0]
+
+
+def test_notebook_discovery_skips_symlinked_notebook_files(tmp_path):
+    import pytest
+    from scripts.run_full_validation import discover_notebooks
+
+    target = tmp_path / "real.ipynb"
+    target.write_text("{}", encoding="utf-8")
+    linked = tmp_path / "linked.ipynb"
+    try:
+        linked.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    paths, errors = discover_notebooks(tmp_path)
+
+    assert paths == [target]
+    assert errors == []
