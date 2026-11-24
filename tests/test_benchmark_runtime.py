@@ -146,3 +146,26 @@ def test_benchmark_report_pair_cleans_partial_json_on_markdown_failure(tmp_path,
 
     assert not json_path.exists()
     assert not markdown_path.exists()
+
+
+def test_benchmark_config_reader_accepts_object_and_rejects_non_object(tmp_path):
+    import json
+    import pytest
+    from scripts.benchmark_runtime import load_benchmark_config
+
+    config = tmp_path / "config.json"
+    config.write_text(json.dumps({"object_detection": {"backend": "yolov8_onnx"}}), encoding="utf-8")
+    assert load_benchmark_config(config)["object_detection"]["backend"] == "yolov8_onnx"
+    config.write_text("[]", encoding="utf-8")
+    with pytest.raises(ValueError, match="root must be a JSON object"):
+        load_benchmark_config(config)
+
+
+def test_benchmark_config_reader_rejects_oversized_file(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import MAX_CONFIG_BYTES, load_benchmark_config
+
+    config = tmp_path / "large-config.json"
+    config.write_bytes(b" " * (MAX_CONFIG_BYTES + 1))
+    with pytest.raises(ValueError, match="1 MiB"):
+        load_benchmark_config(config)
