@@ -76,10 +76,12 @@ class YOLOv8ONNXDetector:
         except ImportError as exc:
             raise RuntimeError("Install ONNX support: pip install -e '.[onnx]'") from exc
 
-        self._session = ort.InferenceSession(
+        self._session = None
+        self._input_name = None
+        session = ort.InferenceSession(
             str(self.model_path), providers=["CPUExecutionProvider"]
         )
-        inputs = self._session.get_inputs()
+        inputs = session.get_inputs()
         if len(inputs) != 1:
             raise ValueError("YOLOv8 ONNX model must have exactly one input")
         shape = inputs[0].shape
@@ -94,7 +96,11 @@ class YOLOv8ONNXDetector:
         if isinstance(shape[3], int) and shape[3] != self.input_size:
             raise ValueError(f"Model width {shape[3]} does not match input_size {self.input_size}")
 
-        outputs = self._session.get_outputs()
+        input_type = getattr(inputs[0], "type", None)
+        if input_type is not None and input_type != "tensor(float)":
+            raise ValueError(f"YOLOv8 input must be float32, got {input_type}")
+
+        outputs = session.get_outputs()
         if len(outputs) != 1:
             raise ValueError("YOLOv8 ONNX model must expose exactly one detection output")
         output_shape = outputs[0].shape
@@ -118,6 +124,7 @@ class YOLOv8ONNXDetector:
         output_type = getattr(outputs[0], "type", None)
         if output_type is not None and output_type != "tensor(float)":
             raise ValueError(f"YOLOv8 output must be float32, got {output_type}")
+        self._session = session
         self._input_name = inputs[0].name
 
     @staticmethod
