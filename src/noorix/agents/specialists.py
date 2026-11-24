@@ -115,7 +115,6 @@ class SystemHealthAgent:
         return AgentResult(self.name, AgentState.COMPLETED,
                            "Local system readiness collected.", data=status)
     def _model_file_status(self) -> dict[str, str]:
-        import json
         try:
             config = load_json_document(self.config_path)
             if not isinstance(config, dict):
