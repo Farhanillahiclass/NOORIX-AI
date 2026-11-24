@@ -25,10 +25,22 @@ def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
     return result
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def _has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the path or any existing ancestor."""
     candidate = Path(path).absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+    return any(_is_symlink_or_junction(component) for component in (candidate, *candidate.parents))
 
 
 def _trusted_root_is_safe(root: Path) -> bool:
@@ -48,7 +60,7 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
         current = root
         for part in relative.parts:
             current = current / part
-            if current.is_symlink():
+            if _is_symlink_or_junction(current):
                 return False
         return current.is_file() and current.resolve().is_relative_to(root)
     except (OSError, RuntimeError, ValueError):
