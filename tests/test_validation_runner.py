@@ -561,3 +561,25 @@ def test_notebook_discovery_reports_unexpected_walk_exception(tmp_path, monkeypa
     assert len(errors) == 1
     assert "PermissionError" in errors[0]
     assert "sensitive path detail" not in errors[0]
+
+
+def test_notebook_discovery_reports_file_metadata_errors(tmp_path, monkeypatch):
+    from pathlib import Path
+    from scripts.run_full_validation import discover_notebooks
+
+    notebook = tmp_path / "unreadable.ipynb"
+    notebook.write_text("{}", encoding="utf-8")
+    original_lstat = Path.lstat
+
+    def failing_lstat(path):
+        if path == notebook:
+            raise PermissionError("private path detail")
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", failing_lstat)
+    paths, errors = discover_notebooks(tmp_path)
+
+    assert paths == []
+    assert len(errors) == 1
+    assert "PermissionError" in errors[0]
+    assert "private path detail" not in errors[0]
