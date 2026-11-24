@@ -109,3 +109,6 @@ completed is not treated as a clean no-op.
 
 
 Archive path components containing non-printable/control characters are rejected to prevent terminal-control injection through untrusted ZIP member names.
+
+
+The integrity verifier rejects non-printable/control characters in manifest file paths and sanitizes bounded path labels in its terminal output. This protects diagnostics when a manifest is modified independently of the importer.
