@@ -113,6 +113,9 @@ def main(argv: list[str] | None = None) -> int:
     if len(extras) != len(set(extras)):
         print("Duplicate extras were supplied.", file=sys.stderr)
         return 2
+    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", extra) for extra in extras):
+        print("Invalid extra name supplied.", file=sys.stderr)
+        return 2
     try:
         available = load_extras(root / "pyproject.toml")
         unknown = sorted(set(extras) - available)
