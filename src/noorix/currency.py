@@ -20,6 +20,7 @@ class CurrencyEstimator:
             raise ValueError("input_size must be a positive integer")
 
     def load(self) -> None:
+        self._session = None
         from noorix.paths import require_regular_file
 
         self.model_path = require_regular_file(self.model_path, label="Currency model")
