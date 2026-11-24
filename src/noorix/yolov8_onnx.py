@@ -18,6 +18,7 @@ class YOLOv8ONNXDetector:
 
     COCO_CLASS_COUNT = 80
     MAX_CANDIDATES = 10_000
+    MAX_NMS_CANDIDATES = 3_000
     COCO_LABELS = (
         "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
         "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
@@ -160,7 +161,8 @@ class YOLOv8ONNXDetector:
 
     @staticmethod
     def _nms(boxes: np.ndarray, scores: np.ndarray, threshold: float) -> list[int]:
-        order = np.argsort(-scores, kind="stable")
+        # Bound worst-case quadratic NMS work on CPU-only devices.
+        order = np.argsort(-scores, kind="stable")[:YOLOv8ONNXDetector.MAX_NMS_CANDIDATES]
         keep: list[int] = []
         while order.size:
             current = int(order[0])
