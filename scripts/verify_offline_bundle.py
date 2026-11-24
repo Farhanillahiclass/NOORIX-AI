@@ -4,9 +4,13 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 import re
+import stat
 import subprocess
 import sys
 import tomllib
+
+MAX_PYPROJECT_BYTES = 1024 * 1024
+_EXTRA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 def redact_local_paths(text: str, paths: list[Path]) -> str:
@@ -84,12 +88,30 @@ def validate_wheelhouse(wheelhouse: Path, package: str) -> str | None:
 
 
 def load_extras(pyproject: Path) -> set[str]:
+    """Read a bounded project metadata file without following symlink paths."""
+    pyproject = Path(pyproject).expanduser()
+    if has_symlink_component(pyproject):
+        raise ValueError("pyproject path contains a symbolic link")
+    if not stat.S_ISREG(pyproject.lstat().st_mode):
+        raise ValueError("pyproject path is not a regular file")
     with pyproject.open("rb") as stream:
-        metadata = tomllib.load(stream)
-    optional = metadata.get("project", {}).get("optional-dependencies", {})
+        raw = stream.read(MAX_PYPROJECT_BYTES + 1)
+    if len(raw) > MAX_PYPROJECT_BYTES:
+        raise ValueError("pyproject.toml exceeds the 1 MiB read limit")
+    metadata = tomllib.loads(raw.decode("utf-8"))
+    project = metadata.get("project")
+    if not isinstance(project, dict):
+        raise ValueError("pyproject must contain a project table")
+    optional = project.get("optional-dependencies", {})
     if not isinstance(optional, dict):
         raise ValueError("pyproject optional-dependencies must be a table")
-    return set(optional)
+    names = list(optional)
+    if any(not isinstance(name, str) or not _EXTRA_NAME.fullmatch(name) for name in names):
+        raise ValueError("pyproject contains an invalid extra name")
+    normalized = [normalize_distribution(name) for name in names]
+    if len(normalized) != len(set(normalized)):
+        raise ValueError("pyproject extra names collide after normalization")
+    return set(names)
 
 
 def build_parser() -> argparse.ArgumentParser:
