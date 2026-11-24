@@ -189,7 +189,7 @@ def test_load_rejects_excessive_candidate_metadata(tmp_path, monkeypatch):
             return [Tensor("images", [1, 3, 640, 640])]
 
         def get_outputs(self):
-            return [Tensor("output0", [1, 84, 20_001])]
+            return [Tensor("output0", [1, 84, 10_001])]
 
     class Runtime:
         InferenceSession = Session
