@@ -70,7 +70,7 @@ def _redact_local_paths(text: str, root: Path) -> str:
                 candidates.extend([
                     (value, replacement),
                     (path.as_posix(), replacement),
-                    (value.replace("/", "\\\\"), replacement),
+                    (value.replace("/", chr(92)), replacement),
                 ])
         except (OSError, RuntimeError):
             continue
