@@ -9,7 +9,7 @@ from noorix.currency import CurrencyEstimator
 from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
-from noorix.paths import load_json_document, resolve_config_path
+from noorix.paths import load_json_document, require_regular_file, resolve_config_path
 from noorix.privacy import safe_error_summary
 
 class OCRAgent:
@@ -128,6 +128,11 @@ class SystemHealthAgent:
             if not model_path:
                 output[key] = "not_configured"
             else:
-                model = resolve_config_path(model_path, self.config_path)
-                output[key] = "available" if model.is_file() else "file_missing"
+                try:
+                    require_regular_file(resolve_config_path(model_path, self.config_path), label=f"{key} model")
+                    output[key] = "available"
+                except FileNotFoundError:
+                    output[key] = "file_missing"
+                except (OSError, TypeError, ValueError):
+                    output[key] = "unsafe_or_invalid_path"
         return output
