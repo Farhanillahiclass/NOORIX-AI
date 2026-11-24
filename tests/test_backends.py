@@ -9,6 +9,12 @@ from noorix.speech import SpeechOutput
 def test_currency_requires_labels():
     with pytest.raises(ValueError, match="labels"):
         CurrencyEstimator("missing.onnx", [])
+    with pytest.raises(ValueError, match="non-empty denomination strings"):
+        CurrencyEstimator("missing.onnx", ["100", " "])
+    with pytest.raises(ValueError, match="positive integer"):
+        CurrencyEstimator("missing.onnx", ["100"], input_size=True)
+    with pytest.raises(ValueError, match="positive integer"):
+        CurrencyEstimator("missing.onnx", ["100"], input_size=224.5)
 
 
 def test_currency_requires_model_file_before_loading_runtime():
@@ -142,3 +148,67 @@ def test_detector_factory_rejects_duplicate_json_label_keys(tmp_path):
             },
             config_path,
         )
+
+
+
+def test_currency_rejects_multiple_output_tensors():
+    np = pytest.importorskip("numpy")
+    cv2 = pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[0.1, 0.9]], dtype=np.float32), np.array([[1.0]])]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="exactly one score tensor"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+def test_currency_rejects_non_finite_model_scores():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[np.nan, 0.9]], dtype=np.float32)]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="non-finite scores"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+def test_currency_rejects_wrong_model_output_count():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[0.1, 0.9]], dtype=np.float32)]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500", "1000"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="scores for 3 labels"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
