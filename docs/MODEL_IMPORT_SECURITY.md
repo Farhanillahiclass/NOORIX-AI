@@ -30,7 +30,7 @@ it does not activate, execute, or trust a model.
   symlinked file or any symlinked parent path before opening the archive.
 - Recent dataset ZIPs copied from Downloads are accepted only when the source is
   a regular non-symlink file with no symlinked ancestor (including the Downloads
-  directory) and the dataset inbox has no symlinked path components. Destination
+  directory) and the dataset inbox has no symlinked or Windows-junction path components. Destination
   creation uses exclusive mode, so a file or symlink
   created after the initial existence check is not overwritten. Partial copies
   created by the current attempt are removed on failure; the original ZIP is
