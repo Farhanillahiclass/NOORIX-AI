@@ -123,3 +123,22 @@ def test_object_detector_ignores_invalid_boxes_and_non_finite_rows():
     detector._net = FakeNet()
 
     assert detector.detect(np.zeros((100, 200, 3), dtype=np.uint8)) == []
+
+
+
+def test_detector_factory_rejects_duplicate_json_label_keys(tmp_path):
+    from noorix.objects import create_object_detector
+
+    labels = tmp_path / "labels.json"
+    labels.write_text('{"name": "person", "name": "other"}', encoding="utf-8")
+    config_path = tmp_path / "config.json"
+
+    with pytest.raises(ValueError, match="duplicate object key"):
+        create_object_detector(
+            {
+                "backend": "yolov8_onnx",
+                "model_path": "missing.onnx",
+                "labels_path": "labels.json",
+            },
+            config_path,
+        )
