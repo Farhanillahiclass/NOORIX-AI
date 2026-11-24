@@ -177,10 +177,22 @@ def _markdown_cell(value: Any) -> str:
     printable = "".join(character if character.isprintable() else " " for character in str(value))
     return printable.replace("|", r"\|")
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def _has_symlink_component(path: Path) -> bool:
     """Reject symlinks in report output paths before creating files."""
     candidate = Path(path).absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+    return any(_is_symlink_or_junction(component) for component in (candidate, *candidate.parents))
 
 
 def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
