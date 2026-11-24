@@ -18,6 +18,32 @@ MAX_OUTPUT_CHARS = 12000
 MAX_NOTEBOOK_BYTES = 64 * 1024 * 1024
 MAX_CONFIG_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 1800
+_ANSI_ESCAPE = re.compile(r"\\x1b(?:\\][^\\x07]*(?:\\x07|\\x1b\\\\)|\\[[0-?]*[ -/]*[@-~]|[@-_])")
+
+
+def _clean_diagnostic_text(value: Any, *, single_line: bool = False) -> str:
+    """Remove terminal control sequences from untrusted tool and file metadata."""
+    text = _ANSI_ESCAPE.sub("", str(value))
+    if single_line:
+        printable = "".join(character if character.isprintable() else " " for character in text)
+        return " ".join(printable.split())[:300]
+    return "".join(
+        character if character in "\\n\\t" or character.isprintable() else " "
+        for character in text
+    )
+
+
+def _safe_path_label(path: str | Path, root: Path) -> str:
+    """Return a bounded project-relative label without terminal controls."""
+    candidate = Path(path)
+    if not candidate.is_absolute():
+        candidate = root / candidate
+    try:
+        absolute = Path(os.path.abspath(candidate))
+        relative = absolute.relative_to(Path(os.path.abspath(root))).as_posix()
+    except (OSError, RuntimeError, ValueError):
+        return "<unavailable path>"
+    return _clean_diagnostic_text(relative, single_line=True)[:240]
 
 
 def python_version_supported(version: tuple[int, ...]) -> bool:
@@ -57,7 +83,12 @@ def validate_notebook_document(document: Any) -> str | None:
 
 
 def _result(name: str, status: str, summary: str, output: str = "") -> dict[str, str]:
-    return {"name": name, "status": status, "summary": summary, "output": output[-MAX_OUTPUT_CHARS:]}
+    return {
+        "name": _clean_diagnostic_text(name, single_line=True)[:160],
+        "status": status,
+        "summary": _clean_diagnostic_text(summary, single_line=True),
+        "output": _clean_diagnostic_text(output)[-MAX_OUTPUT_CHARS:],
+    }
 
 
 def _redact_local_paths(text: str, root: Path) -> str:
@@ -120,7 +151,7 @@ def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
     def onerror(error: OSError) -> None:
         filename = getattr(error, "filename", None)
         try:
-            relative = Path(filename).relative_to(root).as_posix() if filename else "<unknown>"
+            relative = _safe_path_label(filename, root) if filename else "<unknown>"
         except (OSError, ValueError, TypeError):
             relative = "<unavailable path>"
         errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
@@ -141,7 +172,7 @@ def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
                 try:
                     metadata = path.lstat()
                 except OSError as exc:
-                    errors.append(f"{path.relative_to(root)}: file metadata unavailable ({type(exc).__name__})")
+                    errors.append(f"{_safe_path_label(path, root)}: file metadata unavailable ({type(exc).__name__})")
                     continue
                 if stat.S_ISLNK(metadata.st_mode):
                     continue
@@ -252,7 +283,7 @@ def _config_check(root: Path) -> dict[str, str]:
     errors = []
     for path in files:
         if _has_symlink_component(path, root):
-            errors.append(f"{path.name}: config file has a symlinked path component")
+            errors.append(f"{_safe_path_label(path, root)}: config file has a symlinked path component")
             continue
         try:
             if path.stat().st_size > MAX_CONFIG_BYTES:
@@ -341,7 +372,7 @@ def discover_import_manifests(imported: Path, root: Path) -> tuple[list[Path], l
                 if not _has_symlink_component(candidate, root):
                     manifests.append(candidate)
                 else:
-                    errors.append(f"{candidate.parent.relative_to(root)}: symlinked manifest path")
+                    errors.append(f"{_safe_path_label(candidate.parent, root)}: symlinked manifest path")
     except OSError as exc:
         onerror(exc)
     return sorted(manifests), errors
@@ -362,7 +393,7 @@ def _model_integrity_check(root: Path) -> list[dict[str, str]]:
         return [_result("Imported model integrity", "WARN", "no imported model manifests found")]
     verifier = root / "scripts" / "verify_model_integrity.py"
     for manifest in manifests:
-        relative = manifest.parent.relative_to(root)
+        relative = _safe_path_label(manifest.parent, root)
         if _has_symlink_component(manifest, root):
             results.append(_result("Imported model integrity", "FAIL",
                                    f"{relative} contains a symlinked path component"))
@@ -526,8 +557,8 @@ def main() -> int:
     warnings = sum(item["status"] == "WARN" for item in results)
     print("-" * 68)
     print(f"FAIL: {failures} | WARN: {warnings}")
-    print(f"JSON report: {json_path.relative_to(root)}")
-    print(f"Markdown report: {md_path.relative_to(root)}")
+    print(f"JSON report: {_safe_path_label(json_path, root)}")
+    print(f"Markdown report: {_safe_path_label(md_path, root)}")
     print("Automated PASS results are not production-readiness certification.")
     return 1 if failures else 0
 
