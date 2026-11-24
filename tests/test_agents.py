@@ -139,17 +139,16 @@ def test_object_agent_redacts_model_setup_exception_details(monkeypatch, tmp_pat
 
 
 def test_health_agent_redacts_config_read_exception_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
     config_path = tmp_path / "config.json"
     config_path.write_text("{}", encoding="utf-8")
-    original_read_text = Path.read_text
     secret = "C:/Users/private/settings.json"
 
-    def broken_read_text(path, *args, **kwargs):
-        if path == config_path:
-            raise OSError(secret)
-        return original_read_text(path, *args, **kwargs)
+    def broken_loader(_path):
+        raise OSError(secret)
 
-    monkeypatch.setattr(Path, "read_text", broken_read_text)
+    monkeypatch.setattr(specialists, "load_json_document", broken_loader)
     result = SystemHealthAgent(config_path).run()
 
     detail = result.data["model_files"]["config"]
