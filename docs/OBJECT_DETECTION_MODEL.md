@@ -67,3 +67,8 @@ The application model factory accepts:
 ```
 
 The detector returns the same core result fields as the existing object detector: label, class ID, confidence, horizontal position, and pixel bounding box.
+
+
+## CPU post-processing bounds
+
+Raw YOLO output is limited to 10,000 candidates. Per-class NMS considers at most the 3,000 highest-scoring candidates to bound worst-case quadratic suppression work on CPU-only devices. This may discard lower-ranked proposals in unusually dense scenes; representative held-out recall evaluation is required before treating the cap as suitable for a release.
