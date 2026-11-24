@@ -26,6 +26,7 @@ def redact_local_paths(text: str, paths: list[Path]) -> str:
         redacted = re.sub(re.escape(value), "<local-path>", redacted, flags=re.IGNORECASE)
     return redacted
 
+
 def normalize_distribution(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
