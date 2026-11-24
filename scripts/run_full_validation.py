@@ -138,7 +138,14 @@ def discover_notebooks(root: Path) -> tuple[list[Path], list[str]]:
                 if not name.endswith(".ipynb"):
                     continue
                 path = current_path / name
-                if path.is_file() and not _has_symlink_component(path, root):
+                try:
+                    metadata = path.lstat()
+                except OSError as exc:
+                    errors.append(f"{path.relative_to(root)}: file metadata unavailable ({type(exc).__name__})")
+                    continue
+                if stat.S_ISLNK(metadata.st_mode):
+                    continue
+                if stat.S_ISREG(metadata.st_mode):
                     paths.append(path)
     except OSError as exc:
         onerror(exc)
