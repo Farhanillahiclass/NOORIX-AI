@@ -1,7 +1,13 @@
-"""Helpers for resolving paths stored in a local configuration file."""
+"""Helpers for resolving and safely reading paths stored in local configuration."""
 from __future__ import annotations
 
+import json
+import os
 from pathlib import Path
+import stat
+from typing import Any
+
+MAX_LOCAL_JSON_BYTES = 1024 * 1024
 
 
 def resolve_config_path(value: str | Path, config_path: str | Path) -> Path:
@@ -10,3 +16,58 @@ def resolve_config_path(value: str | Path, config_path: str | Path) -> Path:
     if candidate.is_absolute():
         return candidate
     return Path(config_path).expanduser().resolve().parent / candidate
+
+
+def _has_symlink_component(path: Path) -> bool:
+    """Check the candidate and existing ancestors without following links."""
+    candidate = Path(path).absolute()
+    for component in (candidate, *candidate.parents):
+        try:
+            metadata = component.lstat()
+        except FileNotFoundError:
+            continue
+        if stat.S_ISLNK(metadata.st_mode):
+            return True
+    return False
+
+
+def _unique_json_object(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    """Reject duplicate keys at every JSON object level."""
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError("JSON document contains a duplicate object key")
+        result[key] = value
+    return result
+
+
+def load_json_document(path: str | Path, *, max_bytes: int = MAX_LOCAL_JSON_BYTES) -> Any:
+    """Read a bounded regular JSON file, rejecting symlink paths and duplicate keys.
+
+    The descriptor and path metadata are compared before and after the bounded
+    read. This detects observable replacement or mutation but cannot eliminate
+    every concurrent filesystem race.
+    """
+    if isinstance(max_bytes, bool) or not isinstance(max_bytes, int) or max_bytes <= 0:
+        raise ValueError("max_bytes must be a positive integer")
+    candidate = Path(path).expanduser()
+    if _has_symlink_component(candidate):
+        raise ValueError("JSON path contains a symbolic link")
+    before_path = candidate.lstat()
+    if not stat.S_ISREG(before_path.st_mode):
+        raise ValueError("JSON path is not a regular file")
+    identity = lambda item: (
+        item.st_dev, item.st_ino, item.st_size, item.st_mtime_ns, item.st_ctime_ns
+    )
+    with candidate.open("rb") as stream:
+        before = os.fstat(stream.fileno())
+        if not stat.S_ISREG(before.st_mode) or identity(before) != identity(before_path):
+            raise ValueError("JSON file changed before it could be read")
+        raw = stream.read(max_bytes + 1)
+        after = os.fstat(stream.fileno())
+    after_path = candidate.lstat()
+    if identity(before) != identity(after) or identity(after) != identity(after_path):
+        raise ValueError("JSON file changed while it was being read")
+    if len(raw) > max_bytes:
+        raise ValueError(f"JSON document exceeds the {max_bytes}-byte read limit")
+    return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
