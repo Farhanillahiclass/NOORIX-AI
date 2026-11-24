@@ -200,3 +200,17 @@ def test_load_rejects_excessive_candidate_metadata(tmp_path, monkeypatch):
     detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
     with pytest.raises(ValueError, match="candidate safety limit"):
         detector.load()
+
+
+
+def test_nms_caps_candidates_to_highest_scoring_subset(monkeypatch):
+    monkeypatch.setattr(YOLOv8ONNXDetector, "MAX_NMS_CANDIDATES", 3)
+    boxes = np.array(
+        [[0, 0, 1, 1], [2, 0, 3, 1], [4, 0, 5, 1], [6, 0, 7, 1], [8, 0, 9, 1]],
+        dtype=np.float32,
+    )
+    scores = np.array([0.2, 0.9, 0.5, 0.8, 0.7], dtype=np.float32)
+
+    kept = YOLOv8ONNXDetector._nms(boxes, scores, 0.5)
+
+    assert kept == [1, 3, 4]
