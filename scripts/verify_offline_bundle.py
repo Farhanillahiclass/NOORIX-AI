@@ -9,6 +9,23 @@ import sys
 import tomllib
 
 
+def redact_local_paths(text: str, paths: list[Path]) -> str:
+    """Hide local filesystem roots from pip and validation diagnostics."""
+    redacted = text
+    candidates: set[str] = set()
+    for path in paths:
+        try:
+            value = str(Path(path).expanduser().absolute())
+        except (OSError, RuntimeError):
+            continue
+        if value and value not in {".", "/"}:
+            candidates.add(value)
+            candidates.add(value.replace(chr(92), "/"))
+            candidates.add(value.replace("/", chr(92)))
+    for value in sorted(candidates, key=len, reverse=True):
+        redacted = re.sub(re.escape(value), "<local-path>", redacted, flags=re.IGNORECASE)
+    return redacted
+
 def normalize_distribution(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
 
@@ -106,7 +123,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ValueError(problem)
         wheelhouse = wheelhouse.resolve(strict=True)
     except (OSError, RuntimeError, tomllib.TOMLDecodeError, ValueError) as exc:
-        print(f"Offline bundle check failed ({type(exc).__name__}): {exc}", file=sys.stderr)
+        print(f"Offline bundle check failed ({type(exc).__name__}).", file=sys.stderr)
         return 2
 
     try:
@@ -128,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         "--no-index", "--find-links", str(wheelhouse), requirement,
     ]
     print("NOORIX-AI OFFLINE WHEELHOUSE CHECK")
-    print(f"Wheelhouse: {wheelhouse}")
+    print("Wheelhouse: <local wheelhouse>")
     print(f"Requirement: {requirement}")
     print("Network access: disabled (--no-index)")
     print("Installation: dry-run only; no packages will be installed")
@@ -141,7 +158,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Offline dependency resolution could not complete ({type(exc).__name__}).", file=sys.stderr)
         return 2
     if result.stdout:
-        print(result.stdout[-12000:])
+        safe_output = redact_local_paths(result.stdout[-12000:], [root, Path.home(), wheelhouse])
+        print(safe_output)
     if result.returncode:
         print("FAIL: the wheelhouse cannot currently resolve this environment.", file=sys.stderr)
         print("Build a fresh wheelhouse for this OS, architecture and Python version.", file=sys.stderr)
