@@ -3,6 +3,7 @@ from scripts.run_full_validation import (
     discover_import_manifests,
     discover_notebooks,
     _result,
+    _markdown_code_fence,
     _safe_path_label,
     python_version_supported,
     validate_example_config,
@@ -628,3 +629,9 @@ def test_safe_path_label_is_single_line_and_bounded(tmp_path: Path):
     assert chr(27) not in label
     assert "\n" not in label
     assert len(label) <= 240
+
+
+
+def test_markdown_report_fence_cannot_be_closed_by_untrusted_output():
+    assert _markdown_code_fence("ordinary output") == "```"
+    assert _markdown_code_fence("payload with ```` inside") == "`````"
