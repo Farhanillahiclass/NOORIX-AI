@@ -153,3 +153,14 @@ if the second (Markdown) report cannot be created or written, the script removes
 only the first report file it created in that invocation. Exclusive creation
 continues to protect any pre-existing files. This does not make the containing
 directory creation or concurrent filesystem operations fully transactional.
+
+## Runtime configuration input safeguards
+
+The desktop GUI and system-health agent load local JSON configuration through a
+shared bounded reader. It rejects files larger than 1 MiB, non-regular files,
+symlinked path components, duplicate JSON object keys and observable file
+replacement/mutation during the read. External object-detection label maps use
+the same reader and are checked for the expected list/string structure before
+model construction. These checks reduce unsafe or ambiguous local inputs but
+do not eliminate every concurrent filesystem race. The user's actual
+`config.json` is not scanned or modified by the validation runner.
