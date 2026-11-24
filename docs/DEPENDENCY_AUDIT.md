@@ -12,7 +12,10 @@ output paths containing symlinks before creating files. This reduces accidental
 writes through linked directories but cannot eliminate concurrent filesystem
 mutation races. The command reads
 `pyproject.toml` and local Python distribution metadata only; it does not
-contact package indexes or install, update, or remove packages.
+contact package indexes or install, update, or remove packages. Project metadata
+is read with a 1 MiB bound, and the file must be regular with no symlinked path
+components. Optional-extra names are validated and normalized-name collisions
+are rejected before auditing.
 
 The report lists base dependencies and every optional extra, the declared
 specifier, whether a matching distribution is installed in the current Python
