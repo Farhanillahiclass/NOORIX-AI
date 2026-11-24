@@ -18,14 +18,14 @@ MAX_OUTPUT_CHARS = 12000
 MAX_NOTEBOOK_BYTES = 64 * 1024 * 1024
 MAX_CONFIG_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 1800
-_ANSI_ESCAPE = re.compile(r"\\x1b(?:\\][^\\x07]*(?:\\x07|\\x1b\\\\)|\\[[0-?]*[ -/]*[@-~]|[@-_])")
+_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
 
 
 def _clean_diagnostic_text(value: Any, *, single_line: bool = False) -> str:
     """Remove terminal control sequences from untrusted tool and file metadata."""
     text = _ANSI_ESCAPE.sub("", str(value))
     if single_line:
-        printable = "".join(character if character.isprintable() else " " for character in text)
+        character if character in "\n\t" or character.isprintable() else " "
         return " ".join(printable.split())[:300]
     return "".join(
         character if character in "\\n\\t" or character.isprintable() else " "
