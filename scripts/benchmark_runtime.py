@@ -61,10 +61,22 @@ def validate_positive_latency(value: float, label: str = "latency") -> float:
     return measured
 
 
+def _is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def _has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the output path or any existing ancestor."""
     candidate = Path(path).absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+    return any(_is_symlink_or_junction(component) for component in (candidate, *candidate.parents))
 
 
 def create_unique_report_directory(output_dir: Path, stamp: str) -> Path:
