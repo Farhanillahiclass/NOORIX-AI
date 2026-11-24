@@ -226,8 +226,8 @@ def write_report(report: dict[str, Any], output_dir: Path) -> tuple[Path, Path]:
 
         lines = [
             "# NOORIX-AI Dependency Audit", "",
-            f"- Project: {report['project']} {report['project_version']}",
-            f"- Python requirement: {report['requires_python']}",
+            f"- Project: {_markdown_cell(report['project'])} {_markdown_cell(report['project_version'])}",
+            f"- Python requirement: {_markdown_cell(report['requires_python'])}",
             f"- Generated: {report['generated_at']}", "",
             "| Group | Requirement | Installed version | Satisfies specifier | Upper bound | Review |",
             "|---|---|---|---|---|---",
