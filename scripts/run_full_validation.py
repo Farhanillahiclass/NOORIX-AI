@@ -91,6 +91,13 @@ def _result(name: str, status: str, summary: str, output: str = "") -> dict[str,
     }
 
 
+def _markdown_label(value: str) -> str:
+    """Escape untrusted labels before placing them in Markdown headings or tables."""
+    safe = str(value).replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    for character in (chr(92), chr(96), "*", "_", "{", "}", "[", "]", "(", ")", "#", "+", "-", ".", "!", "|"):
+        safe = safe.replace(character, chr(92) + character)
+    return safe
+
 def _markdown_code_fence(text: str) -> str:
     """Choose a Markdown fence longer than any backtick run in untrusted output."""
     longest = max((len(match.group(0)) for match in re.finditer(r"`+", text)), default=0)
@@ -510,8 +517,9 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
              f"- Python: {sys.version.split()[0]}", f"- Platform: {platform.platform()}", "",
              "| Check | Status | Result |", "|---|---|---|"]
     for item in results:
-        summary = item["summary"].replace("|", "\\|").replace("\n", " ")
-        lines.append(f"| {item['name']} | **{item['status']}** | {summary} |")
+        name = _markdown_label(item["name"])
+        summary = _markdown_label(item["summary"])
+        lines.append(f"| {name} | **{item['status']}** | {summary} |")
     lines += ["", "## Summary", "", f"- PASS: {counts['pass']}", f"- FAIL: {counts['fail']}",
               f"- WARN: {counts['warn']}", f"- INFO: {counts['info']}", "",
               "Automated PASS results do not certify recognition accuracy, safe navigation, privacy compliance, legal rights, or production readiness.", ""]
@@ -519,7 +527,7 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
         if item["output"].strip():
             output = item["output"].rstrip()
             fence = _markdown_code_fence(output)
-            lines += [f"## {item['name']} output", "", f"{fence}text", output, fence, ""]
+            lines += [f"## {_markdown_label(item['name'])} output", "", f"{fence}text", output, fence, ""]
     _write_report_pair(json_path, md_path, payload, "\n".join(lines))
     return json_path, md_path
 
