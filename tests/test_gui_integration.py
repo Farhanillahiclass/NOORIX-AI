@@ -154,3 +154,8 @@ def test_gui_config_loader_rejects_symlinked_config(tmp_path):
         assert "Could not read local configuration (ValueError)." == str(exc)
     else:
         raise AssertionError("symlinked configuration should be rejected")
+
+
+
+def test_gui_config_loader_treats_missing_file_as_empty_config(tmp_path):
+    assert NoorixApp._read_config(tmp_path / "missing.json") == {}
