@@ -185,7 +185,7 @@ def copy_dataset_archive(source: Path, target_dir: Path) -> bool:
     if is_symlink_or_junction(target_dir) or not target_dir.is_dir():
         raise ValueError("dataset inbox must be an existing, non-symlink directory")
     for component in (target_dir, *target_dir.parents):
-        if component.is_symlink():
+        if is_symlink_or_junction(component):
             raise ValueError("dataset inbox has a symlinked path component")
 
     target = target_dir / source.name
@@ -241,7 +241,7 @@ def prepare_staging_directory(staging: Path, destination: Path) -> bool:
         if candidate.exists() or is_symlink_or_junction(candidate):
             return False
         for component in candidate.parents:
-            if component.is_symlink():
+            if is_symlink_or_junction(component):
                 return False
     staging.mkdir(parents=True, exist_ok=False)
     return True
