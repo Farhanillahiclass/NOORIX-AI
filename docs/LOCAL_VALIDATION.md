@@ -98,7 +98,8 @@ Raw exception text is not copied into user-facing status, dialogs or error
 summaries, because library and driver messages can contain local paths or
 content. Context labels are bounded and terminal escape/control characters are
 removed before display. Raw OpenCV/driver exception text is not printed by the
-camera-preview or GUI-startup CLI paths. Detailed diagnostics are intentionally limited; use the local
+camera-preview or GUI-startup CLI paths; unexpected startup/runtime exceptions
+are converted into the same bounded context-and-type message. Detailed diagnostics are intentionally limited; use the local
 validation report and reproduce configuration problems without adding private
 images or OCR text to logs.
 
