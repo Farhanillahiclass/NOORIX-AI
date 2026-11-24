@@ -153,10 +153,16 @@ def test_validation_report_redacts_project_and_home_paths(tmp_path):
 
     project = tmp_path / "project"
     home = __import__("pathlib").Path.home()
-    sample = f"failed at {project / 'tests' / 'test_example.py'}; user={home / 'private.txt'}"
+    windows_project = str(project).replace("/", chr(92))
+    sample = (
+        f"failed at {project / 'tests' / 'test_example.py'}; "
+        f"windows={windows_project}{chr(92)}tests{chr(92)}test_example.py; "
+        f"user={home / 'private.txt'}"
+    )
     redacted = _redact_local_paths(sample, project)
 
     assert str(project) not in redacted
+    assert windows_project not in redacted
     assert str(home) not in redacted
     assert "<PROJECT>" in redacted
     assert "<HOME>" in redacted
