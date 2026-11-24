@@ -82,7 +82,7 @@ def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path)
         "CON.onnx", "nul.txt", "weights/model.onnx.",
         "COM1.bin", "folder/LPT9.onnx", "COM¹.txt", "folder/LPT².bin",
         "weights//model.onnx", "./model.onnx", "folder/../model.onnx",
-        "trailing /model.onnx", "model.onnx ",
+        "trailing /model.onnx", "model.onnx ", f"weights/{chr(27)}[31m.onnx", f"folder/{chr(127)}.onnx",
     ):
         with make_archive([(name, b"bad", None)]) as archive:
             assert safe_extract_member(archive, archive.infolist()[0], target) is None
