@@ -104,6 +104,22 @@ def write_report_pair(json_path: Path, md_path: Path, payload: dict, markdown: s
         raise
 
 
+MAX_CONFIG_BYTES = 1024 * 1024
+
+
+def load_benchmark_config(path: Path) -> dict:
+    """Read a bounded JSON config without loading an unbounded local file."""
+    if path.stat().st_size > MAX_CONFIG_BYTES:
+        raise ValueError("configuration exceeds the 1 MiB inspection limit")
+    with path.open("rb") as stream:
+        raw = stream.read(MAX_CONFIG_BYTES + 1)
+    if len(raw) > MAX_CONFIG_BYTES:
+        raise ValueError("configuration exceeds the 1 MiB inspection limit")
+    config = json.loads(raw.decode("utf-8"))
+    if not isinstance(config, dict):
+        raise ValueError("configuration root must be a JSON object")
+    return config
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Measure local object-detection latency on a supplied image."
@@ -134,9 +150,7 @@ def main(argv: list[str] | None = None) -> int:
         image_path = root / image_path
 
     try:
-        config = json.loads(config_path.read_text(encoding="utf-8"))
-        if not isinstance(config, dict):
-            raise ValueError("configuration root must be a JSON object")
+        config = load_benchmark_config(config_path)
         detector_config = config.get("object_detection")
         if not isinstance(detector_config, dict):
             raise ValueError("config must contain an object_detection object")
