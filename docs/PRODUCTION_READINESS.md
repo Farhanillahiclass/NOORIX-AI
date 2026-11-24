@@ -97,7 +97,8 @@ Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12
 - [ ] Logs exclude image contents, OCR text, credentials and unnecessary
   personal data by default.
 - [x] Runtime GUI/system-health JSON and external object-label JSON use a shared 1 MiB bounded reader with symlink/junction, duplicate-key, regular-file and observable-mutation checks; malformed inputs fail with privacy-safe summaries. Residual filesystem races remain.
-- [ ] Model paths and all remaining configuration-driven paths receive a complete security review; malformed or hostile files fail safely.
+- [x] SSD, YOLOv8 and currency model/anchor paths require regular non-symlink, non-junction files; system-health reports linked paths as unsafe.
+- [ ] All remaining configuration-driven paths receive a complete security review; malformed or hostile files fail safely.
 - [ ] Dependencies are pinned or constrained with a reviewed lock/release
   process; vulnerability findings are triaged.
 - [ ] Secret scanning and a release-history review are completed before any
