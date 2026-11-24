@@ -281,7 +281,7 @@ def test_currency_load_rejects_output_label_dimension_mismatch(tmp_path, monkeyp
     assert estimator._session is None
 
 
-def test_currency_load_rejects_multiple_input_or_output_tensors(tmp_path, monkeypatch):
+def test_currency_load_rejects_multiple_input_tensors(tmp_path, monkeypatch):
     import sys
 
     class Tensor:
