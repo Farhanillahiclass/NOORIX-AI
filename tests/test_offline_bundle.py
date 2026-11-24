@@ -83,3 +83,12 @@ def test_diagnostics_redact_local_path_separators(tmp_path: Path):
     assert str(private_root) not in redacted
     assert str(private_root).replace("/", chr(92)) not in redacted
     assert redacted.count("<local-path>") == 2
+
+
+def test_offline_bundle_cli_rejects_duplicate_and_invalid_extras(capsys):
+    from scripts.verify_offline_bundle import main
+
+    assert main(["--extras", "all,all"]) == 2
+    assert "Duplicate extras" in capsys.readouterr().err
+    assert main(["--extras", "all,../dev"]) == 2
+    assert "Invalid extra name" in capsys.readouterr().err
