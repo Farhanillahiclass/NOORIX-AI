@@ -387,3 +387,14 @@ def test_manifest_errors_do_not_disclose_local_parent_paths_or_control_chars(tmp
     assert str(tmp_path) not in result[0]["path"]
     assert "\\x1b" not in result[0]["path"]
     assert result[0]["path"] == "bad?[31mname.json"
+
+
+def test_manifest_entry_rejects_and_sanitizes_terminal_control_path(tmp_path):
+    unsafe_path = "weights/" + chr(27) + "[31m.onnx"
+    manifest = _write_manifest(tmp_path, [{"path": unsafe_path, "sha256": "0" * 64}])
+
+    result = verify_manifest(tmp_path, manifest)[0]
+
+    assert result["status"] == "ERROR"
+    assert chr(27) not in result["path"]
+    assert "?" in result["path"]
