@@ -48,10 +48,10 @@ class SSDMobileNetV2Detector:
             raise ValueError("confidence_threshold must be between 0 and 1")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"Object detection model not found: {self.model_path}")
-        if not self.anchors_path.is_file():
-            raise FileNotFoundError(f"SSD anchor file not found: {self.anchors_path}")
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="Object detection model")
+        self.anchors_path = require_regular_file(self.anchors_path, label="SSD anchor file")
 
         import onnxruntime as ort
 
