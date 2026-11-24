@@ -60,13 +60,13 @@ class NoorixApp:
 
     @staticmethod
     def _read_config(path: Path) -> dict:
-        if not path.exists() and not path.is_symlink():
-            return {}
         try:
             value = load_json_document(path)
             if not isinstance(value, dict):
                 raise ValueError("configuration root must be an object")
             return value
+        except FileNotFoundError:
+            return {}
         except (OSError, ValueError, UnicodeError, RecursionError) as exc:
             raise RuntimeError(safe_error_summary(exc, "Could not read local configuration")) from None
 
