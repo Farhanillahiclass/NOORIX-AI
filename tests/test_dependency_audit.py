@@ -301,3 +301,11 @@ def test_dependency_report_markdown_cells_escape_markup_and_controls():
     assert "&lt;script&gt;" in cell
     assert chr(27) not in cell
     assert "\\*bold\\*" in cell
+
+
+
+def test_requirement_parser_rejects_nonportable_distribution_names():
+    with pytest.raises(ValueError, match="unsupported dependency"):
+        parse_requirement("demo__pkg>=1")
+    with pytest.raises(ValueError, match="unsupported dependency"):
+        parse_requirement("demo..pkg>=1")
