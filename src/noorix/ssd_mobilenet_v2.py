@@ -54,8 +54,6 @@ class SSDMobileNetV2Detector:
 
         self.model_path = require_regular_file(self.model_path, label="Object detection model")
         self.anchors_path = require_regular_file(self.anchors_path, label="SSD anchor file")
-        self._session = None
-        self._anchors = None
 
         import onnxruntime as ort
 
