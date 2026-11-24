@@ -157,3 +157,14 @@ def test_dependency_report_removes_own_partial_json_when_markdown_write_fails(tm
     report_dirs = [path for path in tmp_path.iterdir() if path.is_dir()]
     assert len(report_dirs) == 1
     assert list(report_dirs[0].iterdir()) == []
+
+
+def test_dependency_audit_cli_does_not_print_local_path_on_read_error(tmp_path, capsys):
+    from scripts.dependency_audit import main
+
+    result = main(["--pyproject", str(tmp_path), "--output-dir", str(tmp_path / "reports")])
+
+    captured = capsys.readouterr()
+    assert result == 2
+    assert "IsADirectoryError" in captured.err
+    assert str(tmp_path) not in captured.err
