@@ -2,7 +2,7 @@
 **See Beyond. Understand More.**  
 **Powered by MRS**
 
-NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. Its intended modules are Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English OCR and spoken feedback.
+NOORIX AI is an offline-first research prototype for camera-based accessibility assistance. Its intended modules are Pakistani banknote denomination estimation, everyday object detection with image-relative left/centre/right labels, printed English/optional Urdu OCR and spoken feedback.
 
 ## Run locally
 Supported Python versions: 3.11, 3.12 and 3.13 (the versions covered by the current CI matrix).
@@ -27,7 +27,7 @@ For the final combined local validation, run:
 python scripts/run_full_validation.py
 ```
 
-This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/, plus an offline dependency declaration audit under reports/dependencies/. See [Dependency Audit](docs/DEPENDENCY_AUDIT.md) and [One-command local validation](docs/LOCAL_VALIDATION.md) for an optional offline wheelhouse build, verification and installation procedure. Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
+This runs compilation, the full pytest suite, dependency checks, example-config parsing, notebook structure checks and an optional Tesseract inventory. It writes timestamped Markdown and JSON reports under reports/validation/, plus an offline dependency declaration audit under reports/dependencies/. See [Architecture](docs/ARCHITECTURE.md), [Development Plan](docs/DEVELOPMENT_PLAN.md), [Dependency Audit](docs/DEPENDENCY_AUDIT.md) and [One-command local validation](docs/LOCAL_VALIDATION.md) for an optional offline wheelhouse build, verification and installation procedure. Hosted GitHub Actions are paused to avoid consuming the account's remaining Actions allowance; do not manually dispatch the workflow unless the owner explicitly authorizes it.
 
 Optional CPU object-detection timing report (after configuring a compatible model):
 
