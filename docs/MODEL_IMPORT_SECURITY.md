@@ -106,3 +106,6 @@ The final staging-publication helper independently rechecks the staging path and
 Directory iteration errors during incoming-folder or Downloads ZIP discovery are now
 reported as scan failures rather than escaping the importer. A scan that cannot be
 completed is not treated as a clean no-op.
+
+
+Archive path components containing non-printable/control characters are rejected to prevent terminal-control injection through untrusted ZIP member names.
