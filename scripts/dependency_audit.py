@@ -20,7 +20,7 @@ except ImportError:
     Requirement = SpecifierSet = Version = None
 
 _REQUIREMENT = re.compile(
-    r"^\s*([A-Za-z0-9][A-Za-z0-9._-]*)\s*(?:\[([^]]+)\])?\s*(.*)$"
+    r"^\s*([A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)\s*(?:\[([^]]+)\])?\s*(.*)$"
 )
 _VERSION_BOUND = re.compile(r"(?:^|,)\s*(===|==|~=|!=|<=|>=|<|>)\s*([^,;\s]+)")
 _SPECIFIER_LIST = re.compile(r"^(?:\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)(?:,\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)*$")
