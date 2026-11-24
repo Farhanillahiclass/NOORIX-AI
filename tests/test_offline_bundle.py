@@ -5,6 +5,7 @@ import pytest
 from scripts.verify_offline_bundle import (
     normalize_distribution,
     pip_supports_dry_run,
+    redact_local_paths,
     selected_requirement,
     validate_wheelhouse,
 )
@@ -70,3 +71,15 @@ def test_wheelhouse_rejects_symlinked_wheel(tmp_path: Path):
 def test_pip_dry_run_capability_detection():
     assert pip_supports_dry_run("Usage: pip install [options] --dry-run")
     assert not pip_supports_dry_run("Usage: pip install [options]")
+
+
+def test_diagnostics_redact_local_path_separators(tmp_path: Path):
+    private_root = tmp_path / "private" / "project"
+    private_root.mkdir(parents=True)
+    message = f"failed at {private_root} and {str(private_root).replace(chr(47), chr(92))}"
+
+    redacted = redact_local_paths(message, [private_root])
+
+    assert str(private_root) not in redacted
+    assert str(private_root).replace("/", chr(92)) not in redacted
+    assert redacted.count("<local-path>") == 2
