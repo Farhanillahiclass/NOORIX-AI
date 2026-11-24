@@ -165,3 +165,38 @@ def test_load_rejects_incompatible_output_metadata(tmp_path, monkeypatch):
     detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
     with pytest.raises(ValueError, match="84-value feature axis"):
         detector.load()
+
+
+def test_normalize_output_rejects_excessive_candidate_count():
+    detector = make_detector()
+    output = np.zeros((1, 84, detector.MAX_CANDIDATES + 1), dtype=np.float32)
+    with pytest.raises(ValueError, match="candidate safety limit"):
+        detector._normalize_output(output)
+
+
+def test_load_rejects_excessive_candidate_metadata(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 20_001])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    with pytest.raises(ValueError, match="candidate safety limit"):
+        detector.load()
