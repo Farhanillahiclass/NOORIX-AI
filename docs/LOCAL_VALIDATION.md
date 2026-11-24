@@ -93,7 +93,7 @@ its FPS figure as a product claim.
 
 ## Privacy-safe GUI diagnostics
 
-GUI, command-line camera/desktop startup, object-agent setup and system-health configuration error messages now show a short operation context and exception type only.
+GUI, command-line camera/desktop startup, object-agent setup, frame-quality and system-health configuration error messages now show a short operation context and exception type only.
 Raw exception text is not copied into user-facing status, dialogs or error
 summaries, because library and driver messages can contain local paths or
 content. Context labels are bounded and terminal escape/control characters are
