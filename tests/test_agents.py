@@ -114,3 +114,44 @@ def test_coordinator_does_not_expose_sensitive_exception_text():
     assert result.state == AgentState.ERROR
     assert secret not in result.summary
     assert all(secret not in warning for warning in result.warnings)
+
+
+
+def test_object_agent_redacts_model_setup_exception_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/model-folder/model.onnx"
+
+    def broken_factory(_config, _config_path):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists, "create_object_detector", broken_factory)
+    agent = ObjectDetectionAgent(
+        {"model_path": "models/model.onnx"},
+        config_path=tmp_path / "config.json",
+    )
+
+    result = agent.run(object())
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert "Object detection setup failed (OSError)." == result.summary
+    assert secret not in result.summary
+
+
+def test_health_agent_redacts_config_read_exception_details(monkeypatch, tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    original_read_text = Path.read_text
+    secret = "C:/Users/private/settings.json"
+
+    def broken_read_text(path, *args, **kwargs):
+        if path == config_path:
+            raise OSError(secret)
+        return original_read_text(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "read_text", broken_read_text)
+    result = SystemHealthAgent(config_path).run()
+
+    detail = result.data["model_files"]["config"]
+    assert detail == "Configuration unreadable (OSError)."
+    assert secret not in detail
