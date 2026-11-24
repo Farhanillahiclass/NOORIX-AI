@@ -10,7 +10,7 @@ import sys
 import tomllib
 
 MAX_PYPROJECT_BYTES = 1024 * 1024
-_EXTRA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+_EXTRA_NAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
 
 
 def redact_local_paths(text: str, paths: list[Path]) -> str:
@@ -36,9 +36,9 @@ def normalize_distribution(name: str) -> str:
 
 
 def selected_requirement(package: str, extras: list[str]) -> str:
-    if not package or not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", package):
+    if not package or not _EXTRA_NAME.fullmatch(package):
         raise ValueError("package must be a valid distribution name")
-    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", extra) for extra in extras):
+    if any(not _EXTRA_NAME.fullmatch(extra) for extra in extras):
         raise ValueError("extras must be valid distribution extra names")
     return f"{package}[{','.join(extras)}]" if extras else package
 
@@ -135,7 +135,7 @@ def main(argv: list[str] | None = None) -> int:
     if len(extras) != len(set(extras)):
         print("Duplicate extras were supplied.", file=sys.stderr)
         return 2
-    if any(not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*", extra) for extra in extras):
+    if any(not _EXTRA_NAME.fullmatch(extra) for extra in extras):
         print("Invalid extra name supplied.", file=sys.stderr)
         return 2
     try:
