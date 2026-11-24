@@ -151,3 +151,84 @@ def test_factory_rejects_unsupported_backend(tmp_path):
 
     with pytest.raises(ValueError, match="Unsupported object detection backend"):
         create_object_detector(config, tmp_path / "config.json")
+
+
+
+def test_ssd_load_rejects_wrong_output_metadata_without_retaining_session(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 300, 300])]
+
+        def get_outputs(self):
+            values = []
+            for index, (size, count) in enumerate(zip(
+                SSDMobileNetV2Detector.HEAD_SIZES,
+                SSDMobileNetV2Detector.HEAD_ANCHORS,
+            )):
+                values.append(Tensor(f"boxes_{index}", [1, count * 4, size, size]))
+                values.append(Tensor(f"scores_{index}", [1, count * 91, size, size]))
+            values[0].shape = [1, 12, 19, 19]
+            return values
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    anchors = tmp_path / "anchors.npz"
+    np.savez(anchors, anchors=np.zeros((1917, 4), dtype=np.float32))
+    detector = SSDMobileNetV2Detector(model, valid_labels(), anchors_path=anchors)
+
+    with pytest.raises(ValueError, match="Unexpected SSD output 0"):
+        detector.load()
+
+    assert detector._session is None
+    assert detector._anchors is None
+
+
+def test_ssd_load_rejects_non_float32_input_without_retaining_session(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 300, 300], "tensor(float16)")]
+
+        def get_outputs(self):
+            return []
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    anchors = tmp_path / "anchors.npz"
+    np.savez(anchors, anchors=np.zeros((1917, 4), dtype=np.float32))
+    detector = SSDMobileNetV2Detector(model, valid_labels(), anchors_path=anchors)
+
+    with pytest.raises(ValueError, match="input must be float32"):
+        detector.load()
+
+    assert detector._session is None
+    assert detector._anchors is None
