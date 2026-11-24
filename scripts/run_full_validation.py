@@ -293,15 +293,46 @@ def _config_check(root: Path) -> dict[str, str]:
 MAX_IMPORTED_MANIFEST_BYTES = 16 * 1024 * 1024
 
 
+def discover_import_manifests(imported: Path, root: Path) -> tuple[list[Path], list[str]]:
+    """Find import manifests without following symlink directories; retain scan errors."""
+    manifests: list[Path] = []
+    errors: list[str] = []
+
+    def onerror(error: OSError) -> None:
+        filename = getattr(error, "filename", None)
+        try:
+            relative = Path(filename).relative_to(root).as_posix() if filename else "<unknown>"
+        except (OSError, RuntimeError, ValueError, TypeError):
+            relative = "<unavailable path>"
+        errors.append(f"{relative}: directory scan failed ({type(error).__name__})")
+
+    if not imported.is_dir():
+        return manifests, errors
+    for current, directories, files in os.walk(imported, topdown=True, followlinks=False, onerror=onerror):
+        current_path = Path(current)
+        directories[:] = [name for name in directories if not (current_path / name).is_symlink()]
+        if "import_manifest.json" in files:
+            candidate = current_path / "import_manifest.json"
+            if not _has_symlink_component(candidate, root):
+                manifests.append(candidate)
+            else:
+                errors.append(f"{candidate.parent.relative_to(root)}: symlinked manifest path")
+    return sorted(manifests), errors
+
+
 def _model_integrity_check(root: Path) -> list[dict[str, str]]:
     imported = root / "models" / "imported"
     if _has_symlink_component(imported, root):
         return [_result("Imported model integrity", "FAIL",
                         "models/imported has a symlinked path component; refusing external content")]
-    manifests = sorted(imported.rglob("import_manifest.json")) if imported.is_dir() else []
-    if not manifests:
+    manifests, scan_errors = discover_import_manifests(imported, root)
+    if scan_errors:
+        results = [_result("Imported model integrity", "FAIL",
+                           f"{len(scan_errors)} directory scan/path issue(s)", "\\n".join(scan_errors))]
+    else:
+        results = []
+    if not manifests and not scan_errors:
         return [_result("Imported model integrity", "WARN", "no imported model manifests found")]
-    results = []
     verifier = root / "scripts" / "verify_model_integrity.py"
     for manifest in manifests:
         relative = manifest.parent.relative_to(root)
