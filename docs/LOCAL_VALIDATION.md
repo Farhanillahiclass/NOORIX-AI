@@ -164,3 +164,13 @@ the same reader and are checked for the expected list/string structure before
 model construction. These checks reduce unsafe or ambiguous local inputs but
 do not eliminate every concurrent filesystem race. The user's actual
 `config.json` is not scanned or modified by the validation runner.
+
+## Model-file path checks
+
+SSD, YOLOv8 and currency model loaders require an existing regular model file
+and reject symbolic links or Windows junctions in the file path or its
+ancestors. SSD anchor files use the same check. The system-health agent reports
+linked or malformed model paths as unsafe instead of treating them as
+available. These checks do not establish model provenance, integrity or
+compatibility; imported artifacts still require a verified SHA-256 manifest
+and licensing review.
