@@ -197,3 +197,48 @@ def test_benchmark_output_guard_rejects_windows_junction(tmp_path, monkeypatch):
     )
 
     assert _has_symlink_component(junction / "reports") is True
+
+
+
+def test_benchmark_config_reader_rejects_symlinked_file(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import load_benchmark_config
+
+    target = tmp_path / "real.json"
+    target.write_text('{"object_detection": {}}', encoding="utf-8")
+    linked = tmp_path / "config.json"
+    try:
+        linked.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_benchmark_config(linked)
+
+
+def test_benchmark_config_reader_rejects_symlinked_parent(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import load_benchmark_config
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    target = real_dir / "config.json"
+    target.write_text('{"object_detection": {}}', encoding="utf-8")
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_benchmark_config(linked_dir / "config.json")
+
+
+def test_benchmark_config_reader_rejects_non_regular_file(tmp_path):
+    import pytest
+    from scripts.benchmark_runtime import load_benchmark_config
+
+    directory = tmp_path / "config.json"
+    directory.mkdir()
+    with pytest.raises(ValueError, match="regular file"):
+        load_benchmark_config(directory)
