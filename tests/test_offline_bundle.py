@@ -173,3 +173,9 @@ def test_load_extras_rejects_symlinked_parent_directory(tmp_path: Path):
 
     with pytest.raises(ValueError, match="symbolic link"):
         load_extras(linked_dir / "pyproject.toml")
+
+
+
+def test_selected_requirement_rejects_extra_with_trailing_separator():
+    with pytest.raises(ValueError, match="valid distribution extra"):
+        selected_requirement("noorix-ai", ["dev-"])
