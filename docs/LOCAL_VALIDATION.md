@@ -158,7 +158,7 @@ directory creation or concurrent filesystem operations fully transactional.
 
 The desktop GUI and system-health agent load local JSON configuration through a
 shared bounded reader. It rejects files larger than 1 MiB, non-regular files,
-symlinked path components, duplicate JSON object keys and observable file
+symlinked or Windows-junction path components, duplicate JSON object keys and observable file
 replacement/mutation during the read. External object-detection label maps use
 the same reader and are checked for the expected list/string structure before
 model construction. These checks reduce unsafe or ambiguous local inputs but
