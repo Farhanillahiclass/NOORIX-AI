@@ -230,3 +230,14 @@ def test_load_extras_rejects_non_string_requirement_entries(tmp_path: Path):
 
     with pytest.raises(ValueError, match="lists of requirement strings"):
         load_extras(path)
+
+
+
+def test_selected_requirement_rejects_consecutive_extra_separators():
+    with pytest.raises(ValueError, match="valid distribution extra"):
+        selected_requirement("noorix-ai", ["bad__extra"])
+
+
+def test_resolve_extras_rejects_consecutive_extra_separators():
+    with pytest.raises(ValueError, match="invalid extra name"):
+        resolve_extras(["bad__extra"], {"bad__extra"})
