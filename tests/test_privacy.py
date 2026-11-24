@@ -31,3 +31,11 @@ def test_safe_error_summary_removes_osc_terminal_sequences():
 
     assert "private terminal title" not in summary
     assert "safe context" in summary
+
+
+def test_safe_error_summary_removes_dcs_terminal_sequences():
+    context = "before\x1bP1;2|private terminal payload\x1b\\after"
+    summary = safe_error_summary(RuntimeError("private"), context)
+
+    assert "private terminal payload" not in summary
+    assert "beforeafter" in summary
