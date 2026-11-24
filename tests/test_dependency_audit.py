@@ -76,6 +76,8 @@ def test_markdown_cell_escapes_table_delimiters_and_newlines():
     from scripts.dependency_audit import _markdown_cell
 
     assert _markdown_cell("pkg|name\nnext") == r"pkg\|name next"
+    assert chr(27) not in _markdown_cell("pkg" + chr(27) + "name")
+    assert chr(9) not in _markdown_cell("pkg" + chr(9) + "name")
 
 
 
