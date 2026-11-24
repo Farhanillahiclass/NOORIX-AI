@@ -123,7 +123,7 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
     """Create the configured object detector using paths relative to config."""
     import json
 
-    from noorix.paths import resolve_config_path
+    from noorix.paths import load_json_document, resolve_config_path
 
     backend = str(config.get("backend", "opencv_dnn")).lower()
     model_value = config.get("model_path")
@@ -144,9 +144,9 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
 
         if labels_path:
             resolved_labels = resolve_config_path(labels_path, config_path)
-            labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
+            labels = load_json_document(resolved_labels)
 
-        if not isinstance(labels, list):
+        if not isinstance(labels, list) or not labels or not all(isinstance(label, str) and label.strip() for label in labels):
             raise ValueError(
                 "SSD MobileNet V2 requires labels_path or a 90-position labels list"
             )
@@ -170,7 +170,7 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
         if labels_path:
             resolved_labels = resolve_config_path(labels_path, config_path)
             labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
-        if not isinstance(labels, list) or len(labels) != 80:
+        if not isinstance(labels, list) or len(labels) != 80 or not all(isinstance(label, str) and label.strip() for label in labels):
             raise ValueError(
                 "YOLOv8 ONNX requires labels_path or exactly 80 COCO class labels"
             )
