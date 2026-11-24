@@ -163,7 +163,12 @@ def main(argv: list[str] | None = None) -> int:
         if problem:
             raise ValueError(problem)
         wheelhouse = wheelhouse.resolve(strict=True)
-    except (OSError, RuntimeError, tomllib.TOMLDecodeError, ValueError) as exc:
+    except ValueError as exc:
+        # Validation messages are authored locally; strip controls and bound output.
+        detail = "".join(character for character in str(exc) if character.isprintable())[:200]
+        print(f"Offline bundle check failed: {detail or 'invalid input'}.", file=sys.stderr)
+        return 2
+    except (OSError, RuntimeError, tomllib.TOMLDecodeError) as exc:
         print(f"Offline bundle check failed ({type(exc).__name__}).", file=sys.stderr)
         return 2
 
