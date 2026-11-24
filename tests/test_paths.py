@@ -94,3 +94,58 @@ def test_load_json_document_rejects_windows_junction_component(tmp_path: Path, m
 
     with pytest.raises(ValueError, match="symbolic link"):
         load_json_document(config)
+
+
+
+def test_require_regular_file_accepts_regular_file(tmp_path: Path):
+    from noorix.paths import require_regular_file
+
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"model")
+    assert require_regular_file(model, label="Model") == model
+
+
+def test_require_regular_file_preserves_missing_file_error(tmp_path: Path):
+    from noorix.paths import require_regular_file
+
+    with pytest.raises(FileNotFoundError, match="Model not found"):
+        require_regular_file(tmp_path / "missing.onnx", label="Model")
+
+
+def test_require_regular_file_rejects_directory(tmp_path: Path):
+    from noorix.paths import require_regular_file
+
+    with pytest.raises(ValueError, match="regular file"):
+        require_regular_file(tmp_path, label="Model")
+
+
+def test_require_regular_file_rejects_symlink_file(tmp_path: Path):
+    from noorix.paths import require_regular_file
+
+    target = tmp_path / "real.onnx"
+    target.write_bytes(b"model")
+    linked = tmp_path / "linked.onnx"
+    try:
+        linked.symlink_to(target)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        require_regular_file(linked, label="Model")
+
+
+def test_require_regular_file_rejects_symlink_parent(tmp_path: Path):
+    from noorix.paths import require_regular_file
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    target = real_dir / "model.onnx"
+    target.write_bytes(b"model")
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        require_regular_file(linked_dir / "model.onnx", label="Model")
