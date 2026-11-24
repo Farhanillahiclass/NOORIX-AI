@@ -15,7 +15,7 @@ claims are not realistic and must never be implied.
 NOORIX must not be marketed or used as a replacement for a white cane, guide
 dog, trained mobility support, or a person's own judgement. Image-relative
 object positions are not distance measurements, collision detection, or route
-guidance. Currency classification is not banknote authentication.
+guidance. Currency classification is not banknote authentication. The classifier now rejects unexpected input/output tensor counts, label-count mismatches and non-finite model scores; real model compatibility and held-out accuracy remain unverified.
 
 ## Current evidence snapshot
 
