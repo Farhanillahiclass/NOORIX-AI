@@ -8,7 +8,11 @@ NOORIX AI is an offline-first research prototype for camera-based accessibility 
 Supported Python versions: 3.11, 3.12 and 3.13 (the versions covered by the current CI matrix).
 
 ```bash
-python -m venv .venv
+# Create the environment with a supported interpreter (Python 3.12 shown):
+# Windows:
+py -3.12 -m venv .venv
+# macOS/Linux:
+# python3.12 -m venv .venv
 # Windows Git Bash:
 source .venv/Scripts/activate
 # Windows PowerShell:
