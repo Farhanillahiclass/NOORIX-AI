@@ -10,6 +10,7 @@ from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
 from noorix.paths import resolve_config_path
+from noorix.privacy import safe_error_summary
 
 class OCRAgent:
     name = "ocr"
@@ -40,7 +41,7 @@ class ObjectDetectionAgent:
                 self.adapter = create_object_detector(self.config, self.config_path)
             except (OSError, ValueError, TypeError) as exc:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
-                                   f"Object detection setup error: {exc}")
+                                   safe_error_summary(exc, "Object detection setup failed"))
         detections = self.adapter.detect(payload)
         if not detections:
             return AgentResult(self.name, AgentState.COMPLETED, "No supported objects detected.",
@@ -118,7 +119,7 @@ class SystemHealthAgent:
         try:
             config = json.loads(self.config_path.read_text(encoding="utf-8"))
         except (OSError, json.JSONDecodeError) as exc:
-            return {"config": f"invalid: {exc}"}
+            return {"config": safe_error_summary(exc, "Configuration unreadable")}
         output = {}
         for key in ("object_detection", "currency"):
             section = config.get(key, {})
