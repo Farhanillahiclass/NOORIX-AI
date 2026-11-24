@@ -35,8 +35,9 @@ class ObjectDetector:
             raise ValueError("input_size must contain two positive integers")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"Object detection model not found: {self.model_path}")
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="Object detection model")
         import cv2
         self._net = cv2.dnn.readNetFromONNX(str(self.model_path))
 
