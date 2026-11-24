@@ -22,3 +22,12 @@ def test_safe_error_summary_removes_terminal_control_characters_from_context():
     assert chr(27) not in summary
     assert "\n" not in summary
     assert "OCR unavailable next-line" in summary
+
+
+
+def test_safe_error_summary_removes_osc_terminal_sequences():
+    context = "safe\x1b]0;private terminal title\x07 context"
+    summary = safe_error_summary(RuntimeError("private"), context)
+
+    assert "private terminal title" not in summary
+    assert "safe context" in summary
