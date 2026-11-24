@@ -76,3 +76,21 @@ def test_resolve_config_path_uses_config_parent(tmp_path: Path):
     assert resolve_config_path("models/object.onnx", config) == (
         config.parent.resolve() / "models" / "object.onnx"
     )
+
+
+
+def test_load_json_document_rejects_windows_junction_component(tmp_path: Path, monkeypatch):
+    junction_dir = tmp_path / "junction"
+    junction_dir.mkdir()
+    config = junction_dir / "config.json"
+    config.write_text("{}", encoding="utf-8")
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction_dir,
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="symbolic link"):
+        load_json_document(config)
