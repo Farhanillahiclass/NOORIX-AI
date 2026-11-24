@@ -62,7 +62,7 @@ def load_json_document(path: str | Path, *, max_bytes: int = MAX_LOCAL_JSON_BYTE
         raise ValueError("max_bytes must be a positive integer")
     candidate = Path(path).expanduser()
     if _has_symlink_component(candidate):
-        raise ValueError("JSON path contains a symbolic link")
+        raise ValueError("JSON path contains a symbolic link or junction")
     before_path = candidate.lstat()
     if not stat.S_ISREG(before_path.st_mode):
         raise ValueError("JSON path is not a regular file")
