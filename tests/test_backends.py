@@ -212,3 +212,103 @@ def test_currency_rejects_wrong_model_output_count():
 
     with pytest.raises(RuntimeError, match="scores for 3 labels"):
         estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+
+def test_currency_load_rejects_non_float32_input_without_retaining_session(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image", [1, 3, 224, 224], "tensor(float16)")]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 2])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="input must be float32"):
+        estimator.load()
+
+    assert estimator._session is None
+
+
+def test_currency_load_rejects_output_label_dimension_mismatch(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image", [1, 3, 224, 224])]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 3])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="one currency score per label"):
+        estimator.load()
+
+    assert estimator._session is None
+
+
+def test_currency_load_rejects_multiple_input_or_output_tensors(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class MultiInputSession:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image1", [1, 3, 224, 224]), Tensor("image2", [1, 3, 224, 224])]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 2])]
+
+    class Runtime:
+        InferenceSession = MultiInputSession
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="exactly one input"):
+        estimator.load()
+
+    assert estimator._session is None
