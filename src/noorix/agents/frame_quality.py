@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import Any
 
 from noorix.agents.base import AgentResult, AgentState
+from noorix.privacy import safe_error_summary
 
 
 class FrameQualityAgent:
@@ -71,6 +72,6 @@ class FrameQualityAgent:
                 warnings=tuple(warnings),
             )
         except ImportError as exc:
-            return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Frame quality requires OpenCV and NumPy: {exc}")
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, safe_error_summary(exc, "Frame quality requires OpenCV and NumPy"))
         except (TypeError, ValueError) as exc:
-            return AgentResult(self.name, AgentState.NEEDS_SETUP, f"Invalid camera frame: {exc}")
+            return AgentResult(self.name, AgentState.NEEDS_SETUP, safe_error_summary(exc, "Invalid camera frame"))
