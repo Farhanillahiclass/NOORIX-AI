@@ -120,6 +120,11 @@ def load_benchmark_config(path: Path) -> dict:
         raise ValueError("configuration root must be a JSON object")
     return config
 
+def safe_metadata_text(value: object, limit: int = 160) -> str:
+    """Keep untrusted local metadata on one safe, bounded report line."""
+    text = "".join(character if character.isprintable() else "?" for character in str(value))
+    return text.replace("|", "\\|").replace("`", "\\`")[:limit]
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Measure local object-detection latency on a supplied image."
@@ -197,17 +202,17 @@ def main(argv: list[str] | None = None) -> int:
             "generated_at": generated,
             "python": sys.version.split()[0],
             "platform": platform.platform(),
-            "processor": platform.processor() or platform.uname().processor or "unknown",
+            "processor": safe_metadata_text(platform.processor() or platform.uname().processor or "unknown"),
             "runtime_versions": {
                 "opencv": getattr(cv2, "__version__", None),
                 "numpy": package_version("numpy"),
                 "onnxruntime": package_version("onnxruntime"),
             },
-            "backend": str(detector_config.get("backend", "opencv_dnn")),
+            "backend": safe_metadata_text(detector_config.get("backend", "opencv_dnn")),
             "confidence_threshold": detector_config.get("confidence_threshold"),
             "input_size": detector_config.get("input_size"),
-            "model_filename": Path(str(detector_config.get("model_path", ""))).name,
-            "image_filename": image_path.name,
+            "model_filename": safe_metadata_text(Path(str(detector_config.get("model_path", ""))).name),
+            "image_filename": safe_metadata_text(image_path.name),
             "image_dimensions": {"width": int(frame.shape[1]), "height": int(frame.shape[0])},
             "cold_start_ms": cold_start_ms,
             "warmup_runs": args.warmup,
@@ -252,8 +257,8 @@ def main(argv: list[str] | None = None) -> int:
         write_report_pair(json_path, md_path, payload, "\n".join(lines))
         print(f"Cold first inference: {cold_start_ms:.2f} ms")
         print(f"Mean: {stats['mean_ms']:.2f} ms | P95: {stats['p95_ms']:.2f} ms | FPS: {stats['throughput_fps']:.2f}")
-        print(f"JSON report: {json_path.relative_to(root) if json_path.is_relative_to(root) else json_path}")
-        print(f"Markdown report: {md_path.relative_to(root) if md_path.is_relative_to(root) else md_path}")
+        print(f"JSON report: {safe_metadata_text(json_path.relative_to(root) if json_path.is_relative_to(root) else json_path)}")
+        print(f"Markdown report: {safe_metadata_text(md_path.relative_to(root) if md_path.is_relative_to(root) else md_path)}")
         print("This single-image benchmark is not a production performance or safety certification.")
         return 0
     except (OSError, UnicodeError, json.JSONDecodeError, ValueError, RuntimeError, ImportError) as exc:
