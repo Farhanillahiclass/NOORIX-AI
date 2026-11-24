@@ -154,3 +154,24 @@ def test_health_agent_redacts_config_read_exception_details(monkeypatch, tmp_pat
     detail = result.data["model_files"]["config"]
     assert detail == "Configuration unreadable (OSError)."
     assert secret not in detail
+
+
+
+def test_health_agent_marks_symlinked_model_path_unsafe(tmp_path):
+    real_model = tmp_path / "real.onnx"
+    real_model.write_bytes(b"model")
+    linked_model = tmp_path / "linked.onnx"
+    try:
+        linked_model.symlink_to(real_model)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("file symlinks are unavailable on this platform")
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        '{"object_detection": {"model_path": "linked.onnx"}}',
+        encoding="utf-8",
+    )
+
+    result = SystemHealthAgent(config_path).run()
+
+    assert result.data["model_files"]["object_detection"] == "unsafe_or_invalid_path"
