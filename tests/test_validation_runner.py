@@ -1,6 +1,7 @@
 from pathlib import Path
 from scripts.run_full_validation import (
     discover_import_manifests,
+    discover_notebooks,
     python_version_supported,
     validate_example_config,
     validate_notebook_document,
@@ -541,3 +542,16 @@ def test_import_manifest_discovery_treats_missing_directory_as_empty(tmp_path):
 
     assert manifests == []
     assert errors == []
+
+
+def test_notebook_discovery_reports_unexpected_walk_exception(tmp_path, monkeypatch):
+    def broken_walk(*args, **kwargs):
+        raise PermissionError("sensitive path detail")
+
+    monkeypatch.setattr("scripts.run_full_validation.os.walk", broken_walk)
+    paths, errors = discover_notebooks(tmp_path)
+
+    assert paths == []
+    assert len(errors) == 1
+    assert "PermissionError" in errors[0]
+    assert "sensitive path detail" not in errors[0]
