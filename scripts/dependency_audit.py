@@ -173,9 +173,12 @@ def audit_project(project: dict[str, Any]) -> dict[str, Any]:
 
 
 def _markdown_cell(value: Any) -> str:
-    """Keep dependency metadata printable and on one Markdown table row."""
+    """Escape untrusted dependency metadata for a single Markdown table cell."""
     printable = "".join(character if character.isprintable() else " " for character in str(value))
-    return printable.replace("|", r"\|")
+    safe = printable.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    for character in (chr(92), "|", "`", "*", "_", "[", "]", "!"):
+        safe = safe.replace(character, chr(92) + character)
+    return safe
 
 def _is_symlink_or_junction(path: Path) -> bool:
     """Detect symbolic links and Windows directory junctions."""
