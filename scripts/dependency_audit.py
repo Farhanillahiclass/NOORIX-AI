@@ -25,7 +25,7 @@ _REQUIREMENT = re.compile(
 _VERSION_BOUND = re.compile(r"(?:^|,)\s*(===|==|~=|!=|<=|>=|<|>)\s*([^,;\s]+)")
 _SPECIFIER_LIST = re.compile(r"^(?:\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)(?:,\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)*$")
 MAX_PYPROJECT_BYTES = 1024 * 1024
-_EXTRA_NAME = re.compile(r"^[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?$")
+_EXTRA_NAME = re.compile(r"^[A-Za-z0-9]+(?:[-_.][A-Za-z0-9]+)*$")
 
 
 def _read_pyproject(path: Path) -> dict[str, Any]:
