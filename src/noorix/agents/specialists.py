@@ -9,7 +9,7 @@ from noorix.currency import CurrencyEstimator
 from noorix.objects import create_object_detector
 from noorix.ocr import PrintedEnglishOCR
 from noorix.speech import SpeechOutput
-from noorix.paths import resolve_config_path
+from noorix.paths import load_json_document, resolve_config_path
 from noorix.privacy import safe_error_summary
 
 class OCRAgent:
@@ -117,8 +117,10 @@ class SystemHealthAgent:
     def _model_file_status(self) -> dict[str, str]:
         import json
         try:
-            config = json.loads(self.config_path.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError) as exc:
+            config = load_json_document(self.config_path)
+            if not isinstance(config, dict):
+                raise ValueError("configuration root must be an object")
+        except (OSError, ValueError, UnicodeError, RecursionError) as exc:
             return {"config": safe_error_summary(exc, "Configuration unreadable")}
         output = {}
         for key in ("object_detection", "currency"):
