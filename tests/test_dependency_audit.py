@@ -260,3 +260,16 @@ def test_requirement_parser_rejects_nonportable_distribution_and_extra_names():
         parse_requirement("demo->=1,<2")
     with pytest.raises(ValueError, match="invalid extra name"):
         parse_requirement("demo[dev-]>=1,<2")
+
+
+
+def test_project_metadata_rejects_consecutive_extra_separators(tmp_path: Path):
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\nrequires-python = ">=3.11"\n'
+        '[project.optional-dependencies]\n"bad__extra" = []\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="valid extra names"):
+        load_project(path)
