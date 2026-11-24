@@ -18,7 +18,7 @@ MAX_OUTPUT_CHARS = 12000
 MAX_NOTEBOOK_BYTES = 64 * 1024 * 1024
 MAX_CONFIG_BYTES = 1024 * 1024
 TIMEOUT_SECONDS = 1800
-_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
+_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[PX^_].*?\x1b\\|[@-_])", re.DOTALL)
 
 
 def _clean_diagnostic_text(value: Any, *, single_line: bool = False) -> str:
