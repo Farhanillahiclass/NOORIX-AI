@@ -90,7 +90,7 @@ Before changing repository visibility to Public, review the [Public Release Secu
 
 ## Production readiness
 
-Track release blockers and mandatory evidence in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). NOORIX remains a research prototype until every mandatory release gate is verified.
+Track release blockers and mandatory evidence in [docs/PRODUCTION_READINESS.md](docs/PRODUCTION_READINESS.md). Use the [Recognition and Device Evaluation Protocol](docs/RECOGNITION_EVALUATION_PROTOCOL.md) for held-out accuracy, OCR, target-device and supervised accessibility evidence. NOORIX remains a research prototype until every mandatory release gate is verified.
 
 ## Project status
 
