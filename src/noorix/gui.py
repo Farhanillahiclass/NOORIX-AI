@@ -12,6 +12,7 @@ from pathlib import Path
 from tkinter import messagebox, simpledialog
 
 from noorix.privacy import safe_error_summary
+from noorix.paths import load_json_document
 
 
 C = {
@@ -59,12 +60,14 @@ class NoorixApp:
 
     @staticmethod
     def _read_config(path: Path) -> dict:
-        if not path.is_file():
+        if not path.exists() and not path.is_symlink():
             return {}
         try:
-            value = json.loads(path.read_text(encoding="utf-8"))
-            return value if isinstance(value, dict) else {}
-        except (OSError, json.JSONDecodeError) as exc:
+            value = load_json_document(path)
+            if not isinstance(value, dict):
+                raise ValueError("configuration root must be an object")
+            return value
+        except (OSError, ValueError, UnicodeError, RecursionError) as exc:
             raise RuntimeError(safe_error_summary(exc, "Could not read local configuration")) from None
 
     def _setup_window(self):
