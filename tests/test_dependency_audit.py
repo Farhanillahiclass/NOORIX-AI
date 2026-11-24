@@ -252,3 +252,11 @@ def test_project_metadata_rejects_extra_name_with_trailing_separator(tmp_path: P
 
     with pytest.raises(ValueError, match="valid extra names"):
         load_project(path)
+
+
+
+def test_requirement_parser_rejects_nonportable_distribution_and_extra_names():
+    with pytest.raises(ValueError, match="unsupported dependency"):
+        parse_requirement("demo->=1,<2")
+    with pytest.raises(ValueError, match="invalid extra name"):
+        parse_requirement("demo[dev-]>=1,<2")
