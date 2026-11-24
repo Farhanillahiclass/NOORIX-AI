@@ -200,7 +200,41 @@ def test_load_rejects_excessive_candidate_metadata(tmp_path, monkeypatch):
     detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
     with pytest.raises(ValueError, match="candidate safety limit"):
         detector.load()
+    assert detector._session is None
+    assert detector._input_name is None
 
+
+
+def test_load_rejects_non_float32_input_and_does_not_keep_session(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640], "tensor(float16)")]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 100])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+
+    with pytest.raises(ValueError, match="input must be float32"):
+        detector.load()
+
+    assert detector._session is None
+    assert detector._input_name is None
 
 
 def test_nms_caps_candidates_to_highest_scoring_subset(monkeypatch):
