@@ -480,3 +480,23 @@ def test_config_discovery_reports_directory_scan_errors(tmp_path, monkeypatch):
     assert result["status"] == "FAIL"
     assert "PermissionError" in result["summary"]
     assert "private filesystem diagnostic" not in result["output"]
+
+
+
+def test_imported_model_discovery_reports_directory_scan_errors(tmp_path, monkeypatch):
+    from scripts.run_full_validation import _model_integrity_check
+
+    root = tmp_path / "project"
+    imported = root / "models" / "imported"
+    imported.mkdir(parents=True)
+
+    def broken_walk(top, topdown, followlinks, onerror):
+        onerror(PermissionError("private filesystem diagnostic"))
+        return iter(())
+
+    monkeypatch.setattr("scripts.run_full_validation.os.walk", broken_walk)
+    results = _model_integrity_check(root)
+
+    assert results[0]["status"] == "FAIL"
+    assert "PermissionError" in results[0]["output"]
+    assert "private filesystem diagnostic" not in results[0]["output"]
