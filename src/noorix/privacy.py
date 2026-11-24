@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
+_ANSI_ESCAPE = re.compile(r"\x1b(?:\][^\x07]*(?:\x07|\x1b\\)|\[[0-?]*[ -/]*[@-~]|[@-_])")
 
 
 def safe_error_summary(error: BaseException, context: str = "Operation failed") -> str:
