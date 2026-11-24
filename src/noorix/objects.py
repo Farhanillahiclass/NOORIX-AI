@@ -35,6 +35,7 @@ class ObjectDetector:
             raise ValueError("input_size must contain two positive integers")
 
     def load(self) -> None:
+        self._net = None
         from noorix.paths import require_regular_file
 
         self.model_path = require_regular_file(self.model_path, label="Object detection model")
