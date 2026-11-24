@@ -108,17 +108,24 @@ class SystemHealthAgent:
         self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
         status = capability_status()
-        config_exists = self.config_path.is_file()
-        status["model_configuration"] = "present" if config_exists else "config.json_missing"
+        model_files = self._model_file_status()
+        if model_files.get("config") == "missing":
+            status["model_configuration"] = "config.json_missing"
+            status["model_files"] = "not_checked_without_config"
+        else:
+            status["model_configuration"] = "unsafe_or_invalid" if "config" in model_files else "present"
+            status["model_files"] = model_files
         status["tesseract_executable"] = "installed" if shutil.which("tesseract") else "not_found"
-        status["model_files"] = self._model_file_status() if config_exists else "not_checked_without_config"
         return AgentResult(self.name, AgentState.COMPLETED,
                            "Local system readiness collected.", data=status)
+
     def _model_file_status(self) -> dict[str, str]:
         try:
             config = load_json_document(self.config_path)
             if not isinstance(config, dict):
                 raise ValueError("configuration root must be an object")
+        except FileNotFoundError:
+            return {"config": "missing"}
         except (OSError, ValueError, UnicodeError, RecursionError) as exc:
             return {"config": safe_error_summary(exc, "Configuration unreadable")}
         output = {}
