@@ -20,8 +20,9 @@ class CurrencyEstimator:
             raise ValueError("input_size must be a positive integer")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"Currency model not found: {self.model_path}")
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="Currency model")
         try:
             import onnxruntime as ort
         except ImportError as exc:
