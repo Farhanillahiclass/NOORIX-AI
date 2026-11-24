@@ -7,6 +7,7 @@ import importlib.metadata as metadata
 import json
 from pathlib import Path
 import re
+import stat
 import sys
 import tomllib
 from typing import Any
@@ -23,6 +24,30 @@ _REQUIREMENT = re.compile(
 )
 _VERSION_BOUND = re.compile(r"(?:^|,)\s*(===|==|~=|!=|<=|>=|<|>)\s*([^,;\s]+)")
 _SPECIFIER_LIST = re.compile(r"^(?:\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)(?:,\s*(?:===|==|~=|!=|<=|>=|<|>)\s*[^,;\s]+\s*)*$")
+MAX_PYPROJECT_BYTES = 1024 * 1024
+_EXTRA_NAME = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _has_symlink_component(path: Path) -> bool:
+    candidate = Path(path).expanduser().absolute()
+    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+
+
+def _read_pyproject(path: Path) -> dict[str, Any]:
+    """Read a bounded, regular, non-symlink project metadata file."""
+    path = Path(path).expanduser()
+    if _has_symlink_component(path):
+        raise ValueError("pyproject path contains a symbolic link")
+    try:
+        if not stat.S_ISREG(path.lstat().st_mode):
+            raise ValueError("pyproject path is not a regular file")
+        with path.open("rb") as stream:
+            raw = stream.read(MAX_PYPROJECT_BYTES + 1)
+    except FileNotFoundError:
+        raise
+    if len(raw) > MAX_PYPROJECT_BYTES:
+        raise ValueError("pyproject.toml exceeds the 1 MiB read limit")
+    return tomllib.loads(raw.decode("utf-8"))
 
 
 def parse_requirement(value: str) -> dict[str, Any]:
@@ -63,8 +88,7 @@ def parse_requirement(value: str) -> dict[str, Any]:
 
 
 def load_project(path: Path) -> dict[str, Any]:
-    with path.open("rb") as stream:
-        data = tomllib.load(stream)
+    data = _read_pyproject(path)
     project = data.get("project")
     if not isinstance(project, dict):
         raise ValueError("pyproject.toml must contain a [project] table")
@@ -78,10 +102,21 @@ def load_project(path: Path) -> dict[str, Any]:
         for key, value in optional.items()
     ):
         raise ValueError("project.optional-dependencies must map extras to string lists")
+    extra_names = list(optional)
+    if any(not _EXTRA_NAME.fullmatch(name) for name in extra_names):
+        raise ValueError("optional dependency group names must be valid extra names")
+    normalized_extras = [re.sub(r"[-_.]+", "-", name).lower() for name in extra_names]
+    if len(normalized_extras) != len(set(normalized_extras)):
+        raise ValueError("optional dependency group names collide after normalization")
+    name = project.get("name", "unknown")
+    version = project.get("version", "unknown")
+    requires_python = project.get("requires-python", "unspecified")
+    if not all(isinstance(value, str) and value.strip() for value in (name, version, requires_python)):
+        raise ValueError("project name, version and requires-python must be non-empty strings")
     return {
-        "name": project.get("name", "unknown"),
-        "version": project.get("version", "unknown"),
-        "requires_python": project.get("requires-python", "unspecified"),
+        "name": name,
+        "version": version,
+        "requires_python": requires_python,
         "dependencies": dependencies,
         "optional": optional,
     }
