@@ -6,6 +6,7 @@ from scripts.verify_offline_bundle import (
     normalize_distribution,
     pip_supports_dry_run,
     redact_local_paths,
+    resolve_extras,
     selected_requirement,
     validate_wheelhouse,
 )
@@ -179,3 +180,51 @@ def test_load_extras_rejects_symlinked_parent_directory(tmp_path: Path):
 def test_selected_requirement_rejects_extra_with_trailing_separator():
     with pytest.raises(ValueError, match="valid distribution extra"):
         selected_requirement("noorix-ai", ["dev-"])
+
+
+
+def test_resolve_extras_matches_normalized_names_and_returns_project_spelling():
+    assert resolve_extras(["DEV", "all"], {"dev", "all"}) == ["dev", "all"]
+
+
+def test_resolve_extras_rejects_empty_selection_segments():
+    with pytest.raises(ValueError, match="non-empty"):
+        resolve_extras(["all", ""], {"all"})
+
+
+def test_resolve_extras_rejects_normalized_duplicates():
+    with pytest.raises(ValueError, match="duplicate"):
+        resolve_extras(["test_extra", "test-extra"], {"test-extra"})
+
+
+def test_resolve_extras_rejects_unknown_names():
+    with pytest.raises(ValueError, match="unknown extras"):
+        resolve_extras(["missing"], {"all"})
+
+
+def test_load_extras_rejects_non_list_requirement_values(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = "pytest>=8"\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="lists of requirement strings"):
+        load_extras(path)
+
+
+def test_load_extras_rejects_non_string_requirement_entries(tmp_path: Path):
+    from scripts.verify_offline_bundle import load_extras
+
+    path = tmp_path / "pyproject.toml"
+    path.write_text(
+        '[project]\nname = "demo"\nversion = "1.0"\n'
+        '[project.optional-dependencies]\ndev = [8]\n',
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="lists of requirement strings"):
+        load_extras(path)
