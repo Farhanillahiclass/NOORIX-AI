@@ -58,6 +58,6 @@ def test_camera_preview_error_does_not_print_driver_message(monkeypatch, capsys)
 
     assert camera_preview() == 1
     output = capsys.readouterr().out
-    assert "Camera preview failed (FakeCV2Error)." in output
+    assert "Camera preview failed (OSError)." in output
     assert "private driver path" not in output
     assert chr(27) not in output
