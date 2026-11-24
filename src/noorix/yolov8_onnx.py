@@ -69,6 +69,8 @@ class YOLOv8ONNXDetector:
             raise ValueError("input_size must be >= 32 and max_detections must be positive")
 
     def load(self) -> None:
+        self._session = None
+        self._input_name = None
         from noorix.paths import require_regular_file
 
         self.model_path = require_regular_file(self.model_path, label="YOLOv8 ONNX model")
