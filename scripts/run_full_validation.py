@@ -216,7 +216,7 @@ def _notebook_check(root: Path) -> dict[str, str]:
             error = validate_notebook_document(data)
             if error:
                 failures.append(f"{_safe_path_label(path, root)}: {error}")
-        except (OSError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
+        except (OSError, RuntimeError, UnicodeError, json.JSONDecodeError, RecursionError) as exc:
             failures.append(f"{_safe_path_label(path, root)}: could not be read ({type(exc).__name__})")
     if failures:
         return _result("Notebook JSON", "FAIL", f"{len(failures)} issue(s) across {len(paths)} notebook(s)", "\n".join(failures))
