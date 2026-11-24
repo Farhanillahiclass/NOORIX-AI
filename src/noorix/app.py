@@ -40,7 +40,7 @@ def camera_preview(device_index: int = 0) -> int:
     except KeyboardInterrupt:
         print("\nStop requested. Releasing camera safely.")
         return 0
-    except (RuntimeError, cv2.error) as exc:
+    except Exception as exc:
         print(safe_error_summary(exc, "Camera preview failed"))
         return 1
     finally:
@@ -77,7 +77,7 @@ def main(argv=None) -> int:
         try:
             from noorix.gui import launch
             return launch(camera_index=args.camera, config_path=args.config)
-        except (ImportError, RuntimeError) as exc:
+        except Exception as exc:
             print(safe_error_summary(exc, "Could not start desktop interface"))
             return 1
     return check_environment()
