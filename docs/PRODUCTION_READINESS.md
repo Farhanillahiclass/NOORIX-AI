@@ -130,6 +130,10 @@ Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12
 - [ ] Complete a supervised acceptance test on every supported deployment
   configuration.
 
+## Recognition and target-device evidence protocol
+
+Use [Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md) to plan held-out object-detection and OCR evaluation, target-device performance/reliability measurements, and supervised accessibility assessment. This protocol defines required evidence; it does not mean those evaluations have been completed.
+
 ## Release decision
 
 A release owner must review every mandatory gate, attach evidence, record
