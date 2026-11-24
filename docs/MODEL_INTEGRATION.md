@@ -7,7 +7,7 @@ This document defines the current adapter contracts. It does not certify any mod
 The `CurrencyEstimator` expects a single-image ONNX classifier:
 - Input: float32 NCHW tensor, shape `[1, 3, 224, 224]` by default.
 - Preprocessing: resize to 224x224, RGB channel order, pixel values divided by 255.
-- Runtime contract: exactly one input tensor and exactly one output score tensor.
+- Runtime contract: one float32 NCHW input tensor `[1, 3, 224, 224]` by default and exactly one float32 output score tensor with one score per label. Fixed metadata dimensions are checked before the inference session is retained.
 - Output: one vector with exactly one finite score per supplied label; wrong output counts, label-count mismatches and non-finite scores fail closed.
 - Labels: pass the exact class order used during training, for example `["10", "20", "50"]` only if those are the model's actual classes.
 - Output is a denomination estimate with a softmax-derived score. Calibration and validation are still required.
