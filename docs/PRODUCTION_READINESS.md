@@ -20,16 +20,16 @@ guidance. Currency classification is not banknote authentication.
 ## Current evidence snapshot
 
 Evidence recorded from the project branch and local test reports as of
-2026-11-19:
+2026-11-24:
 
 | Area | Current evidence | Release status |
 |---|---|---|
-| Automated tests | 126 passed, 1 skipped, 1 existing ZIP-fixture warning on the developer's Windows environment | Partial |
+| Automated tests | Historical baseline: 126 passed, 1 skipped, 1 existing ZIP-fixture warning on the developer's Windows environment. PR #26 adds regression coverage that has not yet been run locally. | Partial |
 | English OCR runtime | Synthetic high-contrast sample passed through Tesseract, OCR Agent, coordinator and Safety Agent | Partial |
 | Urdu OCR runtime | Synthetic Urdu sample passed on one Windows machine with Tesseract `urd`, Pillow RAQM and Tahoma | Partial |
 | Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist; strict canonical label order and ONNX input/output metadata checks have been added, but new regression tests await the combined local run | Partial |
 | Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
-| Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
+| Evaluation protocol | [Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md) now defines held-out object-detection/OCR metrics, target-device evidence and supervised accessibility evaluation; no evaluation results are claimed. | Partial |\n| Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
 | Target-device performance | A local single-image detector latency benchmark tool now records cold start, warm-run percentiles, throughput, platform and runtime versions; no representative target-device latency/RAM acceptance report exists yet | Blocked |
 | Safety validation | Conservative warnings and explicit product limitations are documented; camera open/read failures stop preview and release handling now records only a release exception type | Partial |
 | Diagnostic privacy | Agent and GUI exception summaries now omit raw exception messages to reduce accidental exposure of OCR text and local paths; background UI callbacks are guarded during shutdown; broader UI/console logging review remains outstanding | Partial |
@@ -60,8 +60,7 @@ Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12
 
 ### 2. Model and recognition quality
 
-- [ ] Publish an evaluation protocol, dataset provenance, split and model
-  version for each recognition feature.
+- [x] Publish an evaluation protocol ([Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md)). Dataset provenance, held-out splits, model versions and actual evaluation reports remain required evidence for each recognition feature.
 - [ ] OCR is evaluated on representative printed English and Urdu documents,
   including varied fonts, sizes, blur, perspective, lighting and contrast.
 - [ ] OCR reports character/word error rates with sample counts and known
