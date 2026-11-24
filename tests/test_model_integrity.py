@@ -398,3 +398,20 @@ def test_manifest_entry_rejects_and_sanitizes_terminal_control_path(tmp_path):
     assert result["status"] == "ERROR"
     assert chr(27) not in result["path"]
     assert "?" in result["path"]
+
+
+
+def test_trusted_model_paths_reject_windows_junction_components(tmp_path, monkeypatch):
+    from scripts.verify_model_integrity import _has_symlink_component
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert _has_symlink_component(junction / "models" / "model.onnx") is True
