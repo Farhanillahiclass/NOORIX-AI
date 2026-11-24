@@ -55,6 +55,12 @@ def _manifest_location_is_safe(root: Path, manifest_path: Path) -> bool:
         return False
 
 
+def _safe_display_path(value: Any) -> str:
+    """Bound and sanitize untrusted manifest paths before reporting them."""
+    raw = str(value)
+    cleaned = "".join(character if character.isprintable() else "?" for character in raw)
+    return cleaned[:128] or "<path>"
+
 def _manifest_label(path: Path) -> str:
     """Return a bounded, terminal-safe manifest name without local directories."""
     name = Path(path).name or "<manifest>"
@@ -164,7 +170,7 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
                 or len(relative) > MAX_MANIFEST_PATH_LENGTH
                 or not isinstance(expected, str)
                 or not re.fullmatch(r"[0-9a-fA-F]{64}", expected)):
-            results.append({"path": str(relative)[:MAX_MANIFEST_PATH_LENGTH],
+            results.append({"path": _safe_display_path(relative),
                             "status": "ERROR",
                             "detail": "a bounded relative path and 64-character SHA-256 are required"})
             continue
@@ -181,13 +187,14 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
             or part in {".", ".."}
             or part.endswith((" ", "."))
             or "\x00" in part
+            or any(not character.isprintable() for character in part)
             or part.split(".", 1)[0].rstrip(" .").upper() in windows_reserved
             for part in raw_parts
         )
         pure = PurePosixPath(normalized)
         key = pure.as_posix().casefold()
         if pure.is_absolute() or has_unsafe_component or ":" in normalized or key in seen:
-            results.append({"path": relative, "status": "ERROR", "detail": "unsafe or duplicate manifest path"})
+            results.append({"path": _safe_display_path(relative), "status": "ERROR", "detail": "unsafe or duplicate manifest path"})
             continue
         seen.add(key)
         candidate = root.joinpath(*pure.parts)
@@ -200,23 +207,23 @@ def verify_manifest(root: Path, manifest_path: Path) -> list[dict[str, str]]:
                     has_symlink_component = True
                     break
             if has_symlink_component or not candidate.is_file() or not candidate.resolve().is_relative_to(root):
-                results.append({"path": relative, "status": "ERROR", "detail": "missing, non-regular, symlink, or outside model root"})
+                results.append({"path": _safe_display_path(relative), "status": "ERROR", "detail": "missing, non-regular, symlink, or outside model root"})
                 continue
             actual = _hash_file_stably(candidate)
             if actual is None:
                 results.append({
-                    "path": relative,
+                    "path": _safe_display_path(relative),
                     "status": "ERROR",
                     "detail": "model file changed during verification or could not be read",
                 })
                 continue
         except OSError:
-            results.append({"path": relative, "status": "ERROR", "detail": "model file could not be read"})
+            results.append({"path": _safe_display_path(relative), "status": "ERROR", "detail": "model file could not be read"})
             continue
         if actual.lower() != expected.lower():
-            results.append({"path": relative, "status": "MISMATCH", "detail": "SHA-256 does not match"})
+            results.append({"path": _safe_display_path(relative), "status": "MISMATCH", "detail": "SHA-256 does not match"})
         else:
-            results.append({"path": relative, "status": "PASS", "detail": "SHA-256 verified"})
+            results.append({"path": _safe_display_path(relative), "status": "PASS", "detail": "SHA-256 verified"})
     return results
 
 
