@@ -645,3 +645,20 @@ def test_markdown_report_labels_escape_table_and_inline_markup():
     assert "\\|" in label
     assert "\\[link\\]" in label
     assert "&lt;script&gt;" in label
+
+
+
+def test_validation_path_guard_rejects_windows_junctions(tmp_path: Path, monkeypatch):
+    from scripts.run_full_validation import _has_symlink_component
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert _has_symlink_component(junction / "config.json", tmp_path) is True
