@@ -19,7 +19,7 @@ collisions are rejected before auditing.
 
 The report lists base dependencies and every optional extra, the declared
 specifier, whether a matching distribution is installed in the current Python
-environment, whether the installed version satisfies its declared specifier (when `packaging` is installed), and whether the declared range has an upper bound. It rejects malformed version ranges, environment markers and direct-URL requirements rather than silently misclassifying them. Markdown table cells are escaped so unusual dependency metadata cannot create extra report rows. Optional
+environment, whether the installed version satisfies its declared specifier (when `packaging` is installed), and whether the declared range has an upper bound. It rejects malformed version ranges, environment markers and direct-URL requirements rather than silently misclassifying them. Markdown table cells escape pipes, inline markup and HTML so unusual dependency metadata cannot create extra rows, active links or raw HTML. Optional
 dependencies that are not selected for the current environment may correctly
 be absent.
 
