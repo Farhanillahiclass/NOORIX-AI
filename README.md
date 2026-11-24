@@ -16,7 +16,7 @@ py -3.12 -m venv .venv
 # Windows Git Bash:
 source .venv/Scripts/activate
 # Windows PowerShell:
-.venv\\Scripts\\Activate.ps1
+.\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[all,dev]"
 python -m pytest -q
 ```
