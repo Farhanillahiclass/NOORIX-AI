@@ -78,3 +78,18 @@ def load_json_document(path: str | Path, *, max_bytes: int = MAX_LOCAL_JSON_BYTE
     if len(raw) > max_bytes:
         raise ValueError(f"JSON document exceeds the {max_bytes}-byte read limit")
     return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+
+
+
+def require_regular_file(path: str | Path, *, label: str = "File") -> Path:
+    """Require an existing regular file with no symlink or junction ancestors."""
+    candidate = Path(path).expanduser()
+    if _has_symlink_component(candidate):
+        raise ValueError(f"{label} path contains a symbolic link or junction")
+    try:
+        metadata = candidate.lstat()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"{label} not found") from None
+    if not stat.S_ISREG(metadata.st_mode):
+        raise ValueError(f"{label} path must be a regular file")
+    return candidate
