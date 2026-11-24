@@ -169,3 +169,14 @@ def test_benchmark_config_reader_rejects_oversized_file(tmp_path):
     config.write_bytes(b" " * (MAX_CONFIG_BYTES + 1))
     with pytest.raises(ValueError, match="1 MiB"):
         load_benchmark_config(config)
+
+
+def test_benchmark_metadata_text_is_single_line_and_bounded():
+    from scripts.benchmark_runtime import safe_metadata_text
+
+    value = "image" + chr(27) + "\nname|`field`"
+    cleaned = safe_metadata_text(value, limit=12)
+    assert chr(27) not in cleaned
+    assert "\n" not in cleaned
+    assert "|" not in cleaned or "\\|" in cleaned
+    assert len(cleaned) <= 12
