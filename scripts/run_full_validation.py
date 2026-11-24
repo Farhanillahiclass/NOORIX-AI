@@ -91,6 +91,12 @@ def _result(name: str, status: str, summary: str, output: str = "") -> dict[str,
     }
 
 
+def _markdown_code_fence(text: str) -> str:
+    """Choose a Markdown fence longer than any backtick run in untrusted output."""
+    longest = max((len(match.group(0)) for match in re.finditer(r"`+", text)), default=0)
+    return "`" * max(3, longest + 1)
+
+
 def _redact_local_paths(text: str, root: Path) -> str:
     """Redact project and home directory prefixes before writing local reports."""
     candidates: list[tuple[str, str]] = []
@@ -511,7 +517,9 @@ def _write_reports(root: Path, results: list[dict[str, str]]) -> tuple[Path, Pat
               "Automated PASS results do not certify recognition accuracy, safe navigation, privacy compliance, legal rights, or production readiness.", ""]
     for item in results:
         if item["output"].strip():
-            lines += [f"## {item['name']} output", "", "```text", item["output"].rstrip(), "```", ""]
+            output = item["output"].rstrip()
+            fence = _markdown_code_fence(output)
+            lines += [f"## {item['name']} output", "", f"{fence}text", output, fence, ""]
     _write_report_pair(json_path, md_path, payload, "\n".join(lines))
     return json_path, md_path
 
