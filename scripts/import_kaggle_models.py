@@ -307,7 +307,7 @@ def main():
                     )
                     failures += 1
             recent = eligible_recent
-            print(f"Scanning recent ZIP downloads in: {downloads}")
+            print("Scanning recent ZIP downloads in the user Downloads folder.")
             print(f"Time window: last {args.since_hours:g} hour(s)")
             for p in recent:
                 # NOORIX-named archives are trained model packages.
@@ -336,10 +336,10 @@ def main():
                         )
                         failures += 1
         else:
-            print(f"Downloads folder not found: {safe_display_filename(str(downloads))}")
+            print("Downloads folder not found; recent archive scan skipped.")
             failures += 1
     if not archives:
-        print(f"No NOORIX model ZIPs found in {INCOMING}; recent dataset ZIPs, if any, are copied to {DATA_INCOMING}")
+        print("No NOORIX model ZIPs found in the incoming model folder; recent dataset ZIPs, if any, were copied to the dataset inbox.")
         return 1 if failures else 0
     archive_order = []
     for candidate in archives.values():
