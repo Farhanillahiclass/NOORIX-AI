@@ -48,10 +48,22 @@ def pip_supports_dry_run(help_text: str) -> bool:
     return "--dry-run" in help_text
 
 
+def is_symlink_or_junction(path: Path) -> bool:
+    """Detect symbolic links and Windows directory junctions."""
+    try:
+        metadata = path.lstat()
+    except FileNotFoundError:
+        return False
+    if stat.S_ISLNK(metadata.st_mode):
+        return True
+    is_junction = getattr(path, "is_junction", None)
+    return bool(callable(is_junction) and is_junction())
+
+
 def has_symlink_component(path: Path) -> bool:
     """Detect a symlink at the candidate path or any existing ancestor."""
     candidate = Path(path).absolute()
-    return any(component.is_symlink() for component in (candidate, *candidate.parents))
+    return any(is_symlink_or_junction(component) for component in (candidate, *candidate.parents))
 
 
 def validate_wheelhouse(wheelhouse: Path, package: str) -> str | None:
