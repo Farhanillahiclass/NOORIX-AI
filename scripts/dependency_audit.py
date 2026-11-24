@@ -225,7 +225,8 @@ def main(argv: list[str] | None = None) -> int:
         report = audit_project(project)
         json_path, md_path = write_report(report, args.output_dir)
     except (OSError, UnicodeError, tomllib.TOMLDecodeError, ValueError) as exc:
-        print(f"Dependency audit failed ({type(exc).__name__}): {exc}", file=sys.stderr)
+        # Exception text can embed local paths or machine-specific metadata.
+        print(f"Dependency audit failed ({type(exc).__name__}).", file=sys.stderr)
         return 2
     summary = report["summary"]
     print("NOORIX-AI DEPENDENCY AUDIT (offline metadata only)")
