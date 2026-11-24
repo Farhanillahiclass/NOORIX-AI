@@ -175,3 +175,20 @@ def test_health_agent_marks_symlinked_model_path_unsafe(tmp_path):
     result = SystemHealthAgent(config_path).run()
 
     assert result.data["model_files"]["object_detection"] == "unsafe_or_invalid_path"
+
+
+
+def test_health_agent_marks_symlinked_config_unsafe(tmp_path):
+    real_config = tmp_path / "real-config.json"
+    real_config.write_text("{}", encoding="utf-8")
+    linked_config = tmp_path / "linked-config.json"
+    try:
+        linked_config.symlink_to(real_config)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    result = SystemHealthAgent(linked_config).run()
+
+    assert result.data["model_configuration"] == "unsafe_or_invalid"
+    assert result.data["model_files"]["config"] == "Configuration unreadable (ValueError)."
