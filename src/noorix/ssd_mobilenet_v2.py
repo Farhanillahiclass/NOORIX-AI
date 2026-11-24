@@ -61,18 +61,34 @@ class SSDMobileNetV2Detector:
         if anchors.shape != (1917, 4) or not np.isfinite(anchors).all():
             raise ValueError("SSD anchor file must contain 1,917 finite [ymin,xmin,ymax,xmax] anchors")
 
-        self._session = ort.InferenceSession(
+        session = ort.InferenceSession(
             str(self.model_path),
             providers=["CPUExecutionProvider"],
         )
-        inputs = self._session.get_inputs()
+        inputs = session.get_inputs()
         if len(inputs) != 1 or inputs[0].shape != [1, 3, 300, 300]:
             raise ValueError("Unexpected SSD ONNX input; expected [1,3,300,300]")
+        input_type = getattr(inputs[0], "type", None)
+        if input_type is not None and input_type != "tensor(float)":
+            raise ValueError(f"SSD ONNX input must be float32, got {input_type}")
 
-        outputs = self._session.get_outputs()
+        outputs = session.get_outputs()
         if len(outputs) != 12:
             raise ValueError(f"Expected 12 SSD prediction heads, received {len(outputs)}")
+        expected_shapes = []
+        for size, anchor_count in zip(self.HEAD_SIZES, self.HEAD_ANCHORS):
+            expected_shapes.extend((
+                [1, anchor_count * 4, size, size],
+                [1, anchor_count * 91, size, size],
+            ))
+        for index, (output, expected_shape) in enumerate(zip(outputs, expected_shapes)):
+            if output.shape != expected_shape:
+                raise ValueError(f"Unexpected SSD output {index}; expected {expected_shape}, got {output.shape}")
+            output_type = getattr(output, "type", None)
+            if output_type is not None and output_type != "tensor(float)":
+                raise ValueError(f"SSD output {index} must be float32, got {output_type}")
 
+        self._session = session
         self._anchors = anchors
 
     @staticmethod
