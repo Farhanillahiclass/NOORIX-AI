@@ -4,6 +4,7 @@ from scripts.run_full_validation import (
     discover_notebooks,
     _result,
     _markdown_code_fence,
+    _markdown_label,
     _safe_path_label,
     python_version_supported,
     validate_example_config,
@@ -635,3 +636,12 @@ def test_safe_path_label_is_single_line_and_bounded(tmp_path: Path):
 def test_markdown_report_fence_cannot_be_closed_by_untrusted_output():
     assert _markdown_code_fence("ordinary output") == "```"
     assert _markdown_code_fence("payload with ```` inside") == "`````"
+
+
+
+def test_markdown_report_labels_escape_table_and_inline_markup():
+    label = _markdown_label("unsafe | [link](x) <script>")
+
+    assert "\\|" in label
+    assert "\\[link\\]" in label
+    assert "&lt;script&gt;" in label
