@@ -31,6 +31,11 @@ def _has_symlink_component(path: Path) -> bool:
             continue
         if stat.S_ISLNK(metadata.st_mode):
             return True
+        # FILE_ATTRIBUTE_REPARSE_POINT also detects Windows junctions on Python 3.11,
+        # where Path.is_junction() is not available.
+        reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+        if getattr(metadata, "st_file_attributes", 0) & reparse_flag:
+            return True
         is_junction = getattr(component, "is_junction", None)
         if callable(is_junction) and is_junction():
             return True
