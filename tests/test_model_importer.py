@@ -600,3 +600,21 @@ def test_model_import_paths_reject_windows_junction_components(tmp_path, monkeyp
     )
 
     assert has_symlink_component(junction / "model.zip") is True
+
+
+def test_reparse_point_attribute_is_detected_without_path_is_junction(tmp_path, monkeypatch):
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+    from scripts.import_kaggle_models import is_symlink_or_junction
+
+    candidate = tmp_path / "windows-junction"
+    original_lstat = Path.lstat
+
+    def fake_lstat(path):
+        if path == candidate:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    assert is_symlink_or_junction(candidate) is True
