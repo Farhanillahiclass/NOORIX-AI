@@ -254,3 +254,21 @@ def test_benchmark_metadata_text_escapes_html_and_markdown():
     assert "\\|" in cleaned
     assert "\\[click\\]" in cleaned
     assert "\\*bold\\*" in cleaned
+
+
+def test_reparse_point_attribute_is_detected_without_path_is_junction(tmp_path, monkeypatch):
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+    from scripts.benchmark_runtime import _is_symlink_or_junction
+
+    candidate = tmp_path / "windows-junction"
+    original_lstat = Path.lstat
+
+    def fake_lstat(path):
+        if path == candidate:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    assert _is_symlink_or_junction(candidate) is True
