@@ -127,6 +127,10 @@ class SSDMobileNetV2Detector:
                 raise ValueError(
                     f"Invalid class head {index}: expected {expected_class_shape}, got {classes.shape}"
                 )
+            if not np.isfinite(boxes).all():
+                raise ValueError(f"SSD box head {index} contains non-finite values")
+            if not np.isfinite(classes).all():
+                raise ValueError(f"SSD class head {index} contains non-finite values")
 
             boxes = boxes.transpose(0, 2, 3, 1).reshape(1, -1, 4)
             classes = classes.transpose(0, 2, 3, 1).reshape(1, -1, anchor_count, 91)
@@ -150,17 +154,23 @@ class SSDMobileNetV2Detector:
         ah = anchors[:, 2] - anchors[:, 0]
         aw = anchors[:, 3] - anchors[:, 1]
 
+        if not np.isfinite(encoded_boxes).all():
+            raise ValueError("SSD encoded boxes contain non-finite values")
+
         ty, tx, th, tw = encoded_boxes.T
         cy = (ty / self.BOX_SCALES[0]) * ah + ay
         cx = (tx / self.BOX_SCALES[1]) * aw + ax
-        height = np.exp(th / self.BOX_SCALES[2]) * ah
-        width = np.exp(tw / self.BOX_SCALES[3]) * aw
+        with np.errstate(over="ignore", invalid="ignore"):
+            height = np.exp(th / self.BOX_SCALES[2]) * ah
+            width = np.exp(tw / self.BOX_SCALES[3]) * aw
 
-        boxes = np.stack(
-            (cy - height / 2, cx - width / 2,
-             cy + height / 2, cx + width / 2),
-            axis=1,
-        )
+            boxes = np.stack(
+                (cy - height / 2, cx - width / 2,
+                 cy + height / 2, cx + width / 2),
+                axis=1,
+            )
+        if not np.isfinite(boxes).all():
+            raise ValueError("Decoded SSD boxes contain non-finite values")
         return np.clip(boxes, 0.0, 1.0)
 
     @staticmethod
