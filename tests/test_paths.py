@@ -175,3 +175,21 @@ def test_require_regular_file_rejects_symlink_parent(tmp_path: Path):
 
     with pytest.raises(ValueError, match="symbolic link or junction"):
         require_regular_file(linked_dir / "model.onnx", label="Model")
+
+
+def test_require_regular_file_rejects_windows_reparse_point_on_python_311(tmp_path: Path, monkeypatch):
+    import stat
+    from types import SimpleNamespace
+    from noorix.paths import require_regular_file
+
+    candidate = tmp_path / "model.onnx"
+    original_lstat = Path.lstat
+
+    def fake_lstat(path):
+        if path == candidate:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    with pytest.raises(ValueError, match="symbolic link or junction"):
+        require_regular_file(candidate, label="Model")
