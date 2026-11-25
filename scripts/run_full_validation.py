@@ -130,10 +130,18 @@ def _is_symlink_or_junction(path: Path) -> bool:
         metadata = path.lstat()
     except FileNotFoundError:
         return False
+    except OSError:
+        # An unreadable path must not be treated as a trusted ordinary path.
+        return True
     if stat.S_ISLNK(metadata.st_mode):
         return True
     is_junction = getattr(path, "is_junction", None)
-    return bool(callable(is_junction) and is_junction())
+    if callable(is_junction):
+        try:
+            return bool(is_junction())
+        except (OSError, RuntimeError):
+            return True
+    return False
 
 
 def _has_symlink_component(path: Path, root: Path) -> bool:
