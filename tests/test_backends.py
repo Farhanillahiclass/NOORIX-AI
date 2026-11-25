@@ -312,3 +312,10 @@ def test_currency_load_rejects_multiple_input_tensors(tmp_path, monkeypatch):
         estimator.load()
 
     assert estimator._session is None
+
+
+def test_currency_rejects_duplicate_denomination_labels():
+    with pytest.raises(ValueError, match="unique after whitespace and case normalization"):
+        CurrencyEstimator("missing.onnx", ["100", "100"])
+    with pytest.raises(ValueError, match="unique after whitespace and case normalization"):
+        CurrencyEstimator("missing.onnx", ["Rs 500", " rs 500 "])
