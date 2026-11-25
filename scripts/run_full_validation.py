@@ -130,7 +130,7 @@ def _is_symlink_or_junction(path: Path) -> bool:
         metadata = path.lstat()
     except FileNotFoundError:
         return False
-    if stat.S_ISLNK(metadata.st_mode) or _is_symlink_or_junction(path):
+    if stat.S_ISLNK(metadata.st_mode):
         return True
     is_junction = getattr(path, "is_junction", None)
     return bool(callable(is_junction) and is_junction())
