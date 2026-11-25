@@ -11,11 +11,14 @@ MAX_LOCAL_JSON_BYTES = 1024 * 1024
 
 
 def resolve_config_path(value: str | Path, config_path: str | Path) -> Path:
-    """Resolve relative values beside the config file, not the process CWD."""
+    """Resolve relative values beside a config file without hiding linked parents."""
+    config_candidate = Path(config_path).expanduser()
+    if _has_symlink_component(config_candidate):
+        raise ValueError("Configuration path contains a symbolic link or junction")
     candidate = Path(value).expanduser()
     if candidate.is_absolute():
         return candidate
-    return Path(config_path).expanduser().resolve().parent / candidate
+    return config_candidate.resolve().parent / candidate
 
 
 def _has_symlink_component(path: Path) -> bool:
@@ -78,7 +81,6 @@ def load_json_document(path: str | Path, *, max_bytes: int = MAX_LOCAL_JSON_BYTE
     if len(raw) > max_bytes:
         raise ValueError(f"JSON document exceeds the {max_bytes}-byte read limit")
     return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
-
 
 
 def require_regular_file(path: str | Path, *, label: str = "File") -> Path:
