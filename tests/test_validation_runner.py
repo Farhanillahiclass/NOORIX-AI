@@ -680,3 +680,31 @@ def test_validation_output_sanitizer_removes_dcs_terminal_sequences():
     result = _result("check", "WARN", "summary", "before\x1bP1;2|private payload\x1b\\after")
     assert "private payload" not in result["output"]
     assert result["output"] == "beforeafter"
+
+
+def test_symlink_or_junction_detector_handles_regular_paths(tmp_path: Path):
+    from scripts.run_full_validation import _is_symlink_or_junction
+
+    directory = tmp_path / "ordinary"
+    directory.mkdir()
+    regular_file = directory / "file.txt"
+    regular_file.write_text("content", encoding="utf-8")
+
+    assert _is_symlink_or_junction(directory) is False
+    assert _is_symlink_or_junction(regular_file) is False
+
+
+def test_symlink_or_junction_detector_recognizes_junctions(tmp_path: Path, monkeypatch):
+    from scripts.run_full_validation import _is_symlink_or_junction
+
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert _is_symlink_or_junction(junction) is True
