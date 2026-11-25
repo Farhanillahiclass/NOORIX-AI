@@ -79,3 +79,5 @@ The optional CPU benchmark measures a single caller-supplied image; it does not 
 - Supervised accessibility evaluation has not been completed.
 
 See [Production Readiness Gates](PRODUCTION_READINESS.md), [Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md), and [Safety](SAFETY.md) before any public demonstration or release.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.
