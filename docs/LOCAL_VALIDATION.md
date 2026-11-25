@@ -174,3 +174,5 @@ linked or malformed model paths as unsafe instead of treating them as
 available. These checks do not establish model provenance, integrity or
 compatibility; imported artifacts still require a verified SHA-256 manifest
 and licensing review.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.
