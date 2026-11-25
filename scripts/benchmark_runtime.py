@@ -70,6 +70,10 @@ def _is_symlink_or_junction(path: Path) -> bool:
         return False
     if stat.S_ISLNK(metadata.st_mode):
         return True
+    # Windows reparse-point metadata catches junctions even on Python 3.11.
+    reparse_flag = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
+    if getattr(metadata, "st_file_attributes", 0) & reparse_flag:
+        return True
     is_junction = getattr(path, "is_junction", None)
     return bool(callable(is_junction) and is_junction())
 
