@@ -742,3 +742,21 @@ def test_symlink_or_junction_detector_fails_closed_on_junction_errors(tmp_path: 
     monkeypatch.setattr(path_type, "is_junction", broken_is_junction, raising=False)
 
     assert _is_symlink_or_junction(candidate) is True
+
+
+def test_reparse_point_attribute_is_detected_without_path_is_junction(tmp_path, monkeypatch):
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+    from scripts.run_full_validation import _is_symlink_or_junction
+
+    candidate = tmp_path / "windows-junction"
+    original_lstat = Path.lstat
+
+    def fake_lstat(path):
+        if path == candidate:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    assert _is_symlink_or_junction(candidate) is True
