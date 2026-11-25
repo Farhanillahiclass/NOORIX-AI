@@ -39,7 +39,7 @@ The coordinator is deterministic: it runs only registered agents explicitly requ
 ## Model adapter contracts
 
 - Currency: one float32 NCHW input and one float32 score output, with one score per configured denomination label. Fixed dimensions and tensor counts are checked before the session is retained. Non-finite scores and score-count mismatches fail closed.
-- SSD MobileNet V2: one float32 `[1,3,300,300]` input and 12 float32 output heads with shapes fixed to the verified 1,917-anchor layout. The model and anchor file must be supplied separately.
+- SSD MobileNet V2: one float32 `[1,3,300,300]` input and 12 float32 output heads with shapes fixed to the verified 1,917-anchor layout. Runtime heads and decoded boxes must contain finite values; exponent overflow is rejected before box clipping. The model and anchor file must be supplied separately.
 - Generic SSD adapter: one post-processed seven-column detection tensor only. It does not guess raw SSD decoding.
 - YOLOv8: one float32 NCHW input and one raw COCO-80 output with 84 values per candidate. Candidate and per-class NMS limits bound CPU post-processing; the NMS cap may affect recall in dense scenes and has not been evaluated.
 
