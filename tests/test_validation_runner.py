@@ -708,3 +708,37 @@ def test_symlink_or_junction_detector_recognizes_junctions(tmp_path: Path, monke
     )
 
     assert _is_symlink_or_junction(junction) is True
+
+
+def test_symlink_or_junction_detector_fails_closed_on_metadata_errors(tmp_path: Path, monkeypatch):
+    from scripts.run_full_validation import _is_symlink_or_junction
+
+    blocked = tmp_path / "blocked"
+    blocked.mkdir()
+    original_lstat = Path.lstat
+
+    def denied_lstat(path):
+        if path == blocked:
+            raise PermissionError("private path")
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", denied_lstat)
+
+    assert _is_symlink_or_junction(blocked) is True
+
+
+def test_symlink_or_junction_detector_fails_closed_on_junction_errors(tmp_path: Path, monkeypatch):
+    from scripts.run_full_validation import _is_symlink_or_junction
+
+    candidate = tmp_path / "candidate"
+    candidate.mkdir()
+    path_type = type(tmp_path)
+
+    def broken_is_junction(path):
+        if path == candidate:
+            raise OSError("private path")
+        return False
+
+    monkeypatch.setattr(path_type, "is_junction", broken_is_junction, raising=False)
+
+    assert _is_symlink_or_junction(candidate) is True
