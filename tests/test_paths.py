@@ -78,6 +78,33 @@ def test_resolve_config_path_uses_config_parent(tmp_path: Path):
     )
 
 
+def test_resolve_config_path_rejects_symlinked_config_parent(tmp_path: Path):
+    real_dir = tmp_path / "real-settings"
+    real_dir.mkdir()
+    linked_dir = tmp_path / "linked-settings"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Configuration path contains"):
+        resolve_config_path("models/object.onnx", linked_dir / "config.json")
+
+
+def test_resolve_config_path_rejects_windows_junction_parent(tmp_path: Path, monkeypatch):
+    junction_dir = tmp_path / "junction-settings"
+    junction_dir.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction_dir,
+        raising=False,
+    )
+
+    with pytest.raises(ValueError, match="Configuration path contains"):
+        resolve_config_path("models/object.onnx", junction_dir / "config.json")
+
 
 def test_load_json_document_rejects_windows_junction_component(tmp_path: Path, monkeypatch):
     junction_dir = tmp_path / "junction"
@@ -94,7 +121,6 @@ def test_load_json_document_rejects_windows_junction_component(tmp_path: Path, m
 
     with pytest.raises(ValueError, match="symbolic link"):
         load_json_document(config)
-
 
 
 def test_require_regular_file_accepts_regular_file(tmp_path: Path):
