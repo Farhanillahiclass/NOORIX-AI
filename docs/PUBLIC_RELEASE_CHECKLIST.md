@@ -36,3 +36,5 @@ A `.gitignore` rule does not remove a file that is already tracked, and it does 
 - Model integrity manifests use bounded JSON parsing, reject duplicate keys and unsafe path aliases, and compare file metadata around SHA-256 hashing.
 - Validation, dependency-audit, benchmark and offline-wheelhouse report/input paths reject symlinks and Windows junctions.
 - These controls reduce path redirection and malformed-input risk; they do not replace a full historical commit/branch/tag scan or eliminate concurrent filesystem races.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.
