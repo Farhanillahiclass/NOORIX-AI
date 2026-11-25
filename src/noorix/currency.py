@@ -16,6 +16,9 @@ class CurrencyEstimator:
         self._session = None
         if not self.labels or not all(isinstance(label, str) and label.strip() for label in self.labels):
             raise ValueError("labels must contain non-empty denomination strings")
+        normalized_labels = [label.strip().casefold() for label in self.labels]
+        if len(set(normalized_labels)) != len(normalized_labels):
+            raise ValueError("labels must be unique after whitespace and case normalization")
         if isinstance(input_size, bool) or not isinstance(input_size, int) or input_size <= 0:
             raise ValueError("input_size must be a positive integer")
 
