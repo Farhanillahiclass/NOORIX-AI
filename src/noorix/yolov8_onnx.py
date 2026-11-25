@@ -44,10 +44,21 @@ class YOLOv8ONNXDetector:
     ):
         self.model_path = Path(model_path)
         self.labels = list(labels)
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        if isinstance(iou_threshold, bool) or not isinstance(iou_threshold, (int, float)):
+            raise ValueError("iou_threshold must be a finite number greater than 0 and at most 1")
+        if isinstance(input_size, bool) or not isinstance(input_size, int):
+            raise ValueError("input_size must be an integer >= 32")
+        if isinstance(max_detections, bool) or not isinstance(max_detections, int):
+            raise ValueError("max_detections must be a positive integer")
         self.confidence_threshold = float(confidence_threshold)
         self.iou_threshold = float(iou_threshold)
-        self.input_size = int(input_size)
-        self.max_detections = int(max_detections)
+        self.input_size = input_size
+        self.max_detections = max_detections
         self._session = None
         self._input_name = None
 
