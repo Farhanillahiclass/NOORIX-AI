@@ -248,3 +248,17 @@ def test_nms_caps_candidates_to_highest_scoring_subset(monkeypatch):
     kept = YOLOv8ONNXDetector._nms(boxes, scores, 0.5)
 
     assert kept == [1, 3, 4]
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"input_size": True},
+    {"input_size": 640.5},
+    {"max_detections": True},
+    {"max_detections": 10.5},
+    {"confidence_threshold": True},
+    {"iou_threshold": False},
+    {"confidence_threshold": "0.5"},
+])
+def test_detector_rejects_wrongly_typed_numeric_settings(kwargs):
+    with pytest.raises(ValueError):
+        make_detector(**kwargs)
