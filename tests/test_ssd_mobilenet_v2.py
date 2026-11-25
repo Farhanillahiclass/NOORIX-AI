@@ -232,3 +232,47 @@ def test_ssd_load_rejects_non_float32_input_without_retaining_session(tmp_path, 
 
     assert detector._session is None
     assert detector._anchors is None
+
+
+def _valid_raw_ssd_outputs():
+    outputs = []
+    for size, anchor_count in zip(
+        SSDMobileNetV2Detector.HEAD_SIZES,
+        SSDMobileNetV2Detector.HEAD_ANCHORS,
+    ):
+        outputs.append(np.zeros((1, anchor_count * 4, size, size), dtype=np.float32))
+        outputs.append(np.zeros((1, anchor_count * 91, size, size), dtype=np.float32))
+    return outputs
+
+
+@pytest.mark.parametrize("head_index,value,expected", [
+    (0, np.nan, "SSD box head 0 contains non-finite values"),
+    (1, np.inf, "SSD class head 0 contains non-finite values"),
+])
+def test_ssd_decode_heads_rejects_non_finite_model_outputs(head_index, value, expected):
+    detector = SSDMobileNetV2Detector("model.onnx", valid_labels())
+    outputs = _valid_raw_ssd_outputs()
+    outputs[head_index].flat[0] = value
+
+    with pytest.raises(ValueError, match=expected):
+        detector._decode_heads(outputs)
+
+
+def test_ssd_decode_boxes_rejects_non_finite_encoded_values():
+    detector = SSDMobileNetV2Detector("model.onnx", valid_labels())
+    detector._anchors = np.zeros((1917, 4), dtype=np.float32)
+    encoded = np.zeros((1917, 4), dtype=np.float32)
+    encoded[0, 0] = np.nan
+
+    with pytest.raises(ValueError, match="encoded boxes contain non-finite"):
+        detector._decode_boxes(encoded)
+
+
+def test_ssd_decode_boxes_rejects_overflowing_box_exponents():
+    detector = SSDMobileNetV2Detector("model.onnx", valid_labels())
+    detector._anchors = np.zeros((1917, 4), dtype=np.float32)
+    encoded = np.zeros((1917, 4), dtype=np.float32)
+    encoded[0, 2] = 1_000_000.0
+
+    with pytest.raises(ValueError, match="Decoded SSD boxes contain non-finite"):
+        detector._decode_boxes(encoded)
