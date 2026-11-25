@@ -112,3 +112,5 @@ Archive path components containing non-printable/control characters are rejected
 
 
 The integrity verifier rejects non-printable/control characters in manifest file paths and sanitizes bounded path labels in its terminal output. This protects diagnostics when a manifest is modified independently of the importer.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.
