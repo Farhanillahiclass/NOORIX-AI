@@ -51,7 +51,7 @@ A model filename does not establish compatibility. Each model requires exact sou
 - Model and SSD anchor paths must identify regular files with no symlink/junction components.
 - Model ZIP archives are untrusted input. Import uses traversal, type, size, compression-ratio, collision, symlink and overwrite protections. Imported artifacts receive SHA-256 inventories.
 - The integrity verifier hashes files without loading model formats and rejects unsafe manifest paths, duplicate JSON keys, symlinks/junctions, malformed inventories and observable file changes.
-- User-facing error summaries omit raw exception text to reduce accidental exposure of local paths or OCR content.
+- User-facing error summaries omit raw exception text to reduce accidental exposure of local paths or OCR content. The GUI readiness overview marks malformed or linked model paths as invalid instead of crashing or reporting them as ready.
 - Filesystem checks reduce risk but cannot eliminate every concurrent filesystem race. Hash integrity does not prove provenance, licensing or model correctness.
 
 ## Validation and evidence
