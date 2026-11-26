@@ -85,7 +85,10 @@ def load_json_document(path: str | Path, *, max_bytes: int = MAX_LOCAL_JSON_BYTE
         raise ValueError("JSON file changed while it was being read")
     if len(raw) > max_bytes:
         raise ValueError(f"JSON document exceeds the {max_bytes}-byte read limit")
-    return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    try:
+        return json.loads(raw.decode("utf-8"), object_pairs_hook=_unique_json_object)
+    except RecursionError:
+        raise ValueError("JSON document nesting exceeds the parser limit") from None
 
 
 def require_regular_file(path: str | Path, *, label: str = "File") -> Path:
