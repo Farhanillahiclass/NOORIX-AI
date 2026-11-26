@@ -16,9 +16,10 @@ def resolve_config_path(value: str | Path, config_path: str | Path) -> Path:
     if _has_symlink_component(config_candidate):
         raise ValueError("Configuration path contains a symbolic link or junction")
     candidate = Path(value).expanduser()
-    if candidate.is_absolute():
-        return candidate
-    return config_candidate.resolve().parent / candidate
+    resolved = candidate if candidate.is_absolute() else config_candidate.resolve().parent / candidate
+    if _has_symlink_component(resolved):
+        raise ValueError("Configured path contains a symbolic link or junction")
+    return resolved
 
 
 def _has_symlink_component(path: Path) -> bool:
