@@ -47,7 +47,7 @@ A model filename does not establish compatibility. Each model requires exact sou
 
 ## Local trust boundaries
 
-- Runtime JSON and external object-label files are read through a bounded, duplicate-key-rejecting loader. Excessively nested JSON is rejected as a controlled validation error rather than leaking a parser recursion failure. Symlinked and Windows-junction path components are rejected; relative model paths also reject linked components in the configuration file's own path before resolving its parent. Descriptor/path metadata comparisons detect observable file replacement or mutation.
+- Runtime JSON and external object-label files are read through a bounded, duplicate-key-rejecting loader. Excessively nested JSON is rejected as a controlled validation error rather than leaking a parser recursion failure. Symlinked and Windows-junction path components are rejected in both the configuration file's own path and the resolved configured model/label-map path, including absolute paths. Descriptor/path metadata comparisons detect observable file replacement or mutation.
 - Model and SSD anchor paths must identify regular files with no symlink/junction components.
 - Model ZIP archives are untrusted input. Import uses traversal, type, size, compression-ratio, collision, symlink and overwrite protections. Imported artifacts receive SHA-256 inventories.
 - The integrity verifier hashes files without loading model formats and rejects unsafe manifest paths, duplicate JSON keys, symlinks/junctions, malformed inventories and observable file changes.
