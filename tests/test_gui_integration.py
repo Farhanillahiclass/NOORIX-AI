@@ -159,3 +159,33 @@ def test_gui_config_loader_rejects_symlinked_config(tmp_path):
 
 def test_gui_config_loader_treats_missing_file_as_empty_config(tmp_path):
     assert NoorixApp._read_config(tmp_path / "missing.json") == {}
+
+
+def test_refresh_overview_handles_invalid_model_path_types():
+    from pathlib import Path
+
+    app = SimpleNamespace(
+        camera=None,
+        camera_index=0,
+        config={
+            "object_detection": {"model_path": 123},
+            "currency": {"model_path": True, "labels": ["one"]},
+        },
+        config_path=Path("config.json"),
+        camera_metric=FakeMetric(),
+        camera_input_detail=FakeMetric(),
+        ocr_metric=FakeMetric(),
+        printed_text_ocr_detail=FakeMetric(),
+        model_metric=FakeMetric(),
+        object_model_detail=FakeMetric(),
+        currency_metric=FakeMetric(),
+        currency_model_detail=FakeMetric(),
+    )
+    app._set_status = lambda *values: setattr(app, "status", values)
+
+    NoorixApp.refresh_overview(app)
+
+    assert app.model_metric.values["text"] == "INVALID MODEL PATH"
+    assert app.object_model_detail.values["text"] == "Configured model path is invalid or linked"
+    assert app.currency_metric.values["text"] == "INVALID MODEL PATH"
+    assert app.currency_model_detail.values["text"] == "Configured model path is invalid or linked"
