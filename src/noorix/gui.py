@@ -342,27 +342,37 @@ class NoorixApp:
 
         object_config = self.config.get("object_detection", {})
         object_value = object_config.get("model_path") if isinstance(object_config, dict) else None
-        object_path = resolve_config_path(object_value, self.config_path) if object_value else None
+        object_path_error = False
+        try:
+            object_path = resolve_config_path(object_value, self.config_path) if object_value else None
+        except (OSError, TypeError, ValueError):
+            object_path = None
+            object_path_error = True
         object_ready = bool(object_path and object_path.is_file())
         self.model_metric.configure(
-            text="MODEL FILE READY" if object_ready else ("MODEL FILE MISSING" if object_value else "NOT CONFIGURED"),
-            fg=C["green"] if object_ready else (C["amber"] if object_value else C["purple"]),
+            text="INVALID MODEL PATH" if object_path_error else ("MODEL FILE READY" if object_ready else ("MODEL FILE MISSING" if object_value else "NOT CONFIGURED")),
+            fg=C["amber"] if object_path_error else (C["green"] if object_ready else (C["amber"] if object_value else C["purple"])),
         )
         self.object_model_detail.configure(
-            text=str(object_path) if object_value else "Configure object_detection.model_path"
+            text="Configured model path is invalid or linked" if object_path_error else (str(object_path) if object_value else "Configure object_detection.model_path")
         )
 
         currency_config = self.config.get("currency", {})
         currency_value = currency_config.get("model_path") if isinstance(currency_config, dict) else None
         currency_labels = currency_config.get("labels") if isinstance(currency_config, dict) else None
-        currency_path = resolve_config_path(currency_value, self.config_path) if currency_value else None
+        currency_path_error = False
+        try:
+            currency_path = resolve_config_path(currency_value, self.config_path) if currency_value else None
+        except (OSError, TypeError, ValueError):
+            currency_path = None
+            currency_path_error = True
         currency_ready = bool(currency_path and currency_path.is_file() and currency_labels)
         self.currency_metric.configure(
-            text="MODEL FILE READY" if currency_ready else ("MODEL FILE MISSING" if currency_value else "NOT CONFIGURED"),
-            fg=C["green"] if currency_ready else (C["amber"] if currency_value else C["amber"]),
+            text="INVALID MODEL PATH" if currency_path_error else ("MODEL FILE READY" if currency_ready else ("MODEL FILE MISSING" if currency_value else "NOT CONFIGURED")),
+            fg=C["amber"] if currency_path_error else (C["green"] if currency_ready else C["amber"]),
         )
         self.currency_model_detail.configure(
-            text=str(currency_path) if currency_value else "Requires a compatible trained model and labels"
+            text="Configured model path is invalid or linked" if currency_path_error else (str(currency_path) if currency_value else "Requires a compatible trained model and labels")
         )
 
         camera_state = "Camera live" if camera_live else "Camera standby"
