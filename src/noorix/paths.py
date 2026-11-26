@@ -12,6 +12,8 @@ MAX_LOCAL_JSON_BYTES = 1024 * 1024
 
 def resolve_config_path(value: str | Path, config_path: str | Path) -> Path:
     """Resolve relative values beside a config file without hiding linked parents."""
+    if not isinstance(value, (str, Path)) or (isinstance(value, str) and not value.strip()):
+        raise ValueError("Configured path must be a non-empty string or Path")
     config_candidate = Path(config_path).expanduser()
     if _has_symlink_component(config_candidate):
         raise ValueError("Configuration path contains a symbolic link or junction")
