@@ -228,3 +228,9 @@ def test_resolve_config_path_rejects_absolute_symlink_target(tmp_path: Path):
 
     with pytest.raises(ValueError, match="Configured path contains"):
         resolve_config_path(linked_model, tmp_path / "config.json")
+
+
+@pytest.mark.parametrize("value", [None, 0, True, "   "])
+def test_resolve_config_path_rejects_invalid_values(value, tmp_path: Path):
+    with pytest.raises(ValueError, match="non-empty string or Path"):
+        resolve_config_path(value, tmp_path / "config.json")
