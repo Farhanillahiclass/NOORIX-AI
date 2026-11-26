@@ -156,7 +156,7 @@ directory creation or concurrent filesystem operations fully transactional.
 
 ## Runtime configuration input safeguards
 
-The desktop GUI and system-health agent load local JSON configuration through a
+The desktop GUI readiness overview also treats malformed, linked or non-string model paths as invalid status rather than crashing or marking a model ready. The desktop GUI and system-health agent load local JSON configuration through a
 shared bounded reader. It rejects files larger than 1 MiB, non-regular files,
 symlinked or Windows-junction path components, duplicate JSON object keys,
 excessive nesting, and observable file replacement/mutation during the read. External object-detection label maps use
