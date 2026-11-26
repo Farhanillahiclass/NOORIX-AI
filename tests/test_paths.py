@@ -201,3 +201,30 @@ def test_load_json_document_rejects_excessive_nesting(tmp_path: Path):
 
     with pytest.raises(ValueError, match="nesting exceeds the parser limit"):
         load_json_document(path)
+
+
+def test_resolve_config_path_rejects_symlinked_relative_target(tmp_path: Path):
+    real_dir = tmp_path / "real-models"
+    real_dir.mkdir()
+    (real_dir / "model.onnx").write_bytes(b"model")
+    linked_dir = tmp_path / "models"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Configured path contains"):
+        resolve_config_path("models/model.onnx", tmp_path / "config.json")
+
+
+def test_resolve_config_path_rejects_absolute_symlink_target(tmp_path: Path):
+    real_model = tmp_path / "real.onnx"
+    real_model.write_bytes(b"model")
+    linked_model = tmp_path / "linked.onnx"
+    try:
+        linked_model.symlink_to(real_model)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="Configured path contains"):
+        resolve_config_path(linked_model, tmp_path / "config.json")
