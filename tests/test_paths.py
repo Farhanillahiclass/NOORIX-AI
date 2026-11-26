@@ -193,3 +193,11 @@ def test_require_regular_file_rejects_windows_reparse_point_on_python_311(tmp_pa
     monkeypatch.setattr(Path, "lstat", fake_lstat)
     with pytest.raises(ValueError, match="symbolic link or junction"):
         require_regular_file(candidate, label="Model")
+
+
+def test_load_json_document_rejects_excessive_nesting(tmp_path: Path):
+    path = tmp_path / "deep.json"
+    path.write_text("[" * 2_000 + "0" + "]" * 2_000, encoding="utf-8")
+
+    with pytest.raises(ValueError, match="nesting exceeds the parser limit"):
+        load_json_document(path)
