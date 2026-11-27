@@ -29,9 +29,15 @@ class ObjectDetector:
         self._net = None
         if not self.labels:
             raise ValueError("labels must not be empty")
-        if not 0.0 <= confidence_threshold <= 1.0:
-            raise ValueError("confidence_threshold must be between 0 and 1")
-        if len(input_size) != 2 or any(not isinstance(v, int) or v <= 0 for v in input_size):
+        import math
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+            or not math.isfinite(confidence_threshold)
+            or not 0.0 <= confidence_threshold <= 1.0
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        if len(input_size) != 2 or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in input_size):
             raise ValueError("input_size must contain two positive integers")
 
     def load(self) -> None:
