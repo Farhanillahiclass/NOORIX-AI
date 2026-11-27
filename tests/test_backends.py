@@ -330,3 +330,9 @@ def test_object_detector_rejects_coerced_or_non_finite_threshold(threshold):
 def test_object_detector_rejects_boolean_dimensions():
     with pytest.raises(ValueError, match="positive integers"):
         ObjectDetector("unused.onnx", ["person"], input_size=(300, True))
+
+
+@pytest.mark.parametrize("input_size", [300, None, "300,300", (300, 0)])
+def test_object_detector_rejects_malformed_input_dimensions(input_size):
+    with pytest.raises(ValueError, match="two positive integers"):
+        ObjectDetector("unused.onnx", ["person"], input_size=input_size)
