@@ -81,3 +81,13 @@ Requirements:
 The test skips when required local OCR or image-rendering dependencies are
 unavailable. A passing result validates the generated sample on that machine;
 it is not a general Urdu OCR accuracy benchmark.
+
+
+## Currency-agent configuration contract
+
+The Currency Agent accepts `input_size` only as a positive integer; booleans,
+numeric strings and fractional values are rejected rather than coerced. Model
+path resolution and estimator construction failures are returned as a
+`needs_setup` result with exception messages and local paths omitted. A
+successful setup only means the adapter was constructed; ONNX metadata checks
+and supervised denomination evaluation remain required before deployment.
