@@ -248,3 +248,51 @@ def test_currency_agent_passes_validated_input_size_to_estimator(monkeypatch, tm
     assert result.successful
     assert captured["input_size"] == 320
     assert captured["model_path"] == tmp_path / "model.onnx"
+
+
+
+def test_specialist_runtime_errors_are_structured_and_redacted():
+    secret = "private frame text C:/Users/private/frame.png"
+
+    class BrokenOCR:
+        def read(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenDetector:
+        def detect(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenCurrency:
+        def predict(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenSpeech:
+        def speak(self, _text):
+            raise RuntimeError(secret)
+
+    agents = [
+        OCRAgent(BrokenOCR()),
+        ObjectDetectionAgent({}, adapter=BrokenDetector()),
+        CurrencyAgent({}, adapter=BrokenCurrency()),
+    ]
+    from noorix.agents import SpeechAgent
+    agents.append(SpeechAgent(BrokenSpeech()))
+
+    for agent in agents:
+        result = agent.run("sample text" if agent.name == "speech" else object())
+        assert result.state == AgentState.ERROR
+        assert secret not in result.summary
+        assert any("did not" in warning.lower() or "confirmed" in warning.lower()
+                   for warning in result.warnings)
+
+
+def test_currency_agent_rejects_invalid_adapter_prediction():
+    class InvalidCurrency:
+        def predict(self, _frame):
+            return {"denomination": "500", "confidence": float("nan")}
+
+    result = CurrencyAgent({}, adapter=InvalidCurrency()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert "Currency prediction failed" in result.summary
+    assert "nan" not in result.summary.lower()
