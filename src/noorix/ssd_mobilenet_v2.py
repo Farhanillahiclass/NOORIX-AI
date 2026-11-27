@@ -28,13 +28,17 @@ class SSDMobileNetV2Detector:
         self.model_path = Path(model_path)
         self.labels = list(labels)
         import math
+        try:
+            normalized_threshold = float(confidence_threshold)
+        except (OverflowError, TypeError, ValueError):
+            normalized_threshold = math.nan
         if (
             isinstance(confidence_threshold, bool)
             or not isinstance(confidence_threshold, (int, float))
-            or not math.isfinite(confidence_threshold)
+            or not math.isfinite(normalized_threshold)
         ):
             raise ValueError("confidence_threshold must be a finite number between 0 and 1")
-        self.confidence_threshold = float(confidence_threshold)
+        self.confidence_threshold = normalized_threshold
         self.anchors_path = (
             Path(anchors_path) if anchors_path is not None
             else self.model_path.with_name("ssd-mobilenet-v2-anchors.npz")
