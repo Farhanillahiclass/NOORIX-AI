@@ -319,3 +319,14 @@ def test_currency_rejects_duplicate_denomination_labels():
         CurrencyEstimator("missing.onnx", ["100", "100"])
     with pytest.raises(ValueError, match="unique after whitespace and case normalization"):
         CurrencyEstimator("missing.onnx", ["Rs 500", " rs 500 "])
+
+
+@pytest.mark.parametrize("threshold", [True, "0.5", float("nan"), float("inf")])
+def test_object_detector_rejects_coerced_or_non_finite_threshold(threshold):
+    with pytest.raises(ValueError, match="confidence_threshold"):
+        ObjectDetector("unused.onnx", ["person"], threshold)
+
+
+def test_object_detector_rejects_boolean_dimensions():
+    with pytest.raises(ValueError, match="positive integers"):
+        ObjectDetector("unused.onnx", ["person"], input_size=(300, True))
