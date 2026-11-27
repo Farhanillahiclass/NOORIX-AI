@@ -91,3 +91,16 @@ path resolution and estimator construction failures are returned as a
 `needs_setup` result with exception messages and local paths omitted. A
 successful setup only means the adapter was constructed; ONNX metadata checks
 and supervised denomination evaluation remain required before deployment.
+
+
+## Specialist runtime failure contract
+
+OCR, object-detection, currency and speech adapters are called inside
+specialist-level exception boundaries. An adapter exception returns a
+structured `error` result with a bounded context and exception type; raw
+exception messages, recognized text and local paths are not copied into the
+summary. Currency results additionally require a mapping with a non-empty
+denomination and a finite-range confidence value from 0 through 1. A failed
+task must not be interpreted as a negative detection, verified banknote or
+completed speech playback. The coordinator remains a second defensive
+boundary for unexpected agent-level failures.
