@@ -20,7 +20,14 @@ class OCRAgent:
     def run(self, payload: Any = None) -> AgentResult:
         if payload is None:
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "A camera frame is required.")
-        text = self.adapter.read(payload)
+        try:
+            text = self.adapter.read(payload)
+        except Exception as exc:
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                safe_error_summary(exc, "OCR task failed"),
+                warnings=("Text recognition did not complete; do not rely on partial output.",),
+            )
         return AgentResult(self.name, AgentState.COMPLETED,
                            text or "No clear printed text detected.", data=text)
 
@@ -42,7 +49,14 @@ class ObjectDetectionAgent:
             except (OSError, ValueError, TypeError) as exc:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
                                    safe_error_summary(exc, "Object detection setup failed"))
-        detections = self.adapter.detect(payload)
+        try:
+            detections = self.adapter.detect(payload)
+        except Exception as exc:
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                safe_error_summary(exc, "Object detection failed"),
+                warnings=("Object detection did not complete; do not assume the scene is clear.",),
+            )
         if not detections:
             return AgentResult(self.name, AgentState.COMPLETED, "No supported objects detected.",
                 data=[], warnings=("A missing detection does not mean the area is clear.",))
@@ -82,8 +96,22 @@ class CurrencyAgent:
                     AgentState.NEEDS_SETUP,
                     safe_error_summary(exc, "Currency model setup failed"),
                 )
-        prediction = self.adapter.predict(payload)
-        confidence = float(prediction["confidence"])
+        try:
+            prediction = self.adapter.predict(payload)
+            if not isinstance(prediction, Mapping):
+                raise TypeError("currency adapter returned an invalid prediction")
+            denomination = prediction["denomination"]
+            confidence = float(prediction["confidence"])
+            if not isinstance(denomination, str) or not denomination.strip():
+                raise ValueError("currency adapter returned an invalid denomination")
+            if not 0.0 <= confidence <= 1.0:
+                raise ValueError("currency confidence is outside the expected range")
+        except Exception as exc:
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                safe_error_summary(exc, "Currency prediction failed"),
+                warnings=("Currency estimation did not complete; do not rely on a denomination.",),
+            )
         return AgentResult(self.name, AgentState.COMPLETED,
             f"Possible denomination: {prediction['denomination']} (score {confidence:.0%}).",
             data=prediction,
@@ -97,7 +125,14 @@ class SpeechAgent:
     def run(self, payload: Any = None) -> AgentResult:
         if not isinstance(payload, str) or not payload.strip():
             return AgentResult(self.name, AgentState.NEEDS_SETUP, "Non-empty text is required.")
-        self.adapter.speak(payload)
+        try:
+            self.adapter.speak(payload)
+        except Exception as exc:
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                safe_error_summary(exc, "Speech playback failed"),
+                warnings=("No successful speech playback was confirmed.",),
+            )
         return AgentResult(self.name, AgentState.COMPLETED, "Speech playback finished.")
 
 class SafetyAgent:
