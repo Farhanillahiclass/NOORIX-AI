@@ -27,6 +27,13 @@ class SSDMobileNetV2Detector:
     ):
         self.model_path = Path(model_path)
         self.labels = list(labels)
+        import math
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+            or not math.isfinite(confidence_threshold)
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
         self.confidence_threshold = float(confidence_threshold)
         self.anchors_path = (
             Path(anchors_path) if anchors_path is not None
@@ -45,7 +52,7 @@ class SSDMobileNetV2Detector:
         ):
             raise ValueError("Each COCO label must be a non-empty string or None")
         if not 0.0 <= self.confidence_threshold <= 1.0:
-            raise ValueError("confidence_threshold must be between 0 and 1")
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
 
     def load(self) -> None:
         self._session = None
