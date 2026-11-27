@@ -30,13 +30,18 @@ class ObjectDetector:
         if not self.labels:
             raise ValueError("labels must not be empty")
         import math
+        try:
+            normalized_threshold = float(confidence_threshold)
+        except (OverflowError, TypeError, ValueError):
+            normalized_threshold = math.nan
         if (
             isinstance(confidence_threshold, bool)
             or not isinstance(confidence_threshold, (int, float))
-            or not math.isfinite(confidence_threshold)
-            or not 0.0 <= confidence_threshold <= 1.0
+            or not math.isfinite(normalized_threshold)
+            or not 0.0 <= normalized_threshold <= 1.0
         ):
             raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        self.confidence_threshold = normalized_threshold
         if len(input_size) != 2 or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in input_size):
             raise ValueError("input_size must contain two positive integers")
 
@@ -134,7 +139,10 @@ def _config_float(config: dict, key: str, default: float) -> float:
     value = config.get(key, default)
     if isinstance(value, bool) or not isinstance(value, (int, float)):
         raise ValueError(f"{key} must be a finite number")
-    result = float(value)
+    try:
+        result = float(value)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{key} must be a finite number") from None
     if not math.isfinite(result):
         raise ValueError(f"{key} must be a finite number")
     return result
