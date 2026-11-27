@@ -42,8 +42,13 @@ class ObjectDetector:
         ):
             raise ValueError("confidence_threshold must be a finite number between 0 and 1")
         self.confidence_threshold = normalized_threshold
-        if len(input_size) != 2 or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in input_size):
+        if (
+            not isinstance(input_size, (list, tuple))
+            or len(input_size) != 2
+            or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in input_size)
+        ):
             raise ValueError("input_size must contain two positive integers")
+        self.input_size = tuple(input_size)
 
     def load(self) -> None:
         self._net = None
