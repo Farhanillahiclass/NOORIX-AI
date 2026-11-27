@@ -276,3 +276,59 @@ def test_ssd_decode_boxes_rejects_overflowing_box_exponents():
 
     with pytest.raises(ValueError, match="Decoded SSD boxes contain non-finite"):
         detector._decode_boxes(encoded)
+
+
+@pytest.mark.parametrize("setting,value", [
+    ("confidence_threshold", True),
+    ("confidence_threshold", "0.3"),
+    ("confidence_threshold", float("nan")),
+])
+def test_ssd_factory_rejects_coerced_or_non_finite_thresholds(tmp_path, setting, value):
+    config = {
+        "backend": "ssd_mobilenet_v2",
+        "model_path": "model.onnx",
+        "labels": valid_labels(),
+        setting: value,
+    }
+    with pytest.raises(ValueError, match="finite number"):
+        create_object_detector(config, tmp_path / "config.json")
+
+
+@pytest.mark.parametrize("setting,value", [
+    ("confidence_threshold", True),
+    ("confidence_threshold", "0.5"),
+    ("iou_threshold", False),
+    ("iou_threshold", float("inf")),
+    ("input_size", 640.5),
+    ("input_size", True),
+    ("max_detections", 10.5),
+    ("max_detections", True),
+])
+def test_yolov8_factory_rejects_coerced_numeric_settings(tmp_path, setting, value):
+    from noorix.yolov8_onnx import YOLOv8ONNXDetector
+
+    config = {
+        "backend": "yolov8_onnx",
+        "model_path": "model.onnx",
+        "labels": list(YOLOv8ONNXDetector.COCO_LABELS),
+        setting: value,
+    }
+    with pytest.raises(ValueError):
+        create_object_detector(config, tmp_path / "config.json")
+
+
+@pytest.mark.parametrize("value", [[300, True], [300, 300.5], "300,300"])
+def test_opencv_factory_rejects_invalid_input_dimensions(tmp_path, value):
+    config = {
+        "backend": "opencv_dnn",
+        "model_path": "model.onnx",
+        "labels": ["person"],
+        "input_size": value,
+    }
+    with pytest.raises(ValueError, match="exactly two integers"):
+        create_object_detector(config, tmp_path / "config.json")
+
+
+def test_detector_factory_rejects_non_object_configuration(tmp_path):
+    with pytest.raises(ValueError, match="configuration must be an object"):
+        create_object_detector(["not", "a", "mapping"], tmp_path / "config.json")
