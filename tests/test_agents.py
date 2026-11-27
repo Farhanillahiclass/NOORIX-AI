@@ -192,3 +192,59 @@ def test_health_agent_marks_symlinked_config_unsafe(tmp_path):
 
     assert result.data["model_configuration"] == "unsafe_or_invalid"
     assert result.data["model_files"]["config"] == "Configuration unreadable (ValueError)."
+
+
+
+def test_currency_agent_rejects_non_integer_input_size():
+    import pytest
+
+    for invalid in (True, "224", 224.5, 0, -1):
+        result = CurrencyAgent(
+            {"model_path": "unused", "labels": ["500"], "input_size": invalid}
+        ).run(object())
+        assert result.state == AgentState.NEEDS_SETUP
+        assert "positive integer" in result.summary
+
+
+def test_currency_agent_redacts_model_setup_errors(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/currency-model.onnx"
+
+    def broken_resolve(_path, _config_path):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists, "resolve_config_path", broken_resolve)
+    result = CurrencyAgent(
+        {"model_path": "model.onnx", "labels": ["500"]},
+        config_path=tmp_path / "config.json",
+    ).run(object())
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert result.summary == "Currency model setup failed (OSError)."
+    assert secret not in result.summary
+
+
+def test_currency_agent_passes_validated_input_size_to_estimator(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    captured = {}
+
+    class FakeEstimator:
+        def __init__(self, model_path, labels, input_size):
+            captured["model_path"] = model_path
+            captured["labels"] = labels
+            captured["input_size"] = input_size
+
+        def predict(self, _frame):
+            return {"denomination": "500", "confidence": 0.8}
+
+    monkeypatch.setattr(specialists, "CurrencyEstimator", FakeEstimator)
+    result = CurrencyAgent(
+        {"model_path": "model.onnx", "labels": ["500"], "input_size": 320},
+        config_path=tmp_path / "config.json",
+    ).run(object())
+
+    assert result.successful
+    assert captured["input_size"] == 320
+    assert captured["model_path"] == tmp_path / "model.onnx"
