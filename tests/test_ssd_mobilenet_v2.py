@@ -332,3 +332,9 @@ def test_opencv_factory_rejects_invalid_input_dimensions(tmp_path, value):
 def test_detector_factory_rejects_non_object_configuration(tmp_path):
     with pytest.raises(ValueError, match="configuration must be an object"):
         create_object_detector(["not", "a", "mapping"], tmp_path / "config.json")
+
+
+@pytest.mark.parametrize("threshold", [True, "0.3", float("nan"), float("inf")])
+def test_ssd_detector_rejects_coerced_or_non_finite_thresholds(threshold):
+    with pytest.raises(ValueError, match="confidence_threshold"):
+        SSDMobileNetV2Detector("model.onnx", valid_labels(), threshold)
