@@ -282,6 +282,7 @@ def test_ssd_decode_boxes_rejects_overflowing_box_exponents():
     ("confidence_threshold", True),
     ("confidence_threshold", "0.3"),
     ("confidence_threshold", float("nan")),
+    ("confidence_threshold", 10 ** 1000),
 ])
 def test_ssd_factory_rejects_coerced_or_non_finite_thresholds(tmp_path, setting, value):
     config = {
