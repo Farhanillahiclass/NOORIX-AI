@@ -335,7 +335,7 @@ def test_detector_factory_rejects_non_object_configuration(tmp_path):
         create_object_detector(["not", "a", "mapping"], tmp_path / "config.json")
 
 
-@pytest.mark.parametrize("threshold", [True, "0.3", float("nan"), float("inf")])
+@pytest.mark.parametrize("threshold", [True, "0.3", float("nan"), float("inf"), 10 ** 1000])
 def test_ssd_detector_rejects_coerced_or_non_finite_thresholds(threshold):
     with pytest.raises(ValueError, match="confidence_threshold"):
         SSDMobileNetV2Detector("model.onnx", valid_labels(), threshold)
