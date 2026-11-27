@@ -64,8 +64,24 @@ class CurrencyAgent:
             if not model_path or not labels:
                 return AgentResult(self.name, AgentState.NEEDS_SETUP,
                     "Currency model and verified denomination labels are not configured.")
-            self.adapter = CurrencyEstimator(resolve_config_path(model_path, self.config_path), labels,
-                input_size=int(self.config.get("input_size", 224)))
+            input_size = self.config.get("input_size", 224)
+            if isinstance(input_size, bool) or not isinstance(input_size, int) or input_size <= 0:
+                return AgentResult(
+                    self.name,
+                    AgentState.NEEDS_SETUP,
+                    "Currency input_size must be a positive integer.",
+                )
+            try:
+                resolved_model_path = resolve_config_path(model_path, self.config_path)
+                self.adapter = CurrencyEstimator(
+                    resolved_model_path, labels, input_size=input_size
+                )
+            except (OSError, TypeError, ValueError, RuntimeError) as exc:
+                return AgentResult(
+                    self.name,
+                    AgentState.NEEDS_SETUP,
+                    safe_error_summary(exc, "Currency model setup failed"),
+                )
         prediction = self.adapter.predict(payload)
         confidence = float(prediction["confidence"])
         return AgentResult(self.name, AgentState.COMPLETED,
