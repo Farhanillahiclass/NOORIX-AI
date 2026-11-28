@@ -202,17 +202,68 @@ class SystemHealthAgent:
     def __init__(self, config_path: str | Path = "config.json"):
         self.config_path = Path(config_path)
     def run(self, payload: Any = None) -> AgentResult:
-        status = capability_status()
-        model_files = self._model_file_status()
-        if model_files.get("config") == "missing":
-            status["model_configuration"] = "config.json_missing"
-            status["model_files"] = "not_checked_without_config"
-        else:
-            status["model_configuration"] = "unsafe_or_invalid" if "config" in model_files else "present"
-            status["model_files"] = model_files
-        status["tesseract_executable"] = "installed" if shutil.which("tesseract") else "not_found"
-        return AgentResult(self.name, AgentState.COMPLETED,
-                           "Local system readiness collected.", data=status)
+        status: dict[str, Any] = {}
+        failures: list[str] = []
+
+        try:
+            capabilities = capability_status()
+            if not isinstance(capabilities, Mapping) or any(
+                not isinstance(key, str) or not isinstance(value, str)
+                for key, value in capabilities.items()
+            ):
+                raise TypeError("capability inventory returned an invalid result")
+            status.update(capabilities)
+        except Exception as exc:
+            status["capability_inventory"] = safe_error_summary(
+                exc, "Capability inventory unavailable"
+            )
+            failures.append("capability_inventory")
+
+        try:
+            model_files = self._model_file_status()
+            if not isinstance(model_files, dict):
+                raise TypeError("model status returned an invalid result")
+            if model_files.get("config") == "missing":
+                status["model_configuration"] = "config.json_missing"
+                status["model_files"] = "not_checked_without_config"
+            else:
+                status["model_configuration"] = (
+                    "unsafe_or_invalid" if "config" in model_files else "present"
+                )
+                status["model_files"] = model_files
+                if "config" in model_files:
+                    failures.append("model_configuration")
+        except Exception as exc:
+            status["model_configuration"] = safe_error_summary(
+                exc, "Model readiness check failed"
+            )
+            status["model_files"] = "not_checked_after_error"
+            failures.append("model_configuration")
+
+        try:
+            status["tesseract_executable"] = (
+                "installed" if shutil.which("tesseract") else "not_found"
+            )
+        except Exception as exc:
+            status["tesseract_executable"] = safe_error_summary(
+                exc, "Tesseract lookup failed"
+            )
+            failures.append("tesseract_lookup")
+
+        if failures:
+            return AgentResult(
+                self.name,
+                AgentState.ERROR,
+                "Local system readiness is incomplete.",
+                data=status,
+                warnings=("Some readiness checks failed: " + ", ".join(failures),),
+            )
+        return AgentResult(
+            self.name,
+            AgentState.COMPLETED,
+            "Local system readiness collected.",
+            data=status,
+        )
 
     def _model_file_status(self) -> dict[str, str]:
         try:
