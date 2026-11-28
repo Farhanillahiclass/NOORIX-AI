@@ -38,7 +38,7 @@ def test_currency_agent_rejects_non_numeric_or_invalid_confidence(confidence):
 
     assert result.state == AgentState.ERROR
     assert "Currency prediction failed" in result.summary
-    assert "confidence" not in result.summary.lower() or "failed" in result.summary.lower()
+    assert "0.9" not in result.summary
     assert any("do not rely" in warning.lower() for warning in result.warnings)
 
 
@@ -64,7 +64,9 @@ def test_currency_agent_accepts_finite_real_confidence_in_range(confidence):
         [{"label": "cup", "position": "left", "confidence": True}],
         [{"label": "cup", "position": "left", "confidence": float("nan")}],
         [{"label": "cup", "position": "left", "confidence": 1.2}],
+        [{"label": "cup", "position": "left", "confidence": "0.8"}],
         [{"label": "", "position": "left", "confidence": 0.8}],
+        [{"label": "cup", "position": "", "confidence": 0.8}],
     ],
 )
 def test_object_agent_rejects_malformed_adapter_results(detections):
@@ -92,4 +94,22 @@ def test_ocr_agent_rejects_non_text_adapter_result():
 
     assert result.state == AgentState.ERROR
     assert result.data is None
+    assert any("do not rely" in warning.lower() for warning in result.warnings)
+
+
+@pytest.mark.parametrize(
+    "prediction",
+    [
+        None,
+        [],
+        {"confidence": 0.8},
+        {"denomination": "", "confidence": 0.8},
+        {"denomination": 500, "confidence": 0.8},
+    ],
+)
+def test_currency_agent_rejects_malformed_prediction_shape(prediction):
+    result = CurrencyAgent({}, adapter=FixedCurrency(prediction)).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert "Currency prediction failed" in result.summary
     assert any("do not rely" in warning.lower() for warning in result.warnings)
