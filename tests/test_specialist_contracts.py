@@ -55,3 +55,41 @@ def test_currency_agent_accepts_finite_real_confidence_in_range(confidence):
 
     assert result.state == AgentState.COMPLETED
     assert "500" in result.summary
+
+@pytest.mark.parametrize(
+    "detections",
+    [
+        None,
+        {"label": "cup", "position": "left", "confidence": 0.8},
+        [{"label": "cup", "position": "left", "confidence": True}],
+        [{"label": "cup", "position": "left", "confidence": float("nan")}],
+        [{"label": "cup", "position": "left", "confidence": 1.2}],
+        [{"label": "", "position": "left", "confidence": 0.8}],
+    ],
+)
+def test_object_agent_rejects_malformed_adapter_results(detections):
+    from noorix.agents import ObjectDetectionAgent
+
+    class FixedDetector:
+        def detect(self, _frame):
+            return detections
+
+    result = ObjectDetectionAgent({}, adapter=FixedDetector()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert "Object detection failed" in result.summary
+    assert any("do not assume" in warning.lower() for warning in result.warnings)
+
+
+def test_ocr_agent_rejects_non_text_adapter_result():
+    from noorix.agents import OCRAgent
+
+    class InvalidOCR:
+        def read(self, _frame):
+            return {"recognized": "private text"}
+
+    result = OCRAgent(InvalidOCR()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert result.data is None
+    assert any("do not rely" in warning.lower() for warning in result.warnings)
