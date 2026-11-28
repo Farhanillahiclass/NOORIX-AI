@@ -105,7 +105,9 @@ collects capability, model-configuration and Tesseract-executable status
 independently. If an individual probe fails or returns malformed data, its
 status is marked unavailable with a privacy-safe exception type, other checks
 still run, and the overall result is `error` rather than a misleading
-successful readiness report. A missing model configuration is reported as
+successful readiness report. Malformed model sections and unsafe model paths
+also produce an error state; absent model paths remain explicitly
+`not_configured`. A missing model configuration is reported as
 missing, not as a failed filesystem scan; model files are not inspected when
 there is no configuration to describe.
 
