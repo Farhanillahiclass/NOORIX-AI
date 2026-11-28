@@ -412,3 +412,54 @@ def test_specialist_results_snapshot_normalized_adapter_data():
     }
     assert source_prediction["denomination"] == " 500 "
 
+def test_system_health_reports_partial_failure_without_exposing_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/runtime-profile.json"
+
+    def broken_capabilities():
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(specialists, "capability_status", broken_capabilities)
+    monkeypatch.setattr(specialists.shutil, "which", lambda _name: None)
+
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.summary == "Local system readiness is incomplete."
+    assert result.data["capability_inventory"] == (
+        "Capability inventory unavailable (RuntimeError)."
+    )
+    assert secret not in str(result.data)
+    assert result.data["model_configuration"] == "config.json_missing"
+    assert any("capability_inventory" in warning for warning in result.warnings)
+
+
+def test_system_health_contains_tesseract_lookup_failure(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/tesseract.exe"
+
+    def broken_lookup(_name):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists.shutil, "which", broken_lookup)
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["tesseract_executable"] == "Tesseract lookup failed (OSError)."
+    assert secret not in str(result.data)
+    assert any("tesseract_lookup" in warning for warning in result.warnings)
+
+
+def test_system_health_rejects_malformed_capability_inventory(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    monkeypatch.setattr(specialists, "capability_status", lambda: {"camera": True})
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["capability_inventory"] == (
+        "Capability inventory unavailable (TypeError)."
+    )
+
