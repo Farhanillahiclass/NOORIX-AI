@@ -61,6 +61,7 @@ class ObjectDetectionAgent:
             detections = self.adapter.detect(payload)
             if not isinstance(detections, (list, tuple)):
                 raise TypeError("object detector returned an invalid collection")
+            normalized_detections = []
             for detection in detections:
                 if not isinstance(detection, Mapping):
                     raise TypeError("object detector returned an invalid detection")
@@ -77,6 +78,15 @@ class ObjectDetectionAgent:
                 confidence_value = float(confidence_value)
                 if not math.isfinite(confidence_value) or not 0.0 <= confidence_value <= 1.0:
                     raise ValueError("object detector returned an invalid confidence")
+                # Snapshot adapter-owned mappings while still inside the error boundary.
+                normalized = dict(detection)
+                normalized.update(
+                    label=label.strip(),
+                    position=position.strip(),
+                    confidence=confidence_value,
+                )
+                normalized_detections.append(normalized)
+            detections = normalized_detections
         except Exception as exc:
             return AgentResult(
                 self.name, AgentState.ERROR,
@@ -86,7 +96,7 @@ class ObjectDetectionAgent:
         if not detections:
             return AgentResult(self.name, AgentState.COMPLETED, "No supported objects detected.",
                 data=[], warnings=("A missing detection does not mean the area is clear.",))
-        lines = [f"{x['label'].strip()} — image {x['position'].strip()} ({float(x['confidence']):.0%})" for x in detections]
+        lines = [f"{x['label']} — image {x['position']} ({x['confidence']:.0%})" for x in detections]
         return AgentResult(self.name, AgentState.COMPLETED, "\n".join(lines), data=detections,
             warnings=("Positions describe the image only, not distance or safe navigation.",))
 
@@ -136,6 +146,10 @@ class CurrencyAgent:
             confidence = float(raw_confidence)
             if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
                 raise ValueError("currency confidence is outside the expected range")
+            # Return a stable snapshot rather than an adapter-owned mutable mapping.
+            prediction = dict(prediction)
+            prediction["denomination"] = denomination.strip()
+            prediction["confidence"] = confidence
         except Exception as exc:
             return AgentResult(
                 self.name, AgentState.ERROR,
