@@ -111,5 +111,7 @@ a non-empty denomination and a finite real-number confidence value from 0
 through 1. Boolean and numeric-string confidence values are rejected rather
 than coerced. A malformed output is an error, not a successful empty result.
 A failed task must not be interpreted as a negative detection, verified
-banknote or completed speech playback. The coordinator remains a second
-defensive boundary for unexpected agent-level failures.
+banknote or completed speech playback. Validated object-detection and
+currency mappings are copied into normalized result snapshots so downstream
+UI code does not depend on adapter-owned mutable mappings. The coordinator
+remains a second defensive boundary for unexpected agent-level failures.
