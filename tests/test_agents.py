@@ -463,3 +463,17 @@ def test_system_health_rejects_malformed_capability_inventory(monkeypatch, tmp_p
         "Capability inventory unavailable (TypeError)."
     )
 
+def test_capability_inventory_treats_broken_module_metadata_as_unavailable(monkeypatch):
+    import noorix.capabilities as capabilities
+
+    def broken_find_spec(_name):
+        raise ValueError("private import metadata path")
+
+    monkeypatch.setattr(capabilities, "find_spec", broken_find_spec)
+    status = capabilities.capability_status()
+
+    assert status["camera"] == "install_camera_extra"
+    assert status["frame_quality"] == "install_camera_extra"
+    assert status["printed_english_ocr"] == "install_ocr_extra_and_tesseract"
+    assert status["spoken_feedback"] == "install_speech_extra"
+
