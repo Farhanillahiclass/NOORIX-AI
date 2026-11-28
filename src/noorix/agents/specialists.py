@@ -30,6 +30,12 @@ class OCRAgent:
                 safe_error_summary(exc, "OCR task failed"),
                 warnings=("Text recognition did not complete; do not rely on partial output.",),
             )
+        if text is not None and not isinstance(text, str):
+            return AgentResult(
+                self.name, AgentState.ERROR,
+                "OCR task failed (TypeError).",
+                warnings=("Text recognition returned an invalid result; do not rely on it.",),
+            )
         return AgentResult(self.name, AgentState.COMPLETED,
                            text or "No clear printed text detected.", data=text)
 
@@ -53,6 +59,24 @@ class ObjectDetectionAgent:
                                    safe_error_summary(exc, "Object detection setup failed"))
         try:
             detections = self.adapter.detect(payload)
+            if not isinstance(detections, (list, tuple)):
+                raise TypeError("object detector returned an invalid collection")
+            for detection in detections:
+                if not isinstance(detection, Mapping):
+                    raise TypeError("object detector returned an invalid detection")
+                label = detection.get("label")
+                position = detection.get("position")
+                confidence_value = detection.get("confidence")
+                if (
+                    not isinstance(label, str) or not label.strip()
+                    or not isinstance(position, str) or not position.strip()
+                    or isinstance(confidence_value, bool)
+                    or not isinstance(confidence_value, numbers.Real)
+                ):
+                    raise TypeError("object detector returned invalid detection fields")
+                confidence_value = float(confidence_value)
+                if not math.isfinite(confidence_value) or not 0.0 <= confidence_value <= 1.0:
+                    raise ValueError("object detector returned an invalid confidence")
         except Exception as exc:
             return AgentResult(
                 self.name, AgentState.ERROR,
@@ -62,7 +86,7 @@ class ObjectDetectionAgent:
         if not detections:
             return AgentResult(self.name, AgentState.COMPLETED, "No supported objects detected.",
                 data=[], warnings=("A missing detection does not mean the area is clear.",))
-        lines = [f"{x['label']} — image {x['position']} ({x['confidence']:.0%})" for x in detections]
+        lines = [f"{x['label'].strip()} — image {x['position'].strip()} ({float(x['confidence']):.0%})" for x in detections]
         return AgentResult(self.name, AgentState.COMPLETED, "\n".join(lines), data=detections,
             warnings=("Positions describe the image only, not distance or safe navigation.",))
 
