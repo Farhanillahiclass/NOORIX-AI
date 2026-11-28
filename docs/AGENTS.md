@@ -91,6 +91,10 @@ path resolution and estimator construction failures are returned as a
 `needs_setup` result with exception messages and local paths omitted. A
 successful setup only means the adapter was constructed; ONNX metadata checks
 and supervised denomination evaluation remain required before deployment.
+Prediction confidence must be a real numeric value (not a boolean or numeric
+string), finite, and within the inclusive range 0 through 1. Invalid adapter
+scores produce a structured error instead of being coerced into a plausible
+confidence percentage.
 
 
 ## Specialist runtime failure contract
