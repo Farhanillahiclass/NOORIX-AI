@@ -1,5 +1,7 @@
 """Concrete NOORIX agents backed by existing local adapters."""
 from __future__ import annotations
+import math
+import numbers
 import shutil
 from pathlib import Path
 from typing import Any, Mapping
@@ -101,10 +103,14 @@ class CurrencyAgent:
             if not isinstance(prediction, Mapping):
                 raise TypeError("currency adapter returned an invalid prediction")
             denomination = prediction["denomination"]
-            confidence = float(prediction["confidence"])
+            raw_confidence = prediction["confidence"]
             if not isinstance(denomination, str) or not denomination.strip():
                 raise ValueError("currency adapter returned an invalid denomination")
-            if not 0.0 <= confidence <= 1.0:
+            # Do not coerce booleans or numeric strings into plausible scores.
+            if isinstance(raw_confidence, bool) or not isinstance(raw_confidence, numbers.Real):
+                raise TypeError("currency confidence must be a real number")
+            confidence = float(raw_confidence)
+            if not math.isfinite(confidence) or not 0.0 <= confidence <= 1.0:
                 raise ValueError("currency confidence is outside the expected range")
         except Exception as exc:
             return AgentResult(
