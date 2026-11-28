@@ -369,3 +369,46 @@ def test_currency_agent_rejects_malformed_prediction_fields():
         assert result.data is None
         assert any("do not rely" in warning.lower() for warning in result.warnings)
 
+def test_specialist_results_snapshot_normalized_adapter_data():
+    from types import MappingProxyType
+
+    source_detection = MappingProxyType({
+        "label": "  cup  ",
+        "position": " left ",
+        "confidence": 0.75,
+        "box": [1, 2, 3, 4],
+    })
+
+    class Detector:
+        def detect(self, _frame):
+            return [source_detection]
+
+    object_result = ObjectDetectionAgent({}, adapter=Detector()).run(object())
+    assert object_result.successful
+    assert object_result.data[0] == {
+        "label": "cup",
+        "position": "left",
+        "confidence": 0.75,
+        "box": [1, 2, 3, 4],
+    }
+    assert source_detection["label"] == "  cup  "
+
+    source_prediction = MappingProxyType({
+        "denomination": " 500 ",
+        "confidence": 0.8,
+        "class_index": 2,
+    })
+
+    class Currency:
+        def predict(self, _frame):
+            return source_prediction
+
+    currency_result = CurrencyAgent({}, adapter=Currency()).run(object())
+    assert currency_result.successful
+    assert currency_result.data == {
+        "denomination": "500",
+        "confidence": 0.8,
+        "class_index": 2,
+    }
+    assert source_prediction["denomination"] == " 500 "
+
