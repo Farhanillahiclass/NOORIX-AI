@@ -296,3 +296,78 @@ def test_currency_agent_rejects_invalid_adapter_prediction():
     assert result.state == AgentState.ERROR
     assert "Currency prediction failed" in result.summary
     assert "nan" not in result.summary.lower()
+
+def test_ocr_agent_rejects_non_text_adapter_output():
+    class InvalidOCR:
+        def read(self, _frame):
+            return {"recognized": "private text"}
+
+    result = OCRAgent(InvalidOCR()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert result.summary == "OCR task failed (TypeError)."
+    assert result.data is None
+    assert any("invalid result" in warning.lower() for warning in result.warnings)
+
+
+def test_object_agent_rejects_malformed_detection_results():
+    import pytest
+
+    class InvalidDetector:
+        def __init__(self, detections):
+            self.detections = detections
+
+        def detect(self, _frame):
+            return self.detections
+
+    invalid_results = (
+        {"label": "cup", "position": "left", "confidence": 0.9},
+        [{"label": "", "position": "left", "confidence": 0.9}],
+        [{"label": "cup", "position": "", "confidence": 0.9}],
+        [{"label": "cup", "position": "left", "confidence": True}],
+        [{"label": "cup", "position": "left", "confidence": float("nan")}],
+        [{"label": "cup", "position": "left", "confidence": float("inf")}],
+        [{"label": "cup", "position": "left", "confidence": 1.1}],
+    )
+
+    for detections in invalid_results:
+        result = ObjectDetectionAgent(
+            {}, adapter=InvalidDetector(detections)
+        ).run(object())
+        assert result.state == AgentState.ERROR
+        assert "Object detection failed" in result.summary
+        assert any("do not assume" in warning.lower() for warning in result.warnings)
+
+
+def test_currency_agent_rejects_malformed_prediction_fields():
+    import pytest
+
+    class InvalidCurrency:
+        def __init__(self, prediction):
+            self.prediction = prediction
+
+        def predict(self, _frame):
+            return self.prediction
+
+    invalid_predictions = (
+        None,
+        [],
+        {"confidence": 0.8},
+        {"denomination": "", "confidence": 0.8},
+        {"denomination": "500", "confidence": True},
+        {"denomination": "500", "confidence": "0.8"},
+        {"denomination": "500", "confidence": float("nan")},
+        {"denomination": "500", "confidence": float("inf")},
+        {"denomination": "500", "confidence": -0.01},
+        {"denomination": "500", "confidence": 1.01},
+    )
+
+    for prediction in invalid_predictions:
+        result = CurrencyAgent(
+            {}, adapter=InvalidCurrency(prediction)
+        ).run(object())
+        assert result.state == AgentState.ERROR
+        assert "Currency prediction failed" in result.summary
+        assert result.data is None
+        assert any("do not rely" in warning.lower() for warning in result.warnings)
+
