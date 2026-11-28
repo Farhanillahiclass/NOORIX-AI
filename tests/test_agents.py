@@ -41,7 +41,9 @@ def test_coordinator_converts_exceptions_to_structured_errors():
         name = "broken"
         def run(self, payload=None): raise RuntimeError("expected test error")
     result = AgentCoordinator([Broken()]).run("broken")
-    assert result.state == AgentState.ERROR\n    assert "RuntimeError" in result.summary\n    assert "expected test error" not in result.summary
+    assert result.state == AgentState.ERROR
+    assert "RuntimeError" in result.summary
+    assert "expected test error" not in result.summary
 
 def test_coordinator_rejects_duplicate_names():
     class Dummy:
@@ -311,8 +313,6 @@ def test_ocr_agent_rejects_non_text_adapter_output():
 
 
 def test_object_agent_rejects_malformed_detection_results():
-    import pytest
-
     class InvalidDetector:
         def __init__(self, detections):
             self.detections = detections
@@ -340,8 +340,6 @@ def test_object_agent_rejects_malformed_detection_results():
 
 
 def test_currency_agent_rejects_malformed_prediction_fields():
-    import pytest
-
     class InvalidCurrency:
         def __init__(self, prediction):
             self.prediction = prediction
