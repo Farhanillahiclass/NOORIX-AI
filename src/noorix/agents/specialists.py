@@ -233,6 +233,9 @@ class SystemHealthAgent:
                 status["model_files"] = model_files
                 if "config" in model_files:
                     failures.append("model_configuration")
+                for model_name, model_state in model_files.items():
+                    if model_state in ("unsafe_or_invalid_path", "invalid_configuration_section"):
+                        failures.append(model_name + "_model_configuration")
         except Exception as exc:
             status["model_configuration"] = safe_error_summary(
                 exc, "Model readiness check failed"
@@ -276,9 +279,12 @@ class SystemHealthAgent:
             return {"config": safe_error_summary(exc, "Configuration unreadable")}
         output = {}
         for key in ("object_detection", "currency"):
+            if key in config and not isinstance(config[key], dict):
+                output[key] = "invalid_configuration_section"
+                continue
             section = config.get(key, {})
-            model_path = section.get("model_path") if isinstance(section, dict) else None
-            if not model_path:
+            model_path = section.get("model_path")
+            if model_path is None or model_path == "":
                 output[key] = "not_configured"
             else:
                 try:
