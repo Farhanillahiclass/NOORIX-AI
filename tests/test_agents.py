@@ -176,6 +176,7 @@ def test_health_agent_marks_symlinked_model_path_unsafe(tmp_path):
 
     result = SystemHealthAgent(config_path).run()
 
+    assert result.state == AgentState.ERROR
     assert result.data["model_files"]["object_detection"] == "unsafe_or_invalid_path"
 
 
@@ -476,4 +477,14 @@ def test_capability_inventory_treats_broken_module_metadata_as_unavailable(monke
     assert status["frame_quality"] == "install_camera_extra"
     assert status["printed_english_ocr"] == "install_ocr_extra_and_tesseract"
     assert status["spoken_feedback"] == "install_speech_extra"
+
+def test_system_health_rejects_malformed_model_configuration_section(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text('{"object_detection": ["not", "an", "object"]}', encoding="utf-8")
+
+    result = SystemHealthAgent(config_path).run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["model_files"]["object_detection"] == "invalid_configuration_section"
+    assert any("object_detection_model_configuration" in warning for warning in result.warnings)
 
