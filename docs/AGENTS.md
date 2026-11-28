@@ -97,6 +97,18 @@ scores produce a structured error instead of being coerced into a plausible
 confidence percentage.
 
 
+## System-health failure contract
+
+Optional-module discovery treats broken import metadata as unavailable rather
+than allowing find_spec() errors to crash the health screen. System Health
+collects capability, model-configuration and Tesseract-executable status
+independently. If an individual probe fails or returns malformed data, its
+status is marked unavailable with a privacy-safe exception type, other checks
+still run, and the overall result is `error` rather than a misleading
+successful readiness report. A missing model configuration is reported as
+missing, not as a failed filesystem scan; model files are not inspected when
+there is no configuration to describe.
+
 ## Specialist runtime failure contract
 
 OCR, object-detection, currency and speech adapters are called inside
