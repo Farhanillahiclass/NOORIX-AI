@@ -24,3 +24,40 @@ def test_modes_are_mutually_exclusive():
         assert exc.code == 2
     else:
         raise AssertionError("argparse should reject conflicting modes")
+
+
+
+def test_camera_preview_error_does_not_print_driver_message(monkeypatch, capsys):
+    import sys
+    from types import SimpleNamespace
+
+    from noorix import camera
+
+    class FakeCV2Error(Exception):
+        pass
+
+    class BrokenCamera:
+        def __init__(self, **kwargs):
+            pass
+
+        def start(self):
+            raise FakeCV2Error("private driver path \x1b[31msecret\x1b[0m")
+
+        def stop(self):
+            pass
+
+    fake_cv2 = SimpleNamespace(
+        error=FakeCV2Error,
+        destroyAllWindows=lambda: None,
+        waitKey=lambda _delay: -1,
+    )
+    monkeypatch.setitem(sys.modules, "cv2", fake_cv2)
+    monkeypatch.setattr(camera, "WebcamCapture", BrokenCamera)
+
+    from noorix.app import camera_preview
+
+    assert camera_preview() == 1
+    output = capsys.readouterr().out
+    assert "Camera preview failed (OSError)." in output
+    assert "private driver path" not in output
+    assert chr(27) not in output

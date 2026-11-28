@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 
 from noorix.capabilities import capability_status
+from noorix.privacy import safe_error_summary
 
 
 def camera_preview(device_index: int = 0) -> int:
@@ -14,7 +15,7 @@ def camera_preview(device_index: int = 0) -> int:
         import cv2
         from noorix.camera import WebcamCapture
     except ImportError as exc:
-        print(f"Camera dependency unavailable: {exc}")
+        print(safe_error_summary(exc, "Camera dependency unavailable"))
         return 1
 
     camera = WebcamCapture(device_index=device_index)
@@ -39,8 +40,8 @@ def camera_preview(device_index: int = 0) -> int:
     except KeyboardInterrupt:
         print("\nStop requested. Releasing camera safely.")
         return 0
-    except (RuntimeError, cv2.error) as exc:
-        print(f"Camera error: {exc}")
+    except Exception as exc:
+        print(safe_error_summary(exc, "Camera preview failed"))
         return 1
     finally:
         camera.stop()
@@ -76,8 +77,8 @@ def main(argv=None) -> int:
         try:
             from noorix.gui import launch
             return launch(camera_index=args.camera, config_path=args.config)
-        except (ImportError, RuntimeError) as exc:
-            print(f"Could not start desktop interface: {exc}")
+        except Exception as exc:
+            print(safe_error_summary(exc, "Could not start desktop interface"))
             return 1
     return check_environment()
 

@@ -1,52 +1,20 @@
 name: CI
 
+# Hosted runs are intentionally paused while the account Actions allowance is
+# exhausted. The complete validation suite will be run locally in one batch.
+# Do not use workflow_dispatch until the owner explicitly authorizes it.
 on:
-  push:
-  pull_request:
+  workflow_dispatch:
 
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 jobs:
   test:
-    name: Python ${{ matrix.python-version }} / ${{ matrix.os }}
-    runs-on: ${{ matrix.os }}
-    timeout-minutes: 25
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - python-version: "3.11"
-            os: ubuntu-latest
-          - python-version: "3.12"
-            os: ubuntu-latest
-          - python-version: "3.13"
-            os: ubuntu-latest
-          - python-version: "3.12"
-            os: windows-latest
-
+    name: Local validation is the release gate
+    runs-on: ubuntu-latest
     steps:
-      - name: Check out source
-        uses: actions/checkout@v4
-
-      - name: Set up Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: ${{ matrix.python-version }}
-          cache: pip
-          cache-dependency-path: pyproject.toml
-
-      - name: Install project and optional runtime dependencies
+      - name: Explain local validation policy
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install -e ".[all,dev]"
-
-      - name: Compile source and tests
-        run: python -m compileall -q src tests
-
-      - name: Run test suite
-        run: python -m pytest -q
+          echo "Hosted CI is paused to avoid consuming Actions minutes."
+          echo "Run: python scripts/run_full_validation.py"

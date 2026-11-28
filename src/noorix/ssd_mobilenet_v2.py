@@ -27,7 +27,18 @@ class SSDMobileNetV2Detector:
     ):
         self.model_path = Path(model_path)
         self.labels = list(labels)
-        self.confidence_threshold = float(confidence_threshold)
+        import math
+        try:
+            normalized_threshold = float(confidence_threshold)
+        except (OverflowError, TypeError, ValueError):
+            normalized_threshold = math.nan
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+            or not math.isfinite(normalized_threshold)
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        self.confidence_threshold = normalized_threshold
         self.anchors_path = (
             Path(anchors_path) if anchors_path is not None
             else self.model_path.with_name("ssd-mobilenet-v2-anchors.npz")
@@ -45,13 +56,15 @@ class SSDMobileNetV2Detector:
         ):
             raise ValueError("Each COCO label must be a non-empty string or None")
         if not 0.0 <= self.confidence_threshold <= 1.0:
-            raise ValueError("confidence_threshold must be between 0 and 1")
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"Object detection model not found: {self.model_path}")
-        if not self.anchors_path.is_file():
-            raise FileNotFoundError(f"SSD anchor file not found: {self.anchors_path}")
+        self._session = None
+        self._anchors = None
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="Object detection model")
+        self.anchors_path = require_regular_file(self.anchors_path, label="SSD anchor file")
 
         import onnxruntime as ort
 
@@ -61,18 +74,34 @@ class SSDMobileNetV2Detector:
         if anchors.shape != (1917, 4) or not np.isfinite(anchors).all():
             raise ValueError("SSD anchor file must contain 1,917 finite [ymin,xmin,ymax,xmax] anchors")
 
-        self._session = ort.InferenceSession(
+        session = ort.InferenceSession(
             str(self.model_path),
             providers=["CPUExecutionProvider"],
         )
-        inputs = self._session.get_inputs()
+        inputs = session.get_inputs()
         if len(inputs) != 1 or inputs[0].shape != [1, 3, 300, 300]:
             raise ValueError("Unexpected SSD ONNX input; expected [1,3,300,300]")
+        input_type = getattr(inputs[0], "type", None)
+        if input_type is not None and input_type != "tensor(float)":
+            raise ValueError(f"SSD ONNX input must be float32, got {input_type}")
 
-        outputs = self._session.get_outputs()
+        outputs = session.get_outputs()
         if len(outputs) != 12:
             raise ValueError(f"Expected 12 SSD prediction heads, received {len(outputs)}")
+        expected_shapes = []
+        for size, anchor_count in zip(self.HEAD_SIZES, self.HEAD_ANCHORS):
+            expected_shapes.extend((
+                [1, anchor_count * 4, size, size],
+                [1, anchor_count * 91, size, size],
+            ))
+        for index, (output, expected_shape) in enumerate(zip(outputs, expected_shapes)):
+            if output.shape != expected_shape:
+                raise ValueError(f"Unexpected SSD output {index}; expected {expected_shape}, got {output.shape}")
+            output_type = getattr(output, "type", None)
+            if output_type is not None and output_type != "tensor(float)":
+                raise ValueError(f"SSD output {index} must be float32, got {output_type}")
 
+        self._session = session
         self._anchors = anchors
 
     @staticmethod
@@ -109,6 +138,10 @@ class SSDMobileNetV2Detector:
                 raise ValueError(
                     f"Invalid class head {index}: expected {expected_class_shape}, got {classes.shape}"
                 )
+            if not np.isfinite(boxes).all():
+                raise ValueError(f"SSD box head {index} contains non-finite values")
+            if not np.isfinite(classes).all():
+                raise ValueError(f"SSD class head {index} contains non-finite values")
 
             boxes = boxes.transpose(0, 2, 3, 1).reshape(1, -1, 4)
             classes = classes.transpose(0, 2, 3, 1).reshape(1, -1, anchor_count, 91)
@@ -132,17 +165,23 @@ class SSDMobileNetV2Detector:
         ah = anchors[:, 2] - anchors[:, 0]
         aw = anchors[:, 3] - anchors[:, 1]
 
+        if not np.isfinite(encoded_boxes).all():
+            raise ValueError("SSD encoded boxes contain non-finite values")
+
         ty, tx, th, tw = encoded_boxes.T
         cy = (ty / self.BOX_SCALES[0]) * ah + ay
         cx = (tx / self.BOX_SCALES[1]) * aw + ax
-        height = np.exp(th / self.BOX_SCALES[2]) * ah
-        width = np.exp(tw / self.BOX_SCALES[3]) * aw
+        with np.errstate(over="ignore", invalid="ignore"):
+            height = np.exp(th / self.BOX_SCALES[2]) * ah
+            width = np.exp(tw / self.BOX_SCALES[3]) * aw
 
-        boxes = np.stack(
-            (cy - height / 2, cx - width / 2,
-             cy + height / 2, cx + width / 2),
-            axis=1,
-        )
+            boxes = np.stack(
+                (cy - height / 2, cx - width / 2,
+                 cy + height / 2, cx + width / 2),
+                axis=1,
+            )
+        if not np.isfinite(boxes).all():
+            raise ValueError("Decoded SSD boxes contain non-finite values")
         return np.clip(boxes, 0.0, 1.0)
 
     @staticmethod

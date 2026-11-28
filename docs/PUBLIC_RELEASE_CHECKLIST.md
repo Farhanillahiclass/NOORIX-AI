@@ -21,9 +21,20 @@ This checklist is for the NOORIX-AI repository before changing visibility to Pub
 
 - `.gitignore` now excludes common local credentials, private keys, local databases, datasets, and imported model artifacts.
 - The COCO label metadata file is explicitly allowed so CI can test the detector without committing model weights.
-- Model ZIP extraction rejects parent traversal, absolute paths, Windows drive paths, symbolic links, and duplicate output paths.
-- Unit tests cover the ZIP extraction safeguards.
+- Model ZIP extraction rejects parent traversal, absolute paths, Windows drive paths, symbolic links/junctions, non-regular entries, unsafe names, compression bombs and duplicate output paths.
+- Unit tests cover ZIP extraction safeguards, model-manifest integrity checks, bounded JSON inputs and path redirection checks (latest PR #26 additions still await the final local run).
 
 ## Important
 
 A `.gitignore` rule does not remove a file that is already tracked, and it does not erase old versions from Git history. Never publish a repository solely because the current working tree looks clean.
+
+
+## Current branch review additions
+
+- Runtime configuration and external object-label JSON are bounded to 1 MiB, reject duplicate JSON keys, and reject symbolic links or Windows junctions in path components.
+- SSD, YOLOv8 and currency model files plus SSD anchor files must be regular non-linked files.
+- Model integrity manifests use bounded JSON parsing, reject duplicate keys and unsafe path aliases, and compare file metadata around SHA-256 hashing.
+- Validation, dependency-audit, benchmark and offline-wheelhouse report/input paths reject symlinks and Windows junctions.
+- These controls reduce path redirection and malformed-input risk; they do not replace a full historical commit/branch/tag scan or eliminate concurrent filesystem races.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.

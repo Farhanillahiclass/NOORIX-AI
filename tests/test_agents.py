@@ -41,7 +41,9 @@ def test_coordinator_converts_exceptions_to_structured_errors():
         name = "broken"
         def run(self, payload=None): raise RuntimeError("expected test error")
     result = AgentCoordinator([Broken()]).run("broken")
-    assert result.state == AgentState.ERROR and "expected test error" in result.summary
+    assert result.state == AgentState.ERROR
+    assert "RuntimeError" in result.summary
+    assert "expected test error" not in result.summary
 
 def test_coordinator_rejects_duplicate_names():
     class Dummy:
@@ -100,3 +102,389 @@ def test_object_agent_uses_shared_detector_factory(tmp_path, monkeypatch):
     assert result.successful
     assert captured["config"] == config
     assert captured["config_path"] == config_path
+
+
+def test_coordinator_does_not_expose_sensitive_exception_text():
+    secret = "private OCR text and C:/Users/example/private-image.png"
+
+    class Broken:
+        name = "broken"
+        def run(self, payload=None):
+            raise RuntimeError(secret)
+
+    result = AgentCoordinator([Broken()]).run("broken")
+    assert result.state == AgentState.ERROR
+    assert secret not in result.summary
+    assert all(secret not in warning for warning in result.warnings)
+
+
+
+def test_object_agent_redacts_model_setup_exception_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/model-folder/model.onnx"
+
+    def broken_factory(_config, _config_path):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists, "create_object_detector", broken_factory)
+    agent = ObjectDetectionAgent(
+        {"model_path": "models/model.onnx"},
+        config_path=tmp_path / "config.json",
+    )
+
+    result = agent.run(object())
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert "Object detection setup failed (OSError)." == result.summary
+    assert secret not in result.summary
+
+
+def test_health_agent_redacts_config_read_exception_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    config_path = tmp_path / "config.json"
+    config_path.write_text("{}", encoding="utf-8")
+    secret = "C:/Users/private/settings.json"
+
+    def broken_loader(_path):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists, "load_json_document", broken_loader)
+    result = SystemHealthAgent(config_path).run()
+
+    detail = result.data["model_files"]["config"]
+    assert detail == "Configuration unreadable (OSError)."
+    assert secret not in detail
+
+
+
+def test_health_agent_marks_symlinked_model_path_unsafe(tmp_path):
+    real_model = tmp_path / "real.onnx"
+    real_model.write_bytes(b"model")
+    linked_model = tmp_path / "linked.onnx"
+    try:
+        linked_model.symlink_to(real_model)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("file symlinks are unavailable on this platform")
+    config_path = tmp_path / "config.json"
+    config_path.write_text(
+        '{"object_detection": {"model_path": "linked.onnx"}}',
+        encoding="utf-8",
+    )
+
+    result = SystemHealthAgent(config_path).run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["model_files"]["object_detection"] == "unsafe_or_invalid_path"
+
+
+
+def test_health_agent_marks_symlinked_config_unsafe(tmp_path):
+    real_config = tmp_path / "real-config.json"
+    real_config.write_text("{}", encoding="utf-8")
+    linked_config = tmp_path / "linked-config.json"
+    try:
+        linked_config.symlink_to(real_config)
+    except (OSError, NotImplementedError):
+        import pytest
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    result = SystemHealthAgent(linked_config).run()
+
+    assert result.data["model_configuration"] == "unsafe_or_invalid"
+    assert result.data["model_files"]["config"] == "Configuration unreadable (ValueError)."
+
+
+
+def test_currency_agent_rejects_non_integer_input_size():
+    import pytest
+
+    for invalid in (True, "224", 224.5, 0, -1):
+        result = CurrencyAgent(
+            {"model_path": "unused", "labels": ["500"], "input_size": invalid}
+        ).run(object())
+        assert result.state == AgentState.NEEDS_SETUP
+        assert "positive integer" in result.summary
+
+
+def test_currency_agent_redacts_model_setup_errors(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/currency-model.onnx"
+
+    def broken_resolve(_path, _config_path):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists, "resolve_config_path", broken_resolve)
+    result = CurrencyAgent(
+        {"model_path": "model.onnx", "labels": ["500"]},
+        config_path=tmp_path / "config.json",
+    ).run(object())
+
+    assert result.state == AgentState.NEEDS_SETUP
+    assert result.summary == "Currency model setup failed (OSError)."
+    assert secret not in result.summary
+
+
+def test_currency_agent_passes_validated_input_size_to_estimator(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    captured = {}
+
+    class FakeEstimator:
+        def __init__(self, model_path, labels, input_size):
+            captured["model_path"] = model_path
+            captured["labels"] = labels
+            captured["input_size"] = input_size
+
+        def predict(self, _frame):
+            return {"denomination": "500", "confidence": 0.8}
+
+    monkeypatch.setattr(specialists, "CurrencyEstimator", FakeEstimator)
+    result = CurrencyAgent(
+        {"model_path": "model.onnx", "labels": ["500"], "input_size": 320},
+        config_path=tmp_path / "config.json",
+    ).run(object())
+
+    assert result.successful
+    assert captured["input_size"] == 320
+    assert captured["model_path"] == tmp_path / "model.onnx"
+
+
+
+def test_specialist_runtime_errors_are_structured_and_redacted():
+    secret = "private frame text C:/Users/private/frame.png"
+
+    class BrokenOCR:
+        def read(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenDetector:
+        def detect(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenCurrency:
+        def predict(self, _frame):
+            raise RuntimeError(secret)
+
+    class BrokenSpeech:
+        def speak(self, _text):
+            raise RuntimeError(secret)
+
+    agents = [
+        OCRAgent(BrokenOCR()),
+        ObjectDetectionAgent({}, adapter=BrokenDetector()),
+        CurrencyAgent({}, adapter=BrokenCurrency()),
+    ]
+    from noorix.agents import SpeechAgent
+    agents.append(SpeechAgent(BrokenSpeech()))
+
+    for agent in agents:
+        result = agent.run("sample text" if agent.name == "speech" else object())
+        assert result.state == AgentState.ERROR
+        assert secret not in result.summary
+        assert any("did not" in warning.lower() or "confirmed" in warning.lower()
+                   for warning in result.warnings)
+
+
+def test_currency_agent_rejects_invalid_adapter_prediction():
+    class InvalidCurrency:
+        def predict(self, _frame):
+            return {"denomination": "500", "confidence": float("nan")}
+
+    result = CurrencyAgent({}, adapter=InvalidCurrency()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert "Currency prediction failed" in result.summary
+    assert "nan" not in result.summary.lower()
+
+def test_ocr_agent_rejects_non_text_adapter_output():
+    class InvalidOCR:
+        def read(self, _frame):
+            return {"recognized": "private text"}
+
+    result = OCRAgent(InvalidOCR()).run(object())
+
+    assert result.state == AgentState.ERROR
+    assert result.summary == "OCR task failed (TypeError)."
+    assert result.data is None
+    assert any("invalid result" in warning.lower() for warning in result.warnings)
+
+
+def test_object_agent_rejects_malformed_detection_results():
+    class InvalidDetector:
+        def __init__(self, detections):
+            self.detections = detections
+
+        def detect(self, _frame):
+            return self.detections
+
+    invalid_results = (
+        {"label": "cup", "position": "left", "confidence": 0.9},
+        [{"label": "", "position": "left", "confidence": 0.9}],
+        [{"label": "cup", "position": "", "confidence": 0.9}],
+        [{"label": "cup", "position": "left", "confidence": True}],
+        [{"label": "cup", "position": "left", "confidence": float("nan")}],
+        [{"label": "cup", "position": "left", "confidence": float("inf")}],
+        [{"label": "cup", "position": "left", "confidence": 1.1}],
+    )
+
+    for detections in invalid_results:
+        result = ObjectDetectionAgent(
+            {}, adapter=InvalidDetector(detections)
+        ).run(object())
+        assert result.state == AgentState.ERROR
+        assert "Object detection failed" in result.summary
+        assert any("do not assume" in warning.lower() for warning in result.warnings)
+
+
+def test_currency_agent_rejects_malformed_prediction_fields():
+    class InvalidCurrency:
+        def __init__(self, prediction):
+            self.prediction = prediction
+
+        def predict(self, _frame):
+            return self.prediction
+
+    invalid_predictions = (
+        None,
+        [],
+        {"confidence": 0.8},
+        {"denomination": "", "confidence": 0.8},
+        {"denomination": "500", "confidence": True},
+        {"denomination": "500", "confidence": "0.8"},
+        {"denomination": "500", "confidence": float("nan")},
+        {"denomination": "500", "confidence": float("inf")},
+        {"denomination": "500", "confidence": -0.01},
+        {"denomination": "500", "confidence": 1.01},
+    )
+
+    for prediction in invalid_predictions:
+        result = CurrencyAgent(
+            {}, adapter=InvalidCurrency(prediction)
+        ).run(object())
+        assert result.state == AgentState.ERROR
+        assert "Currency prediction failed" in result.summary
+        assert result.data is None
+        assert any("do not rely" in warning.lower() for warning in result.warnings)
+
+def test_specialist_results_snapshot_normalized_adapter_data():
+    from types import MappingProxyType
+
+    source_detection = MappingProxyType({
+        "label": "  cup  ",
+        "position": " left ",
+        "confidence": 0.75,
+        "box": [1, 2, 3, 4],
+    })
+
+    class Detector:
+        def detect(self, _frame):
+            return [source_detection]
+
+    object_result = ObjectDetectionAgent({}, adapter=Detector()).run(object())
+    assert object_result.successful
+    assert object_result.data[0] == {
+        "label": "cup",
+        "position": "left",
+        "confidence": 0.75,
+        "box": [1, 2, 3, 4],
+    }
+    assert source_detection["label"] == "  cup  "
+
+    source_prediction = MappingProxyType({
+        "denomination": " 500 ",
+        "confidence": 0.8,
+        "class_index": 2,
+    })
+
+    class Currency:
+        def predict(self, _frame):
+            return source_prediction
+
+    currency_result = CurrencyAgent({}, adapter=Currency()).run(object())
+    assert currency_result.successful
+    assert currency_result.data == {
+        "denomination": "500",
+        "confidence": 0.8,
+        "class_index": 2,
+    }
+    assert source_prediction["denomination"] == " 500 "
+
+def test_system_health_reports_partial_failure_without_exposing_details(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/runtime-profile.json"
+
+    def broken_capabilities():
+        raise RuntimeError(secret)
+
+    monkeypatch.setattr(specialists, "capability_status", broken_capabilities)
+    monkeypatch.setattr(specialists.shutil, "which", lambda _name: None)
+
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.summary == "Local system readiness is incomplete."
+    assert result.data["capability_inventory"] == (
+        "Capability inventory unavailable (RuntimeError)."
+    )
+    assert secret not in str(result.data)
+    assert result.data["model_configuration"] == "config.json_missing"
+    assert any("capability_inventory" in warning for warning in result.warnings)
+
+
+def test_system_health_contains_tesseract_lookup_failure(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    secret = "C:/Users/private/tesseract.exe"
+
+    def broken_lookup(_name):
+        raise OSError(secret)
+
+    monkeypatch.setattr(specialists.shutil, "which", broken_lookup)
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["tesseract_executable"] == "Tesseract lookup failed (OSError)."
+    assert secret not in str(result.data)
+    assert any("tesseract_lookup" in warning for warning in result.warnings)
+
+
+def test_system_health_rejects_malformed_capability_inventory(monkeypatch, tmp_path):
+    import noorix.agents.specialists as specialists
+
+    monkeypatch.setattr(specialists, "capability_status", lambda: {"camera": True})
+    result = SystemHealthAgent(tmp_path / "missing.json").run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["capability_inventory"] == (
+        "Capability inventory unavailable (TypeError)."
+    )
+
+def test_capability_inventory_treats_broken_module_metadata_as_unavailable(monkeypatch):
+    import noorix.capabilities as capabilities
+
+    def broken_find_spec(_name):
+        raise ValueError("private import metadata path")
+
+    monkeypatch.setattr(capabilities, "find_spec", broken_find_spec)
+    status = capabilities.capability_status()
+
+    assert status["camera"] == "install_camera_extra"
+    assert status["frame_quality"] == "install_camera_extra"
+    assert status["printed_english_ocr"] == "install_ocr_extra_and_tesseract"
+    assert status["spoken_feedback"] == "install_speech_extra"
+
+def test_system_health_rejects_malformed_model_configuration_section(tmp_path):
+    config_path = tmp_path / "config.json"
+    config_path.write_text('{"object_detection": ["not", "an", "object"]}', encoding="utf-8")
+
+    result = SystemHealthAgent(config_path).run()
+
+    assert result.state == AgentState.ERROR
+    assert result.data["model_files"]["object_detection"] == "invalid_configuration_section"
+    assert any("object_detection_model_configuration" in warning for warning in result.warnings)
+

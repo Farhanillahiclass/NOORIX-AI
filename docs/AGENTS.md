@@ -73,9 +73,59 @@ Requirements:
 - Tesseract executable available on PATH.
 - Tesseract Urdu (`urd`) language data installed.
 - Pillow with RAQM support.
-- A suitable Urdu-capable Tahoma font at
-  `C:\Windows\Fonts\tahoma.ttf`.
+- A local Urdu-capable font. The test checks common Tahoma/Arial, Noto Naskh,
+  Noto Sans Arabic, DejaVu Sans and FreeSans paths. Set
+  `NOORIX_URDU_TEST_FONT` to an explicit font file when it is installed
+  elsewhere. No font is downloaded by the test.
 
 The test skips when required local OCR or image-rendering dependencies are
 unavailable. A passing result validates the generated sample on that machine;
 it is not a general Urdu OCR accuracy benchmark.
+
+
+## Currency-agent configuration contract
+
+The Currency Agent accepts `input_size` only as a positive integer; booleans,
+numeric strings and fractional values are rejected rather than coerced. Model
+path resolution and estimator construction failures are returned as a
+`needs_setup` result with exception messages and local paths omitted. A
+successful setup only means the adapter was constructed; ONNX metadata checks
+and supervised denomination evaluation remain required before deployment.
+Prediction confidence must be a real numeric value (not a boolean or numeric
+string), finite, and within the inclusive range 0 through 1. Invalid adapter
+scores produce a structured error instead of being coerced into a plausible
+confidence percentage.
+
+
+## System-health failure contract
+
+Optional-module discovery treats broken import metadata as unavailable rather
+than allowing find_spec() errors to crash the health screen. System Health
+collects capability, model-configuration and Tesseract-executable status
+independently. If an individual probe fails or returns malformed data, its
+status is marked unavailable with a privacy-safe exception type, other checks
+still run, and the overall result is `error` rather than a misleading
+successful readiness report. Malformed model sections and unsafe model paths
+also produce an error state; absent model paths remain explicitly
+`not_configured`. A missing model configuration is reported as
+missing, not as a failed filesystem scan; model files are not inspected when
+there is no configuration to describe.
+
+## Specialist runtime failure contract
+
+OCR, object-detection, currency and speech adapters are called inside
+specialist-level exception boundaries. An adapter exception returns a
+structured `error` result with a bounded context and exception type; raw
+exception messages, recognized text and local paths are not copied into the
+summary. Adapter outputs are validated before a task can be marked completed:
+OCR must return text (or no text), object detection must return a list/tuple
+of detections with non-empty label/position strings and finite numeric
+confidence values from 0 through 1, and currency must return a mapping with
+a non-empty denomination and a finite real-number confidence value from 0
+through 1. Boolean and numeric-string confidence values are rejected rather
+than coerced. A malformed output is an error, not a successful empty result.
+A failed task must not be interpreted as a negative detection, verified
+banknote or completed speech playback. Validated object-detection and
+currency mappings are copied into normalized result snapshots so downstream
+UI code does not depend on adapter-owned mutable mappings. The coordinator
+remains a second defensive boundary for unexpected agent-level failures.

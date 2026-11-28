@@ -47,3 +47,9 @@ data/processed/
 models/incoming/
 models/imported/
 models/.staging/
+
+# Offline Python wheel bundles (platform-specific, generated locally)
+wheelhouse/
+
+# Local validation, benchmark and dependency audit reports
+reports/

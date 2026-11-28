@@ -4,7 +4,7 @@ import pytest
 from noorix.yolov8_onnx import YOLOv8ONNXDetector
 
 
-LABELS = [f"class_{index}" for index in range(80)]
+LABELS = list(YOLOv8ONNXDetector.COCO_LABELS)
 
 
 def make_detector(**kwargs):
@@ -46,7 +46,7 @@ def test_postprocess_returns_coco_label_and_original_image_box():
 
     results = detector._postprocess(output, (640, 640), 1.0, 0, 0)
     assert len(results) == 1
-    assert results[0]["label"] == "class_7"
+    assert results[0]["label"] == "truck"
     assert results[0]["class_id"] == 7
     assert results[0]["confidence"] == pytest.approx(0.91)
     assert results[0]["box"] == [220, 270, 420, 370]
@@ -90,3 +90,175 @@ def test_postprocess_ignores_non_finite_and_low_confidence_candidates():
     output[0, :4, 1] = [320, 320, 100, 100]
     output[0, 4, 1] = 0.1
     assert detector._postprocess(output, (640, 640), 1.0, 0, 0) == []
+
+
+
+def test_detector_rejects_wrong_coco_label_order():
+    labels = list(LABELS)
+    labels[0], labels[1] = labels[1], labels[0]
+    with pytest.raises(ValueError, match="canonical COCO-80"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+
+
+def test_detector_rejects_duplicate_and_blank_labels():
+    labels = list(YOLOv8ONNXDetector.COCO_LABELS)
+    labels[1] = labels[0]
+    with pytest.raises(ValueError, match="unique"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+    labels = list(YOLOv8ONNXDetector.COCO_LABELS)
+    labels[0] = " "
+    with pytest.raises(ValueError, match="non-empty"):
+        YOLOv8ONNXDetector("unused.onnx", labels)
+
+
+def test_load_validates_output_metadata_before_inference(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            assert providers == ["CPUExecutionProvider"]
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 8400])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    detector.load()
+    assert detector._input_name == "images"
+
+
+def test_load_rejects_incompatible_output_metadata(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 100, 6])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    with pytest.raises(ValueError, match="84-value feature axis"):
+        detector.load()
+
+
+def test_normalize_output_rejects_excessive_candidate_count():
+    detector = make_detector()
+    output = np.zeros((1, 84, detector.MAX_CANDIDATES + 1), dtype=np.float32)
+    with pytest.raises(ValueError, match="candidate safety limit"):
+        detector._normalize_output(output)
+
+
+def test_load_rejects_excessive_candidate_metadata(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640])]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 10_001])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+    with pytest.raises(ValueError, match="candidate safety limit"):
+        detector.load()
+    assert detector._session is None
+    assert detector._input_name is None
+
+
+
+def test_load_rejects_non_float32_input_and_does_not_keep_session(tmp_path, monkeypatch):
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("images", [1, 3, 640, 640], "tensor(float16)")]
+
+        def get_outputs(self):
+            return [Tensor("output0", [1, 84, 100])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(__import__("sys").modules, "onnxruntime", Runtime())
+    model = tmp_path / "model.onnx"
+    model.write_bytes(b"placeholder")
+    detector = YOLOv8ONNXDetector(model, list(YOLOv8ONNXDetector.COCO_LABELS))
+
+    with pytest.raises(ValueError, match="input must be float32"):
+        detector.load()
+
+    assert detector._session is None
+    assert detector._input_name is None
+
+
+def test_nms_caps_candidates_to_highest_scoring_subset(monkeypatch):
+    monkeypatch.setattr(YOLOv8ONNXDetector, "MAX_NMS_CANDIDATES", 3)
+    boxes = np.array(
+        [[0, 0, 1, 1], [2, 0, 3, 1], [4, 0, 5, 1], [6, 0, 7, 1], [8, 0, 9, 1]],
+        dtype=np.float32,
+    )
+    scores = np.array([0.2, 0.9, 0.5, 0.8, 0.7], dtype=np.float32)
+
+    kept = YOLOv8ONNXDetector._nms(boxes, scores, 0.5)
+
+    assert kept == [1, 3, 4]
+
+
+@pytest.mark.parametrize("kwargs", [
+    {"input_size": True},
+    {"input_size": 640.5},
+    {"max_detections": True},
+    {"max_detections": 10.5},
+    {"confidence_threshold": True},
+    {"iou_threshold": False},
+    {"confidence_threshold": "0.5"},
+])
+def test_detector_rejects_wrongly_typed_numeric_settings(kwargs):
+    with pytest.raises(ValueError):
+        make_detector(**kwargs)

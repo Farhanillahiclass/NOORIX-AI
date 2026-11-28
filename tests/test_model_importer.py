@@ -9,7 +9,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "scripts"))
 
-from import_kaggle_models import safe_extract_member
+from import_kaggle_models import (
+    archive_slug,
+    copy_dataset_archive,
+    has_symlink_component,
+    prepare_staging_directory,
+    publish_staging_directory,
+    safe_display_filename,
+    safe_extract_member,
+    ensure_directory_without_symlinks,
+    main,
+    list_zip_files,
+)
 
 
 def make_archive(entries):
@@ -37,7 +48,7 @@ def test_safe_extract_allows_expected_model_file(tmp_path):
 def test_safe_extract_rejects_parent_traversal_and_windows_paths(tmp_path):
     target = tmp_path / "stage"
     target.mkdir()
-    names = ["../escape.onnx", r"..\\..\\escape.onnx", r"C:\\temp\\escape.onnx", "/tmp/escape.onnx"]
+    names = ["../escape.onnx", r"..\..\escape.onnx", r"C:\temp\escape.onnx", "/tmp/escape.onnx"]
     for name in names:
         with make_archive([(name, b"bad", None)]) as archive:
             assert safe_extract_member(archive, archive.infolist()[0], target) is None
@@ -63,3 +74,547 @@ def test_safe_extract_does_not_overwrite_duplicate_archive_entries(tmp_path):
     assert first is not None
     assert second is None
     assert first.read_bytes() == b"first"
+
+def test_safe_extract_rejects_windows_reserved_names_and_trailing_dots(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    for name in (
+        "CON.onnx", "nul.txt", "weights/model.onnx.",
+        "COM1.bin", "folder/LPT9.onnx", "COM¹.txt", "folder/LPT².bin",
+        "weights//model.onnx", "./model.onnx", "folder/../model.onnx",
+        "trailing /model.onnx", "model.onnx ", f"weights/{chr(27)}[31m.onnx", f"folder/{chr(127)}.onnx",
+    ):
+        with make_archive([(name, b"bad", None)]) as archive:
+            assert safe_extract_member(archive, archive.infolist()[0], target) is None
+
+
+def test_safe_extract_rejects_case_insensitive_duplicate_names(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([("Weights/Model.onnx", b"first", None)]) as archive:
+        first = safe_extract_member(archive, archive.infolist()[0], target)
+    with make_archive([("weights/model.ONNX", b"second", None)]) as archive:
+        second = safe_extract_member(archive, archive.infolist()[0], target)
+    assert first is not None
+    assert second is None
+    assert first.read_bytes() == b"first"
+
+
+def test_safe_extract_normalizes_single_windows_backslashes(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([(r"folder\model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result == target / "folder" / "model.onnx"
+    assert result.read_bytes() == b"model"
+
+
+def test_safe_extract_rejects_encrypted_entries(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        info = archive.infolist()[0]
+        info.flag_bits |= 0x1
+        assert safe_extract_member(archive, info, target) is None
+
+
+
+def test_archive_slug_cannot_escape_staging_directory():
+    for filename in ("...zip", "..\\\\escape.zip", "folder/name.zip", "   .zip"):
+        slug = archive_slug(filename)
+        assert slug not in {".", "..", ""}
+        assert "/" not in slug
+        assert "\\\\" not in slug
+        assert len(slug) <= 91
+
+
+def test_safe_extract_rejects_nul_in_filename_before_open(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+
+    class FakeEntry:
+        filename = "bad\x00name.onnx"
+        external_attr = 0
+        file_size = 3
+        compress_size = 3
+        flag_bits = 0
+
+        @staticmethod
+        def is_dir():
+            return False
+
+    class FakeArchive:
+        @staticmethod
+        def open(_entry):
+            raise AssertionError("unsafe entry must be rejected before opening")
+
+    assert safe_extract_member(FakeArchive(), FakeEntry(), target) is None
+
+
+def test_safe_extract_rejects_casefold_directory_collision(tmp_path):
+    target = tmp_path / "stage"
+    (target / "Weights").mkdir(parents=True)
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result is None
+    assert not (target / "weights").exists()
+
+
+def test_safe_extract_allows_exact_case_shared_parent_directory(tmp_path):
+    target = tmp_path / "stage"
+    (target / "weights").mkdir(parents=True)
+    (target / "weights" / "existing.onnx").write_bytes(b"existing")
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result == target / "weights" / "new-model.onnx"
+    assert result.read_bytes() == b"model"
+
+
+def test_staging_setup_preserves_existing_directory(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    marker = staging / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    assert not prepare_staging_directory(staging, destination)
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_staging_setup_refuses_existing_destination(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    destination.mkdir()
+    marker = destination / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    assert not prepare_staging_directory(staging, destination)
+    assert not staging.exists()
+    assert marker.read_text(encoding="utf-8") == "preserve"
+
+
+def test_staging_setup_creates_only_new_directory(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+
+    assert prepare_staging_directory(staging, destination)
+    assert staging.is_dir()
+
+
+def test_safe_extract_reuses_path_index_for_case_collision_checks(tmp_path):
+    target = tmp_path / "stage"
+    target.mkdir()
+    path_index = {}
+    with make_archive([("Weights/first.onnx", b"first", None)]) as archive:
+        first = safe_extract_member(archive, archive.infolist()[0], target, path_index)
+    with make_archive([("weights/second.onnx", b"second", None)]) as archive:
+        second = safe_extract_member(archive, archive.infolist()[0], target, path_index)
+    assert first is not None
+    assert second is None
+    assert first.read_bytes() == b"first"
+
+
+def test_safe_extract_rejects_ambiguous_existing_casefold_directories(tmp_path):
+    target = tmp_path / "stage"
+    (target / "Weights").mkdir(parents=True)
+    (target / "weights").mkdir()
+    with make_archive([("weights/new-model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+    assert result is None
+
+def test_safe_extract_rejects_symlinked_target_root(tmp_path):
+    import pytest
+
+    real_target = tmp_path / "real-stage"
+    real_target.mkdir()
+    linked_target = tmp_path / "linked-stage"
+    try:
+        linked_target.symlink_to(real_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], linked_target)
+
+    assert result is None
+    assert not (real_target / "weights").exists()
+
+
+def test_safe_extract_rejects_symlinked_parent_of_target(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    target = linked_parent / "stage"
+    target.mkdir()
+    with make_archive([("weights/model.onnx", b"model", None)]) as archive:
+        result = safe_extract_member(archive, archive.infolist()[0], target)
+
+    assert result is None
+    assert not (real_parent / "stage" / "weights").exists()
+
+def test_staging_setup_refuses_symlinked_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    staging = linked_parent / "staging"
+    destination = linked_parent / "destination"
+    assert not prepare_staging_directory(staging, destination)
+    assert not (real_parent / "staging").exists()
+
+def test_publish_staging_refuses_existing_destination_without_nesting(tmp_path):
+    import pytest
+
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    (staging / "import_manifest.json").write_text("{}", encoding="utf-8")
+    destination.mkdir()
+    marker = destination / "keep.txt"
+    marker.write_text("preserve", encoding="utf-8")
+
+    with pytest.raises(FileExistsError):
+        publish_staging_directory(staging, destination)
+
+    assert marker.read_text(encoding="utf-8") == "preserve"
+    assert (staging / "import_manifest.json").is_file()
+    assert not (destination / "staging").exists()
+
+
+def test_publish_staging_renames_completed_tree(tmp_path):
+    staging = tmp_path / "staging"
+    destination = tmp_path / "destination"
+    staging.mkdir()
+    (staging / "import_manifest.json").write_text("{}", encoding="utf-8")
+
+    publish_staging_directory(staging, destination)
+
+    assert not staging.exists()
+    assert (destination / "import_manifest.json").is_file()
+
+
+
+
+def test_dataset_zip_copy_preserves_bytes_and_source(tmp_path):
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    source = downloads / "research-data.zip"
+    source.write_bytes(b"zip-content")
+
+    assert copy_dataset_archive(source, inbox) is True
+    assert (inbox / source.name).read_bytes() == b"zip-content"
+    assert source.read_bytes() == b"zip-content"
+
+
+def test_dataset_zip_copy_never_overwrites_existing_file(tmp_path):
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    source = downloads / "research-data.zip"
+    source.write_bytes(b"new-content")
+    existing = inbox / source.name
+    existing.write_bytes(b"keep-existing")
+
+    assert copy_dataset_archive(source, inbox) is False
+    assert existing.read_bytes() == b"keep-existing"
+
+
+def test_dataset_zip_copy_rejects_symlinked_source(tmp_path):
+    import pytest
+
+    downloads = tmp_path / "downloads"
+    inbox = tmp_path / "inbox"
+    downloads.mkdir()
+    inbox.mkdir()
+    real_source = downloads / "real.zip"
+    real_source.write_bytes(b"zip-content")
+    linked_source = downloads / "linked.zip"
+    try:
+        linked_source.symlink_to(real_source)
+    except (OSError, NotImplementedError):
+        pytest.skip("file symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="regular, non-symlink"):
+        copy_dataset_archive(linked_source, inbox)
+    assert not (inbox / linked_source.name).exists()
+
+
+def test_model_archive_path_check_detects_symlinked_file_and_parent(tmp_path):
+    import pytest
+
+    real_dir = tmp_path / "real"
+    real_dir.mkdir()
+    archive = real_dir / "model.zip"
+    archive.write_bytes(b"zip-content")
+    assert has_symlink_component(archive) is False
+
+    linked_dir = tmp_path / "linked"
+    try:
+        linked_dir.symlink_to(real_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    assert has_symlink_component(linked_dir / "model.zip") is True
+
+
+def test_dataset_zip_copy_rejects_symlinked_source_parent(tmp_path):
+    import pytest
+
+    real_downloads = tmp_path / "real-downloads"
+    real_downloads.mkdir()
+    linked_downloads = tmp_path / "linked-downloads"
+    try:
+        linked_downloads.symlink_to(real_downloads, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    source = linked_downloads / "data.zip"
+    (real_downloads / "data.zip").write_bytes(b"zip-content")
+    inbox = tmp_path / "inbox"
+    inbox.mkdir()
+
+    with pytest.raises(ValueError, match="source path has a symlinked component"):
+        copy_dataset_archive(source, inbox)
+    assert not (inbox / "data.zip").exists()
+
+
+def test_dataset_zip_copy_rejects_symlinked_inbox(tmp_path):
+    import pytest
+
+    real_inbox = tmp_path / "real-inbox"
+    real_inbox.mkdir()
+    linked_inbox = tmp_path / "linked-inbox"
+    try:
+        linked_inbox.symlink_to(real_inbox, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    source = tmp_path / "data.zip"
+    source.write_bytes(b"zip-content")
+
+    with pytest.raises(ValueError, match="existing, non-symlink"):
+        copy_dataset_archive(source, linked_inbox)
+    assert not (real_inbox / source.name).exists()
+
+
+def test_dataset_zip_copy_refuses_symlinked_inbox_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+    inbox = linked_parent / "inbox"
+    inbox.mkdir()
+    source = tmp_path / "data.zip"
+    source.write_bytes(b"zip-content")
+
+    with pytest.raises(ValueError, match="symlinked path component"):
+        copy_dataset_archive(source, inbox)
+    assert not (real_parent / "inbox" / source.name).exists()
+
+
+def test_safe_display_filename_removes_terminal_control_characters():
+    assert safe_display_filename("data" + chr(10) + ".zip") == "data.zip"
+    assert safe_display_filename("bad" + chr(27) + "[31m.zip") == "bad[31m.zip"
+    assert safe_display_filename(chr(10) + chr(9)) == "<unnamed>"
+
+
+
+def test_importer_returns_nonzero_when_archive_import_fails(tmp_path, monkeypatch):
+    import import_kaggle_models as importer
+
+    incoming = tmp_path / "incoming"
+    destination = tmp_path / "imported"
+    data_incoming = tmp_path / "datasets" / "incoming"
+    staging = tmp_path / ".staging"
+    incoming.mkdir()
+    (incoming / "NOORIX_broken.zip").write_bytes(b"not-a-zip")
+
+    monkeypatch.setattr(importer, "INCOMING", incoming)
+    monkeypatch.setattr(importer, "DEST", destination)
+    monkeypatch.setattr(importer, "DATA_INCOMING", data_incoming)
+    monkeypatch.setattr(importer, "TEMP", staging)
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py"])
+
+    assert main() == 1
+    assert (incoming / "NOORIX_broken.zip").read_bytes() == b"not-a-zip"
+    assert list(destination.iterdir()) == []
+
+
+
+def test_ensure_directory_refuses_symlinked_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        ensure_directory_without_symlinks(linked_parent / "incoming")
+    assert list(real_parent.iterdir()) == []
+
+
+def test_ensure_directory_refuses_symlink_target(tmp_path):
+    import pytest
+
+    real_target = tmp_path / "real-target"
+    real_target.mkdir()
+    linked_target = tmp_path / "linked-target"
+    try:
+        linked_target.symlink_to(real_target, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        ensure_directory_without_symlinks(linked_target)
+    assert list(real_target.iterdir()) == []
+
+
+
+def test_importer_returns_failure_for_symlinked_incoming_directory(tmp_path, monkeypatch):
+    import pytest
+    import import_kaggle_models as importer
+
+    real_incoming = tmp_path / "real-incoming"
+    real_incoming.mkdir()
+    linked_incoming = tmp_path / "linked-incoming"
+    try:
+        linked_incoming.symlink_to(real_incoming, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    monkeypatch.setattr(importer, "INCOMING", linked_incoming)
+    monkeypatch.setattr(importer, "DEST", tmp_path / "imported")
+    monkeypatch.setattr(importer, "DATA_INCOMING", tmp_path / "datasets" / "incoming")
+    monkeypatch.setattr(importer, "TEMP", tmp_path / "staging")
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py"])
+
+    assert main() == 1
+    assert list(real_incoming.iterdir()) == []
+    assert not (tmp_path / "imported").exists()
+
+
+
+def test_importer_rejects_non_finite_download_window(tmp_path, monkeypatch):
+    import import_kaggle_models as importer
+
+    monkeypatch.setattr(importer, "INCOMING", tmp_path / "incoming")
+    monkeypatch.setattr(importer, "DEST", tmp_path / "imported")
+    monkeypatch.setattr(importer, "DATA_INCOMING", tmp_path / "datasets" / "incoming")
+    monkeypatch.setattr(importer, "TEMP", tmp_path / "staging")
+    monkeypatch.setattr(sys, "argv", ["import_kaggle_models.py", "--since-hours", "nan"])
+
+    assert main() == 2
+    assert not (tmp_path / "incoming").exists()
+
+
+
+def test_publish_staging_rejects_symlinked_destination_parent(tmp_path):
+    import pytest
+
+    real_parent = tmp_path / "real-parent"
+    real_parent.mkdir()
+    linked_parent = tmp_path / "linked-parent"
+    try:
+        linked_parent.symlink_to(real_parent, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    (staging / "model.onnx").write_bytes(b"model")
+    destination = linked_parent / "destination"
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        publish_staging_directory(staging, destination)
+    assert (staging / "model.onnx").read_bytes() == b"model"
+    assert list(real_parent.iterdir()) == []
+
+
+def test_publish_staging_rejects_symlinked_staging_directory(tmp_path):
+    import pytest
+
+    real_staging = tmp_path / "real-staging"
+    real_staging.mkdir()
+    (real_staging / "model.onnx").write_bytes(b"model")
+    linked_staging = tmp_path / "linked-staging"
+    try:
+        linked_staging.symlink_to(real_staging, target_is_directory=True)
+    except (OSError, NotImplementedError):
+        pytest.skip("directory symlinks are unavailable on this platform")
+
+    with pytest.raises(ValueError, match="symlinked component"):
+        publish_staging_directory(linked_staging, tmp_path / "destination")
+    assert (real_staging / "model.onnx").read_bytes() == b"model"
+
+
+def test_zip_discovery_reports_directory_iteration_errors(tmp_path, monkeypatch):
+    def broken_glob(_path, pattern):
+        assert pattern == "*.zip"
+
+        def entries():
+            yield tmp_path / "first.zip"
+            raise PermissionError("private directory diagnostic")
+
+        return entries()
+
+    monkeypatch.setattr(Path, "glob", broken_glob)
+    files, error = list_zip_files(tmp_path)
+
+    assert files == []
+    assert isinstance(error, PermissionError)
+
+
+
+def test_model_import_paths_reject_windows_junction_components(tmp_path, monkeypatch):
+    junction = tmp_path / "junction"
+    junction.mkdir()
+    path_type = type(tmp_path)
+    monkeypatch.setattr(
+        path_type,
+        "is_junction",
+        lambda path: path == junction,
+        raising=False,
+    )
+
+    assert has_symlink_component(junction / "model.zip") is True
+
+
+def test_reparse_point_attribute_is_detected_without_path_is_junction(tmp_path, monkeypatch):
+    import stat
+    from pathlib import Path
+    from types import SimpleNamespace
+    from scripts.import_kaggle_models import is_symlink_or_junction
+
+    candidate = tmp_path / "windows-junction"
+    original_lstat = Path.lstat
+
+    def fake_lstat(path):
+        if path == candidate:
+            return SimpleNamespace(st_mode=stat.S_IFDIR, st_file_attributes=0x400)
+        return original_lstat(path)
+
+    monkeypatch.setattr(Path, "lstat", fake_lstat)
+    assert is_symlink_or_junction(candidate) is True

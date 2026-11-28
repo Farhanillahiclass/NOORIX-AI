@@ -9,6 +9,12 @@ from noorix.speech import SpeechOutput
 def test_currency_requires_labels():
     with pytest.raises(ValueError, match="labels"):
         CurrencyEstimator("missing.onnx", [])
+    with pytest.raises(ValueError, match="non-empty denomination strings"):
+        CurrencyEstimator("missing.onnx", ["100", " "])
+    with pytest.raises(ValueError, match="positive integer"):
+        CurrencyEstimator("missing.onnx", ["100"], input_size=True)
+    with pytest.raises(ValueError, match="positive integer"):
+        CurrencyEstimator("missing.onnx", ["100"], input_size=224.5)
 
 
 def test_currency_requires_model_file_before_loading_runtime():
@@ -123,3 +129,210 @@ def test_object_detector_ignores_invalid_boxes_and_non_finite_rows():
     detector._net = FakeNet()
 
     assert detector.detect(np.zeros((100, 200, 3), dtype=np.uint8)) == []
+
+
+
+def test_detector_factory_rejects_duplicate_json_label_keys(tmp_path):
+    from noorix.objects import create_object_detector
+
+    labels = tmp_path / "labels.json"
+    labels.write_text('{"name": "person", "name": "other"}', encoding="utf-8")
+    config_path = tmp_path / "config.json"
+
+    with pytest.raises(ValueError, match="duplicate object key"):
+        create_object_detector(
+            {
+                "backend": "yolov8_onnx",
+                "model_path": "missing.onnx",
+                "labels_path": "labels.json",
+            },
+            config_path,
+        )
+
+
+
+def test_currency_rejects_multiple_output_tensors():
+    np = pytest.importorskip("numpy")
+    cv2 = pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[0.1, 0.9]], dtype=np.float32), np.array([[1.0]])]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="exactly one score tensor"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+def test_currency_rejects_non_finite_model_scores():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[np.nan, 0.9]], dtype=np.float32)]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="non-finite scores"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+def test_currency_rejects_wrong_model_output_count():
+    np = pytest.importorskip("numpy")
+    pytest.importorskip("cv2")
+
+    class Input:
+        name = "image"
+
+    class FakeSession:
+        def get_inputs(self):
+            return [Input()]
+
+        def run(self, _names, _inputs):
+            return [np.array([[0.1, 0.9]], dtype=np.float32)]
+
+    estimator = CurrencyEstimator("unused.onnx", ["100", "500", "1000"])
+    estimator._session = FakeSession()
+
+    with pytest.raises(RuntimeError, match="scores for 3 labels"):
+        estimator.predict(np.zeros((32, 32, 3), dtype=np.uint8))
+
+
+
+def test_currency_load_rejects_non_float32_input_without_retaining_session(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image", [1, 3, 224, 224], "tensor(float16)")]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 2])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="input must be float32"):
+        estimator.load()
+
+    assert estimator._session is None
+
+
+def test_currency_load_rejects_output_label_dimension_mismatch(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class Session:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image", [1, 3, 224, 224])]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 3])]
+
+    class Runtime:
+        InferenceSession = Session
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="one currency score per label"):
+        estimator.load()
+
+    assert estimator._session is None
+
+
+def test_currency_load_rejects_multiple_input_tensors(tmp_path, monkeypatch):
+    import sys
+
+    class Tensor:
+        def __init__(self, name, shape, tensor_type="tensor(float)"):
+            self.name = name
+            self.shape = shape
+            self.type = tensor_type
+
+    class MultiInputSession:
+        def __init__(self, _path, providers):
+            pass
+
+        def get_inputs(self):
+            return [Tensor("image1", [1, 3, 224, 224]), Tensor("image2", [1, 3, 224, 224])]
+
+        def get_outputs(self):
+            return [Tensor("scores", [1, 2])]
+
+    class Runtime:
+        InferenceSession = MultiInputSession
+
+    monkeypatch.setitem(sys.modules, "onnxruntime", Runtime())
+    model = tmp_path / "currency.onnx"
+    model.write_bytes(b"placeholder")
+    estimator = CurrencyEstimator(model, ["100", "500"])
+
+    with pytest.raises(ValueError, match="exactly one input"):
+        estimator.load()
+
+    assert estimator._session is None
+
+
+def test_currency_rejects_duplicate_denomination_labels():
+    with pytest.raises(ValueError, match="unique after whitespace and case normalization"):
+        CurrencyEstimator("missing.onnx", ["100", "100"])
+    with pytest.raises(ValueError, match="unique after whitespace and case normalization"):
+        CurrencyEstimator("missing.onnx", ["Rs 500", " rs 500 "])
+
+
+@pytest.mark.parametrize("threshold", [True, "0.5", float("nan"), float("inf"), 10 ** 1000])
+def test_object_detector_rejects_coerced_or_non_finite_threshold(threshold):
+    with pytest.raises(ValueError, match="confidence_threshold"):
+        ObjectDetector("unused.onnx", ["person"], threshold)
+
+
+def test_object_detector_rejects_boolean_dimensions():
+    with pytest.raises(ValueError, match="positive integers"):
+        ObjectDetector("unused.onnx", ["person"], input_size=(300, True))
+
+
+@pytest.mark.parametrize("input_size", [300, None, "300,300", (300, 0)])
+def test_object_detector_rejects_malformed_input_dimensions(input_size):
+    with pytest.raises(ValueError, match="two positive integers"):
+        ObjectDetector("unused.onnx", ["person"], input_size=input_size)

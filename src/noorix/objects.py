@@ -29,14 +29,32 @@ class ObjectDetector:
         self._net = None
         if not self.labels:
             raise ValueError("labels must not be empty")
-        if not 0.0 <= confidence_threshold <= 1.0:
-            raise ValueError("confidence_threshold must be between 0 and 1")
-        if len(input_size) != 2 or any(not isinstance(v, int) or v <= 0 for v in input_size):
+        import math
+        try:
+            normalized_threshold = float(confidence_threshold)
+        except (OverflowError, TypeError, ValueError):
+            normalized_threshold = math.nan
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+            or not math.isfinite(normalized_threshold)
+            or not 0.0 <= normalized_threshold <= 1.0
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        self.confidence_threshold = normalized_threshold
+        if (
+            not isinstance(input_size, (list, tuple))
+            or len(input_size) != 2
+            or any(isinstance(v, bool) or not isinstance(v, int) or v <= 0 for v in input_size)
+        ):
             raise ValueError("input_size must contain two positive integers")
+        self.input_size = tuple(input_size)
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"Object detection model not found: {self.model_path}")
+        self._net = None
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="Object detection model")
         import cv2
         self._net = cv2.dnn.readNetFromONNX(str(self.model_path))
 
@@ -119,22 +137,50 @@ class ObjectDetector:
             })
         return results
 
+def _config_float(config: dict, key: str, default: float) -> float:
+    """Read a finite JSON number without coercing strings or booleans."""
+    import math
+
+    value = config.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise ValueError(f"{key} must be a finite number")
+    try:
+        result = float(value)
+    except (OverflowError, ValueError):
+        raise ValueError(f"{key} must be a finite number") from None
+    if not math.isfinite(result):
+        raise ValueError(f"{key} must be a finite number")
+    return result
+
+
+def _config_integer(config: dict, key: str, default: int) -> int:
+    """Read an integer setting without accepting booleans or fractional values."""
+    value = config.get(key, default)
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{key} must be an integer")
+    return value
+
+
 def create_object_detector(config: dict, config_path: str | Path = "config.json"):
     """Create the configured object detector using paths relative to config."""
-    import json
+    from noorix.paths import load_json_document, resolve_config_path
 
-    from noorix.paths import resolve_config_path
-
-    backend = str(config.get("backend", "opencv_dnn")).lower()
+    if not isinstance(config, dict):
+        raise ValueError("Object detection configuration must be an object")
+    backend_value = config.get("backend", "opencv_dnn")
+    if not isinstance(backend_value, str) or not backend_value.strip():
+        raise ValueError("Object detection backend must be a non-empty string")
+    backend = backend_value.strip().lower()
     model_value = config.get("model_path")
-    if not model_value:
+    if not isinstance(model_value, (str, Path)) or not str(model_value).strip():
         raise ValueError("Object detection model_path is not configured")
 
     model_path = resolve_config_path(model_value, config_path)
-    threshold = float(config.get(
+    threshold = _config_float(
+        config,
         "confidence_threshold",
         0.30 if backend == "ssd_mobilenet_v2" else 0.50,
-    ))
+    )
 
     if backend == "ssd_mobilenet_v2":
         from noorix.ssd_mobilenet_v2 import SSDMobileNetV2Detector
@@ -144,9 +190,9 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
 
         if labels_path:
             resolved_labels = resolve_config_path(labels_path, config_path)
-            labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
+            labels = load_json_document(resolved_labels)
 
-        if not isinstance(labels, list):
+        if not isinstance(labels, list) or not labels or not all(isinstance(label, str) and label.strip() for label in labels):
             raise ValueError(
                 "SSD MobileNet V2 requires labels_path or a 90-position labels list"
             )
@@ -169,8 +215,8 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
         labels_path = config.get("labels_path")
         if labels_path:
             resolved_labels = resolve_config_path(labels_path, config_path)
-            labels = json.loads(resolved_labels.read_text(encoding="utf-8"))
-        if not isinstance(labels, list) or len(labels) != 80:
+            labels = load_json_document(resolved_labels)
+        if not isinstance(labels, list) or len(labels) != 80 or not all(isinstance(label, str) and label.strip() for label in labels):
             raise ValueError(
                 "YOLOv8 ONNX requires labels_path or exactly 80 COCO class labels"
             )
@@ -178,20 +224,27 @@ def create_object_detector(config: dict, config_path: str | Path = "config.json"
             model_path,
             labels,
             confidence_threshold=threshold,
-            iou_threshold=float(config.get("iou_threshold", 0.45)),
-            input_size=int(config.get("input_size", 640)),
-            max_detections=int(config.get("max_detections", 100)),
+            iou_threshold=_config_float(config, "iou_threshold", 0.45),
+            input_size=_config_integer(config, "input_size", 640),
+            max_detections=_config_integer(config, "max_detections", 100),
         )
 
     if backend == "opencv_dnn":
         labels = config.get("labels")
         if not isinstance(labels, list) or not labels:
             raise ValueError("OpenCV DNN requires a non-empty labels list")
+        input_size = config.get("input_size", (300, 300))
+        if (
+            not isinstance(input_size, (list, tuple))
+            or len(input_size) != 2
+            or any(isinstance(value, bool) or not isinstance(value, int) for value in input_size)
+        ):
+            raise ValueError("input_size must contain exactly two integers")
         return ObjectDetector(
             model_path,
             labels,
             confidence_threshold=threshold,
-            input_size=tuple(config.get("input_size", (300, 300))),
+            input_size=tuple(input_size),
         )
 
     raise ValueError(f"Unsupported object detection backend: {backend}")

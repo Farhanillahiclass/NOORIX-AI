@@ -24,20 +24,23 @@ class WebcamCapture:
         self._capture_factory = capture_factory
         self._capture = None
         self._cv2 = None
+        self._release_error: str | None = None
 
     @property
     def is_running(self) -> bool:
         return self._capture is not None
 
     @property
-    def capture_info(self) -> dict[str, int | bool]:
+    def capture_info(self) -> dict[str, int | bool | str]:
         """Return requested and actual capture properties where available."""
-        info: dict[str, int | bool] = {
+        info: dict[str, int | bool | str] = {
             "device_index": self.device_index,
             "requested_width": self.requested_width,
             "requested_height": self.requested_height,
             "autofocus_requested": self.autofocus,
         }
+        if self._release_error is not None:
+            info["release_error"] = self._release_error
         if self._capture is not None and self._cv2 is not None:
             try:
                 info["actual_width"] = int(self._capture.get(self._cv2.CAP_PROP_FRAME_WIDTH))
@@ -53,6 +56,7 @@ class WebcamCapture:
     def start(self) -> None:
         if self._capture is not None:
             return
+        self._release_error = None
         factory = self._capture_factory
         if factory is None:
             try:
@@ -69,11 +73,18 @@ class WebcamCapture:
                 self._cv2 = None
 
         capture = factory(self.device_index)
-        if capture is None or not capture.isOpened():
+        try:
+            opened = capture is not None and capture.isOpened()
+        except Exception as exc:
             if capture is not None:
-                capture.release()
+                self._release_capture(capture)
+            raise RuntimeError(
+                f"Could not initialize webcam device {self.device_index}"
+            ) from exc
+        if not opened:
+            if capture is not None:
+                self._release_capture(capture)
             raise RuntimeError(f"Could not open webcam device {self.device_index}")
-
         try:
             if self._cv2 is not None:
                 capture.set(self._cv2.CAP_PROP_FRAME_WIDTH, self.requested_width)
@@ -93,10 +104,18 @@ class WebcamCapture:
             raise RuntimeError("Could not read a frame from the webcam")
         return frame
 
+    def _release_capture(self, capture: Any) -> None:
+        try:
+            capture.release()
+        except Exception as exc:
+            # Detach the handle even if a driver reports a release failure.
+            # Keep only the exception type; driver messages may contain local details.
+            self._release_error = type(exc).__name__
+
     def stop(self) -> None:
         capture, self._capture = self._capture, None
         if capture is not None:
-            capture.release()
+            self._release_capture(capture)
 
     def __enter__(self) -> "WebcamCapture":
         self.start()

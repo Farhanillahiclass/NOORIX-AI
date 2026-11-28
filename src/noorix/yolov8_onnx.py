@@ -17,6 +17,21 @@ class YOLOv8ONNXDetector:
     """Run a standard COCO-80 YOLOv8 ONNX detection model on CPU."""
 
     COCO_CLASS_COUNT = 80
+    MAX_CANDIDATES = 10_000
+    MAX_NMS_CANDIDATES = 3_000
+    COCO_LABELS = (
+        "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck",
+        "boat", "traffic light", "fire hydrant", "stop sign", "parking meter", "bench",
+        "bird", "cat", "dog", "horse", "sheep", "cow", "elephant", "bear", "zebra",
+        "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee",
+        "skis", "snowboard", "sports ball", "kite", "baseball bat", "baseball glove",
+        "skateboard", "surfboard", "tennis racket", "bottle", "wine glass", "cup", "fork",
+        "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
+        "carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant",
+        "bed", "dining table", "toilet", "tv", "laptop", "mouse", "remote", "keyboard",
+        "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator", "book",
+        "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush",
+    )
 
     def __init__(
         self,
@@ -29,15 +44,34 @@ class YOLOv8ONNXDetector:
     ):
         self.model_path = Path(model_path)
         self.labels = list(labels)
+        if (
+            isinstance(confidence_threshold, bool)
+            or not isinstance(confidence_threshold, (int, float))
+        ):
+            raise ValueError("confidence_threshold must be a finite number between 0 and 1")
+        if isinstance(iou_threshold, bool) or not isinstance(iou_threshold, (int, float)):
+            raise ValueError("iou_threshold must be a finite number greater than 0 and at most 1")
+        if isinstance(input_size, bool) or not isinstance(input_size, int):
+            raise ValueError("input_size must be an integer >= 32")
+        if isinstance(max_detections, bool) or not isinstance(max_detections, int):
+            raise ValueError("max_detections must be a positive integer")
         self.confidence_threshold = float(confidence_threshold)
         self.iou_threshold = float(iou_threshold)
-        self.input_size = int(input_size)
-        self.max_detections = int(max_detections)
+        self.input_size = input_size
+        self.max_detections = max_detections
         self._session = None
         self._input_name = None
 
         if len(self.labels) != self.COCO_CLASS_COUNT:
             raise ValueError("YOLOv8 COCO detector requires exactly 80 class labels")
+        if any(not isinstance(label, str) or not label.strip() for label in self.labels):
+            raise ValueError("YOLOv8 COCO labels must be non-empty strings")
+        if len(set(self.labels)) != self.COCO_CLASS_COUNT:
+            raise ValueError("YOLOv8 COCO labels must be unique")
+        if tuple(self.labels) != self.COCO_LABELS:
+            raise ValueError(
+                "YOLOv8 labels must match the canonical COCO-80 class order"
+            )
         if not 0.0 <= self.confidence_threshold <= 1.0:
             raise ValueError("confidence_threshold must be between 0 and 1")
         if not 0.0 < self.iou_threshold <= 1.0:
@@ -46,26 +80,65 @@ class YOLOv8ONNXDetector:
             raise ValueError("input_size must be >= 32 and max_detections must be positive")
 
     def load(self) -> None:
-        if not self.model_path.is_file():
-            raise FileNotFoundError(f"YOLOv8 ONNX model not found: {self.model_path}")
+        self._session = None
+        self._input_name = None
+        from noorix.paths import require_regular_file
+
+        self.model_path = require_regular_file(self.model_path, label="YOLOv8 ONNX model")
         try:
             import onnxruntime as ort
         except ImportError as exc:
             raise RuntimeError("Install ONNX support: pip install -e '.[onnx]'") from exc
 
-        self._session = ort.InferenceSession(
+        self._session = None
+        self._input_name = None
+        session = ort.InferenceSession(
             str(self.model_path), providers=["CPUExecutionProvider"]
         )
-        inputs = self._session.get_inputs()
+        inputs = session.get_inputs()
         if len(inputs) != 1:
             raise ValueError("YOLOv8 ONNX model must have exactly one input")
         shape = inputs[0].shape
-        if len(shape) != 4 or shape[1] != 3:
+        if (
+            len(shape) != 4
+            or shape[1] != 3
+            or (isinstance(shape[0], int) and shape[0] != 1)
+        ):
             raise ValueError(f"Expected NCHW model input [1,3,H,W], received {shape}")
         if isinstance(shape[2], int) and shape[2] != self.input_size:
             raise ValueError(f"Model height {shape[2]} does not match input_size {self.input_size}")
         if isinstance(shape[3], int) and shape[3] != self.input_size:
             raise ValueError(f"Model width {shape[3]} does not match input_size {self.input_size}")
+
+        input_type = getattr(inputs[0], "type", None)
+        if input_type is not None and input_type != "tensor(float)":
+            raise ValueError(f"YOLOv8 input must be float32, got {input_type}")
+
+        outputs = session.get_outputs()
+        if len(outputs) != 1:
+            raise ValueError("YOLOv8 ONNX model must expose exactly one detection output")
+        output_shape = outputs[0].shape
+        if len(output_shape) != 3:
+            raise ValueError(
+                f"Expected one rank-3 YOLOv8 output [1,84,N] or [1,N,84], got {output_shape}"
+            )
+        if isinstance(output_shape[0], int) and output_shape[0] != 1:
+            raise ValueError(f"YOLOv8 output batch must be 1, got {output_shape}")
+        feature_axes = output_shape[1:]
+        if 84 not in feature_axes:
+            raise ValueError(
+                "YOLOv8 output must contain an 84-value feature axis "
+                f"(4 box + 80 classes), got {output_shape}"
+            )
+        candidate_axis = feature_axes[1] if feature_axes[0] == 84 else feature_axes[0]
+        if isinstance(candidate_axis, int) and candidate_axis < 1:
+            raise ValueError("YOLOv8 output must contain at least one candidate")
+        if isinstance(candidate_axis, int) and candidate_axis > self.MAX_CANDIDATES:
+            raise ValueError("YOLOv8 output exceeds the candidate safety limit")
+        output_type = getattr(outputs[0], "type", None)
+        if output_type is not None and output_type != "tensor(float)":
+            raise ValueError(f"YOLOv8 output must be float32, got {output_type}")
+        self._session = session
         self._input_name = inputs[0].name
 
     @staticmethod
@@ -103,11 +176,14 @@ class YOLOv8ONNXDetector:
             )
         if predictions.shape[1] != 84:
             raise ValueError(f"Unexpected YOLOv8 prediction shape: {predictions.shape}")
+        if predictions.shape[0] > YOLOv8ONNXDetector.MAX_CANDIDATES:
+            raise ValueError("YOLOv8 output exceeds the candidate safety limit")
         return predictions
 
     @staticmethod
     def _nms(boxes: np.ndarray, scores: np.ndarray, threshold: float) -> list[int]:
-        order = np.argsort(-scores, kind="stable")
+        # Bound worst-case quadratic NMS work on CPU-only devices.
+        order = np.argsort(-scores, kind="stable")[:YOLOv8ONNXDetector.MAX_NMS_CANDIDATES]
         keep: list[int] = []
         while order.size:
             current = int(order[0])

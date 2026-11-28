@@ -15,25 +15,30 @@ claims are not realistic and must never be implied.
 NOORIX must not be marketed or used as a replacement for a white cane, guide
 dog, trained mobility support, or a person's own judgement. Image-relative
 object positions are not distance measurements, collision detection, or route
-guidance. Currency classification is not banknote authentication.
+guidance. Currency classification is not banknote authentication. The classifier now rejects unexpected input/output tensor counts, label-count mismatches and non-finite model scores; real model compatibility and held-out accuracy remain unverified.
 
 ## Current evidence snapshot
 
 Evidence recorded from the project branch and local test reports as of
-2026-11-19:
+2026-11-24:
 
 | Area | Current evidence | Release status |
 |---|---|---|
-| Automated tests | 126 passed, 1 skipped, 1 existing ZIP-fixture warning on the developer's Windows environment | Partial |
+| Automated tests | Historical baseline: 126 passed, 1 skipped, 1 existing ZIP-fixture warning on the developer's Windows environment. PR #26 adds regression coverage that has not yet been run locally. | Partial |
 | English OCR runtime | Synthetic high-contrast sample passed through Tesseract, OCR Agent, coordinator and Safety Agent | Partial |
 | Urdu OCR runtime | Synthetic Urdu sample passed on one Windows machine with Tesseract `urd`, Pillow RAQM and Tahoma | Partial |
-| Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist | Partial |
+| Object detection | YOLOv8 COCO-80 ONNX adapter and local inference smoke checks exist; strict canonical label order and ONNX input/output metadata checks have been added, but new regression tests await the combined local run | Partial |
+| Model import security | ZIP extraction limits, traversal/collision checks, privacy-minimized manifests and SHA-256 inventories/verifier added; regression tests await the combined local run | Partial |
+| Evaluation protocol | [Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md) now defines held-out object-detection/OCR metrics, target-device evidence and supervised accessibility evaluation; no evaluation results are claimed. | Partial |
 | Real-world recognition quality | No documented representative held-out benchmark or acceptance report | Blocked |
-| Target-device performance | CPU-only hardware is known, but no repeatable latency/RAM benchmark report is recorded | Blocked |
-| Safety validation | Conservative warnings and explicit product limitations are documented | Partial |
-| Installation / packaging | Developer setup instructions exist; clean-machine install and offline package acceptance are not evidenced | Blocked |
+| Target-device performance | A local single-image detector latency benchmark tool now records cold start, warm-run percentiles, throughput, platform and runtime versions; no representative target-device latency/RAM acceptance report exists yet | Blocked |
+| Safety validation | Conservative warnings and explicit product limitations are documented; camera open/read failures stop preview and release handling now records only a release exception type | Partial |
+| Diagnostic privacy | Agent setup, frame-quality, system-health configuration, GUI, command-line camera/desktop startup and validation-runner diagnostics omit raw exception messages where applicable and strip terminal CSI/OSC/DCS escape/control sequences from bounded context/output labels; CLI camera/GUI startup failures are contained as privacy-safe summaries; background UI callbacks are guarded during shutdown; broader UI/console logging review remains outstanding | Partial |
+| Model compatibility | YOLOv8 runtime checks one-input/one-output float32 tensor contracts and canonical COCO-80 label order, commits the session only after metadata validation, caps raw candidates at 10,000 and per-class NMS at 3,000; SSD MobileNet V2 checks its float32 input and all 12 output-head shapes before retaining a session, rejects non-finite raw heads and decoded boxes; regression coverage is pending the combined local run and recall impact remains unmeasured | Partial |
+| Dependency policy | Added an offline declaration audit for optional extras, local installed-version presence, specifier compatibility checks when `packaging` is installed, and upper-bound review; report metadata is escaped before Markdown rendering; both project-metadata readers use 1 MiB bounded reads and reject symlink paths and invalid/colliding extra names; no vulnerability database, lockfile or license scan is performed | Partial |
+| Installation / packaging | Added a documented platform-specific wheelhouse build and offline pip dry-run resolver with normalized optional-extra selection, project metadata shape validation and terminal-safe pip output; no wheelhouse has yet been built or validated on a clean offline target | Blocked |
 | Licensing | Project license not selected; model and dataset redistribution rights need review | Blocked |
-| Continuous integration | GitHub Actions passed on Ubuntu with Python 3.11, 3.12 and 3.13; Windows Python 3.12 coverage has been added on a follow-up branch and is awaiting its run | Partial |
+| Continuous integration | Historical PR #25 run passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs); hosted runs are now paused to conserve the exhausted Actions allowance | Partial |
 
 This table must be updated only when evidence is available. A skipped test is
 not a passing runtime validation.
@@ -43,9 +48,10 @@ not a passing runtime validation.
 ### 1. Build, compatibility and CI
 
 - [ ] CI passes on every supported Python version and operating system.
+- [x] Python support is constrained to 3.11–3.13 in package metadata and the local validation runner, matching the existing CI matrix.
 - [ ] Supported OS/Python combinations are explicitly documented and tested.
 
-Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with Python 3.12. The Windows job is newly added and must pass before Windows compatibility is considered evidenced.
+Historical hosted evidence: PR #25 commit 9df3d0a passed Ubuntu Python 3.11/3.12/3.13 and Windows Python 3.12 (4/4 jobs). Hosted workflows have since been paused to avoid additional Actions usage. The new local validation runner on the current feature branch has not yet been executed; its full result must be recorded after the planned combined Windows validation.
 - [ ] Clean installation succeeds from a fresh environment without relying on
   developer-machine state.
 - [ ] Full test suite passes; every skip is understood and intentional.
@@ -55,8 +61,7 @@ Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with
 
 ### 2. Model and recognition quality
 
-- [ ] Publish an evaluation protocol, dataset provenance, split and model
-  version for each recognition feature.
+- [x] Publish an evaluation protocol ([Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md)). Dataset provenance, held-out splits, model versions and actual evaluation reports remain required evidence for each recognition feature.
 - [ ] OCR is evaluated on representative printed English and Urdu documents,
   including varied fonts, sizes, blur, perspective, lighting and contrast.
 - [ ] OCR reports character/word error rates with sample counts and known
@@ -91,8 +96,9 @@ Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with
   without clear disclosure and explicit user control.
 - [ ] Logs exclude image contents, OCR text, credentials and unnecessary
   personal data by default.
-- [ ] Configuration and model paths are validated; malformed or hostile files
-  fail safely.
+- [x] Runtime GUI/system-health JSON and external object-label JSON use a shared 1 MiB bounded reader with symlink/junction, duplicate-key, regular-file and observable-mutation checks; malformed inputs fail with privacy-safe summaries. Residual filesystem races remain.
+- [x] SSD, YOLOv8 and currency model/anchor paths require regular non-symlink, non-junction files; system-health reports linked paths as unsafe.
+- [ ] All remaining configuration-driven paths receive a complete security review; malformed or hostile files fail safely.
 - [ ] Dependencies are pinned or constrained with a reviewed lock/release
   process; vulnerability findings are triaged.
 - [ ] Secret scanning and a release-history review are completed before any
@@ -124,6 +130,10 @@ Current CI coverage target: Ubuntu with Python 3.11, 3.12 and 3.13; Windows with
   and rollback procedure.
 - [ ] Complete a supervised acceptance test on every supported deployment
   configuration.
+
+## Recognition and target-device evidence protocol
+
+Use [Recognition and Device Evaluation Protocol](RECOGNITION_EVALUATION_PROTOCOL.md) to plan held-out object-detection and OCR evaluation, target-device performance/reliability measurements, and supervised accessibility assessment. This protocol defines required evidence; it does not mean those evaluations have been completed.
 
 ## Release decision
 

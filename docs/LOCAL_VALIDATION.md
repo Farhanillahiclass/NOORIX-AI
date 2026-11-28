@@ -1,0 +1,178 @@
+# NOORIX-AI — One-command local validation
+
+Hosted GitHub Actions are paused while the account's included Actions allowance
+is exhausted. Do not manually dispatch the workflow while this policy is active.
+Development can continue on GitHub without running hosted tests; final validation
+is performed together on the developer's Windows machine.
+
+## Command
+
+From the repository root, using the project's activated Python environment. Use Python 3.11, 3.12 or 3.13; Python 3.14 is outside the current package support range. On Windows, create a Python 3.12 environment explicitly with `py -3.12 -m venv .venv` (if that interpreter is not installed, install a supported Python version first), then activate it before running validation:
+
+~~~bash
+python scripts/run_full_validation.py
+~~~
+
+The same command works in Git Bash and PowerShell. It does not call GitHub,
+download datasets, access a camera, or send local images or OCR text anywhere.
+
+## Checks performed
+
+1. Python version requirement (3.11–3.13; aligned with the current CI matrix).
+2. Bytecode compilation for src/, tests/ and scripts/.
+3. The complete pytest suite (python -m pytest -q).
+4. Installed Python dependency consistency (python -m pip check).
+5. Offline dependency declaration audit (base dependencies, extras, installed-version compatibility when packaging is available, and version-bound review), with timestamped reports under reports/dependencies/.
+6. Installed package capability check (python -m noorix --check), which does not open the camera or load model weights.
+7. JSON syntax and supported semantic constraints in root config.example*.json files; config and label-map reads are capped at 1 MiB, and symlinked config files and label-map path components are rejected.
+8. Basic nbformat-4 JSON structure for project Jupyter notebooks, with a 64 MiB per-file inspection limit and bounded reads.
+9. SHA-256 verification for every imported model package with an integrity manifest. The validation runner rejects symlinked components in the imported-model path and caps its preliminary manifest inspection at 16 MiB before invoking the separately bounded verifier. Missing inventories on older imports are reported as warnings.
+10. Optional Tesseract executable and installed language inventory.
+11. If a local wheelhouse/ directory exists, resolve all runtime and development extras from it using pip dry-run with network access disabled; otherwise report INFO.
+
+Tesseract is informational: if it is missing, OCR runtime tests may skip according
+to their own test conditions. A warning is not counted as a passing test.
+A failed required check makes the command exit with status 1.
+
+## Reports
+
+Each run writes two files to a new timestamped folder under
+reports/validation/:
+
+- validation-report.md — readable summary and command output.
+- validation-report.json — machine-readable result details.
+
+Generated reports under `reports/` are ignored by Git and remain local. Existing reports are not overwritten. Timestamp collisions create a fresh suffixed report directory, and report files are opened exclusively rather than overwritten. The output directory is rechecked for symlink and Windows-junction components before directory creation. These checks reduce accidental overwrites but cannot eliminate every concurrent filesystem race. Validation report creation rejects symlinked components in the reports/validation output path before writing. This reduces unintended writes through linked directories but cannot eliminate concurrent filesystem mutation races. Captured subprocess output redacts the project-root and home-directory prefixes and strips terminal CSI/OSC/DCS escape sequences and non-printable controls before saving; file-path and host-metadata labels are bounded and single-line, report code fences are sized to prevent embedded command output from closing them, untrusted Markdown labels are escaped in headings/tables, and command-start failures report only the exception type. Reports can still contain other diagnostic details; review them before sharing. The script excludes report folders,
+virtual environments, Git metadata, caches and build output when searching for
+notebooks. It only parses example configuration files; it does not read the
+user's local config.json.
+
+## What this command does not certify
+
+A green local run is not proof of OCR accuracy, object-detection quality,
+banknote authenticity, safe navigation, privacy compliance, accessibility
+acceptance, license rights, clean-machine installation or production readiness.
+Those gates require separate documented evidence and, where appropriate,
+supervised human evaluation on the target device.
+
+## Dependency setup if needed
+
+If the project test and validation dependencies are not installed in the active environment:
+
+~~~bash
+python -m pip install -e ".[all,dev]"
+~~~
+
+This installs Python dependencies from the repository. Tesseract itself and
+trained language data are separate system installations.
+
+
+## Optional CPU object-detection benchmark
+
+After configuring a compatible model, run a repeatable single-image timing
+sample:
+
+```bash
+python scripts/benchmark_runtime.py --config config.json --image tests/assets/coco_sample.jpg --iterations 30 --warmup 5
+```
+
+The script reads the selected JSON config with a 1 MiB bounded-read limit and records cold first-inference time, warm-run mean/median/P95/min/max,
+approximate throughput, runtime/platform metadata, and the number of detections
+from the final run. It writes JSON and Markdown reports under
+`reports/benchmarks/`. The benchmark rejects symlinked components in its report
+output path and refuses invalid cold-start timing values. This reduces unsafe
+writes through linked directories but cannot eliminate concurrent filesystem
+mutation races. Use the same image, model, configuration, power mode, and
+hardware when comparing runs.
+
+This benchmark does not measure memory, camera capture, OCR, speech, thermal
+throttling, recognition accuracy, or end-to-end user experience. A single image
+cannot establish real-world performance or accessibility safety. Do not use
+its FPS figure as a product claim.
+
+
+## Privacy-safe GUI diagnostics
+
+GUI, command-line camera/desktop startup, object-agent setup, frame-quality and system-health configuration error messages now show a short operation context and exception type only.
+Raw exception text is not copied into user-facing status, dialogs or error
+summaries, because library and driver messages can contain local paths or
+content. Context labels are bounded and terminal escape/control characters are
+removed before display. Raw OpenCV/driver exception text is not printed by the
+camera-preview or GUI-startup CLI paths; unexpected startup/runtime exceptions
+are converted into the same bounded context-and-type message. Detailed diagnostics are intentionally limited; use the local
+validation report and reproduce configuration problems without adding private
+images or OCR text to logs.
+
+
+## Offline installation bundle
+
+Build a wheelhouse on an internet-connected machine using the **same operating
+system, CPU architecture and Python version** as the offline target:
+
+~~~bash
+python -m pip install --upgrade pip
+python -m pip wheel --wheel-dir wheelhouse ".[all,dev]"
+~~~
+
+Copy the repository and the complete `wheelhouse/` directory to the offline
+machine. From the repository root, verify dependency resolution without
+network access or installing anything:
+
+~~~bash
+python scripts/verify_offline_bundle.py --wheelhouse wheelhouse --extras all,dev
+~~~
+
+The checker validates optional-extra names against PEP 685's separator grammar and uses normalized matching, rejects empty, unknown, malformed or normalization-duplicate selections, validates that every declared extra maps to a list of requirement strings, reads `pyproject.toml` with a 1 MiB bound from a regular non-symlink path, rejects colliding optional-extra names, rejects a wheelhouse path containing symlinks or Windows junctions, and rejects symlinked or non-regular wheel entries before invoking pip. It requires the NOORIX project wheel, confirms that the active pip supports `install --dry-run`, and asks pip to resolve the selected extras using `--no-index` and `--dry-run`. The checker omits the absolute wheelhouse path from its own status output, suppresses raw exception messages, and redacts the project root, home directory and selected wheelhouse path from captured pip diagnostics. Other environment-specific diagnostic content may remain, so review output before sharing. These checks reduce unsafe path-following, but do not eliminate filesystem time-of-check/time-of-use races if another process changes the wheelhouse concurrently. A successful check means
+the local wheel files satisfy the current Python environment's dependency
+resolver; it does not prove runtime functionality.
+
+After reviewing a successful report (also included automatically by the final validation runner when wheelhouse/ exists), install from the local wheelhouse:
+
+~~~bash
+python -m pip install --no-index --find-links wheelhouse "noorix-ai[all,dev]"
+~~~
+
+Do not reuse a wheelhouse across different Python versions, operating systems
+or CPU architectures without rebuilding and rechecking it. Native packages
+such as OpenCV and ONNX Runtime are platform-specific. Tesseract executable
+and language-data files are separate system assets and are not provided by
+Python wheels. Model weights must be provisioned separately and their
+licenses/integrity verified.
+
+
+## Declared dependency review
+
+Run the offline metadata report independently with `python scripts/dependency_audit.py`. It lists every optional extra, checks local installed-version compatibility when packaging is installed, and reviews upper version bounds. Use `--strict-upper-bounds` only when a release policy explicitly requires that gate. This report does not query vulnerability databases or replace a reviewed lockfile. See [Dependency Audit](DEPENDENCY_AUDIT.md).
+
+
+Notebook discovery does not follow symlinked directories. Inaccessible scan locations, unexpected directory-walk exceptions and notebook file-metadata access failures are reported as failures instead of silently producing a partial inventory. Imported-model manifest discovery also avoids symlinked directories, distinguishes a missing optional import folder from an inaccessible or non-directory path, and records both directory-walk callback errors and unexpected walk exceptions as failures. Root example-config discovery errors are also reported as a controlled failure rather than aborting the validation runner.
+
+
+Validation and benchmark report pairs are written transactionally at the file level:
+if the second (Markdown) report cannot be created or written, the script removes
+only the first report file it created in that invocation. Exclusive creation
+continues to protect any pre-existing files. This does not make the containing
+directory creation or concurrent filesystem operations fully transactional.
+
+## Runtime configuration input safeguards
+
+The desktop GUI readiness overview also treats malformed, linked or non-string model paths as invalid status rather than crashing or marking a model ready. The desktop GUI and system-health agent load local JSON configuration through a
+shared bounded reader. It rejects files larger than 1 MiB, non-regular files,
+symlinked or Windows-junction path components, duplicate JSON object keys,
+excessive nesting, and observable file replacement/mutation during the read. External object-detection label maps use
+the same reader and are checked for the expected list/string structure before
+model construction. These checks reduce unsafe or ambiguous local inputs but
+do not eliminate every concurrent filesystem race. The user's actual
+`config.json` is not scanned or modified by the validation runner.
+
+## Model-file path checks
+
+SSD, YOLOv8 and currency model loaders require an existing regular model file
+and reject symbolic links or Windows junctions in the file path or its
+ancestors. SSD anchor files use the same check. The system-health agent reports
+linked or malformed model paths as unsafe instead of treating them as
+available. These checks do not establish model provenance, integrity or
+compatibility; imported artifacts still require a verified SHA-256 manifest
+and licensing review.
+
+On Windows, path guards also inspect `st_file_attributes` for `FILE_ATTRIBUTE_REPARSE_POINT` (0x400). This detects junction/reparse-point paths on Python 3.11, where `Path.is_junction()` is unavailable. The check is intentionally conservative and rejects other reparse-point types too.
